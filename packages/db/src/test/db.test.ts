@@ -1,16 +1,17 @@
-import assert from "node:assert";
-import { describe, it } from "node:test";
-import { createDb, drizzle, DEFAULT_DATABASE_URL } from "../index.js";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { describe, it, expect } from "vitest";
+
+import { createDb, DEFAULT_DATABASE_URL } from "../index.js";
 
 describe("@receipt-app/db boundary", () => {
   it("exports the Drizzle factory and client constructor", () => {
-    assert.strictEqual(typeof createDb, "function");
-    assert.strictEqual(typeof drizzle, "function");
+    expect(createDb).toBeTypeOf("function");
+    expect(drizzle).toBeTypeOf("function");
   });
 
   it("can create a client without connecting to a real database", () => {
     const db = createDb(DEFAULT_DATABASE_URL);
-    assert.ok(db);
-    assert.strictEqual(typeof db.query, "object");
+    expect(db).toBeDefined();
+    expect(db.query).toBeTypeOf("object");
   });
 });

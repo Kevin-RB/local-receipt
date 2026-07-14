@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Receipt AI Analyser",
   description: "Local MVP for receipt analysis",
+  title: "Receipt AI Analyser",
 };
 
 export default function RootLayout({

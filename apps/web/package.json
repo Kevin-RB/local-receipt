@@ -10,7 +10,7 @@
     "pretypecheck": "pnpm --filter @receipt-app/db build",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@receipt-app/db": "workspace:*",
@@ -24,6 +24,7 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
   }
 }
