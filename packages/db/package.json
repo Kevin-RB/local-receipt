@@ -17,7 +17,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "seed": "tsx seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.43.1",
@@ -27,6 +28,7 @@
     "@types/node": "^22.15.18",
     "@types/pg": "^8.15.3",
     "drizzle-kit": "^0.31.1",
+    "tsx": "^4.23.0",
     "vitest": "^3.2.1"
   }
 }
