@@ -9,7 +9,6 @@ describe("@receipt-app/web workspace smoke test", () => {
   });
 
   it("page component exports a default function", async () => {
-    // tsx resolves the .js specifier to the .tsx source file at test time.
     const page = await import("../app/page.js");
     expect(page.default).toBeTypeOf("function");
   });

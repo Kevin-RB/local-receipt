@@ -1,12 +1,16 @@
-pnpm test
-# ultracite
 #!/bin/sh
+# ultracite
+set -e
+
 # Check if there are any staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
 if [ -z "$STAGED_FILES" ]; then
   echo "No staged files to format"
   exit 0
 fi
+
+# Run tests before formatting
+pnpm test
 
 # Run formatter, capturing the exit code so we can still re-stage and report
 FORMAT_EXIT_CODE=0

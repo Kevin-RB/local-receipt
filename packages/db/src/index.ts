@@ -7,7 +7,7 @@ export { DEFAULT_DATABASE_URL } from "./constants.js";
  * Create a Drizzle client backed by node-postgres.
  * Schema is added in a later slice; this function just wires the boundary.
  */
-export const createDb = function createDb(connectionString: string) {
+export const createDb = (connectionString: string) => {
   const pool = new Pool({ connectionString });
   return drizzle(pool);
 };

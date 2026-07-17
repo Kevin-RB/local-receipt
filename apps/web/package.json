@@ -9,7 +9,7 @@
     "start": "next start --hostname 0.0.0.0",
     "pretypecheck": "pnpm --filter @receipt-app/db build",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint",
+    "lint": "ultracite check",
     "test": "vitest run"
   },
   "dependencies": {
