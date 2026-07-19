@@ -1,6 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 
-import { DEFAULT_DATABASE_URL } from "./src/constants.js";
+import { DEFAULT_DATABASE_URL } from "@/lib/db/constants";
 
 export default defineConfig({
   dbCredentials: {
@@ -8,5 +8,5 @@ export default defineConfig({
   },
   dialect: "postgresql",
   out: "./drizzle",
-  schema: "./src/schema.ts",
+  schema: "./lib/db/schema.ts",
 });

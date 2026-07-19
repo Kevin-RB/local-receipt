@@ -1,5 +1,5 @@
-import type { ProcessingStatus } from "@receipt-app/db";
-import { createDb, DEFAULT_DATABASE_URL, listReceipts } from "@receipt-app/db";
+import type { ProcessingStatus } from "@/lib/db";
+import { createDb, DEFAULT_DATABASE_URL, listReceipts } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 

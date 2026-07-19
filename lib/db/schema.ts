@@ -13,7 +13,7 @@ import type {
   ReceiptItem,
   Totals,
   Transaction,
-} from "./contract.js";
+} from "./contract";
 
 export type ProcessingStatus = "pending" | "processing" | "done" | "error";
 

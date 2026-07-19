@@ -1,9 +1,9 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { describe, it, expect } from "vitest";
 
-import { createDb, DEFAULT_DATABASE_URL } from "../index.js";
+import { createDb, DEFAULT_DATABASE_URL } from "../index";
 
-describe("@receipt-app/db boundary", () => {
+describe("db boundary", () => {
   it("exports the Drizzle factory and client constructor", () => {
     expect(createDb).toBeTypeOf("function");
     expect(drizzle).toBeTypeOf("function");

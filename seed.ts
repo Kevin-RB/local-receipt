@@ -1,4 +1,4 @@
-import { createDb, DEFAULT_DATABASE_URL, receipts } from "@receipt-app/db";
+import { createDb, DEFAULT_DATABASE_URL, receipts } from "@/lib/db";
 
 const db = createDb(process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL);
 
