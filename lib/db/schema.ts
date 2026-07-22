@@ -15,7 +15,12 @@ import type {
   Transaction,
 } from "./contract";
 
-export type ProcessingStatus = "pending" | "processing" | "done" | "error";
+export type ProcessingStatus =
+  | "uploading"
+  | "pending"
+  | "processing"
+  | "done"
+  | "error";
 
 export const receipts = pgTable("receipts", {
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -25,11 +30,11 @@ export const receipts = pgTable("receipts", {
     .notNull()
     .default(false),
   id: uuid("id").primaryKey(),
-  items: jsonb("items").$type<ReceiptItem[]>().notNull(),
-  merchant: jsonb("merchant").$type<Merchant>().notNull(),
+  items: jsonb("items").$type<ReceiptItem[]>(),
+  merchant: jsonb("merchant").$type<Merchant>(),
   minioObjectKey: text("minio_object_key"),
-  payment: jsonb("payment").$type<Payment>().notNull(),
+  payment: jsonb("payment").$type<Payment>(),
   status: text("status").$type<ProcessingStatus>().notNull().default("pending"),
-  totals: jsonb("totals").$type<Totals>().notNull(),
-  transaction: jsonb("transaction").$type<Transaction>().notNull(),
+  totals: jsonb("totals").$type<Totals>(),
+  transaction: jsonb("transaction").$type<Transaction>(),
 });

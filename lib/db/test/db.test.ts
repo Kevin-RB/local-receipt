@@ -1,17 +1,14 @@
-import { drizzle } from "drizzle-orm/node-postgres";
 import { describe, it, expect } from "vitest";
 
-import { createDb, DEFAULT_DATABASE_URL } from "../index";
+import { db } from "../index";
 
 describe("db boundary", () => {
-  it("exports the Drizzle factory and client constructor", () => {
-    expect(createDb).toBeTypeOf("function");
-    expect(drizzle).toBeTypeOf("function");
-  });
-
-  it("can create a client without connecting to a real database", () => {
-    const db = createDb(DEFAULT_DATABASE_URL);
+  it("exports a db instance", () => {
     expect(db).toBeDefined();
     expect(db.query).toBeTypeOf("object");
+  });
+
+  it("db instance has receipts table", () => {
+    expect(db.query.receipts).toBeDefined();
   });
 });

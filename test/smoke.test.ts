@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 
-import { createDb, drizzle } from "@/lib/db";
+import { db } from "@/lib/db";
 
 describe("app smoke test", () => {
   it("can import the db boundary", () => {
-    expect(createDb).toBeTypeOf("function");
-    expect(drizzle).toBeTypeOf("function");
+    expect(db).toBeDefined();
+    expect(db.query).toBeTypeOf("object");
   });
 
   it("page component exports a default function", async () => {

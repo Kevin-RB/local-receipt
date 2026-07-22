@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { createDb, DEFAULT_DATABASE_URL, receipts } from "@/lib/db";
-
-const db = createDb(process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL);
+import { db, receipts } from "@/lib/db";
 
 const demoReceipt = {
   hasIntegrityWarning: false,

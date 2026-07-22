@@ -1,8 +1,8 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "072acbed-f0bc-49ac-bf34-919ab329f7bd",
-  "prevIds": ["6c9e8374-e7e0-43ce-9913-4f76426101d4"],
+  "id": "1467755d-7446-476d-9b37-4e429e8a71ae",
+  "prevIds": ["072acbed-f0bc-49ac-bf34-919ab329f7bd"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -52,7 +52,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -65,7 +65,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -91,7 +91,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -117,7 +117,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -130,7 +130,7 @@
     {
       "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,

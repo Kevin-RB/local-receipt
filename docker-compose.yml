@@ -21,6 +21,9 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_NOTIFY_WEBHOOK_ENABLE_primary: "on"
+      MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://next:3000/api/minio-events
+      MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: local-webhook-secret
     volumes:
       - minio-data:/data
     ports:
@@ -31,6 +34,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set local http://minio:9000 minioadmin minioadmin
+        mc mb --ignore-existing local/receipts
+        echo '{"CORSRules":[{"AllowedOrigins":["*"],"AllowedMethods":["PUT"],"AllowedHeaders":["*"]}]}' > /tmp/cors.json
+        mc anonymous set-json /tmp/cors.json local/receipts
+        mc event add local/receipts arn:minio:sqs::primary:webhook --event put
 
   inngest:
     image: inngest/inngest:latest
@@ -64,16 +82,15 @@ services:
       MINIO_ENDPOINT: minio:9000
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_WEBHOOK_SECRET: local-webhook-secret
       INNGEST_DEV: "1"
       INNGEST_BASE_URL: http://inngest:8288
       INNGEST_EVENT_KEY: local
       INNGEST_SIGNING_KEY: local
-      # LM Studio runs on the host, outside the compose network.
       LM_STUDIO_URL: http://host.docker.internal:1234/v1
     ports:
       - "3000:3000"
     extra_hosts:
-      # Makes host.docker.internal resolvable on Linux Docker hosts.
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
