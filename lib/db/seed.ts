@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { createDb, DEFAULT_DATABASE_URL, receipts } from "@/lib/db";
 
 const db = createDb(process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL);
 
 const demoReceipt = {
   hasIntegrityWarning: false,
+  id: randomUUID(),
   items: [
     { line_total: 2.9, name: "Milk 2L", quantity: 1, unit_price: 2.9 },
     { line_total: 3.5, name: "Bread", quantity: 1, unit_price: 3.5 },

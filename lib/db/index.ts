@@ -24,7 +24,7 @@ export const createDb = (connectionString: string) => {
 
 export type DrizzleDb = ReturnType<typeof createDb>;
 
-export const findReceiptById = (db: DrizzleDb, id: number) =>
+export const findReceiptById = (db: DrizzleDb, id: string) =>
   db.query.receipts.findFirst({ where: { id } });
 
 export const listReceipts = (db: DrizzleDb) =>

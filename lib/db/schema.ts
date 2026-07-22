@@ -2,9 +2,9 @@ import {
   boolean,
   jsonb,
   pgTable,
-  serial,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 import type {
@@ -24,7 +24,7 @@ export const receipts = pgTable("receipts", {
   hasIntegrityWarning: boolean("has_integrity_warning")
     .notNull()
     .default(false),
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   items: jsonb("items").$type<ReceiptItem[]>().notNull(),
   merchant: jsonb("merchant").$type<Merchant>().notNull(),
   minioObjectKey: text("minio_object_key"),
