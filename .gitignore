@@ -12,3 +12,4 @@ Receipts/
 .vscode/
 .claude/
 .tmp/
+.pnpm-store/
