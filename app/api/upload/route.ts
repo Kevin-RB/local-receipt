@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 
+import { ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
 import { db, receipts } from "@/lib/db";
 import {
-  ACCEPTED_MIME_TYPES,
   BUCKET,
   createPresignedUrl,
   extensionForMime,

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod/v4";
 
+import { ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
 import { ImageUploadCard } from "./image-upload-card";
 
 type UploadStage = "requesting-url" | "uploading-to-minio" | "done";
@@ -30,6 +31,14 @@ export const UploadFlow = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFileSelect = async (file: File) => {
+    if (!ACCEPTED_MIME_TYPES.includes(file.type as (typeof ACCEPTED_MIME_TYPES)[number])) {
+      setState("error");
+      setUploadError(
+        `Unsupported file type: ${file.type || "unknown"}. Please select a JPEG or PNG image.`
+      );
+      return;
+    }
+
     setState("requesting-url");
     setUploadError(null);
 

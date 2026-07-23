@@ -1,6 +1,8 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import type { AcceptedMimeType } from "./constants";
+
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT ?? "localhost:9000";
 const MINIO_PUBLIC_ENDPOINT =
   process.env.MINIO_PUBLIC_ENDPOINT ?? MINIO_ENDPOINT;
@@ -10,10 +12,6 @@ const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER ?? "minioadmin";
 const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD ?? "minioadmin";
 
 export const BUCKET = process.env.MINIO_BUCKET ?? "receipts";
-
-export const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/png"] as const;
-
-type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
 
 const MIME_TO_EXT = {
   "image/jpeg": "jpg",

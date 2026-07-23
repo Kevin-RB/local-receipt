@@ -13,10 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ACCEPTED_LABEL, ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
 import { cn } from "@/lib/utils";
-
-const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
-const ACCEPTED_LABEL = "JPEG or PNG";
 
 export const ImageUploadCard = ({
   className,
@@ -27,12 +25,18 @@ export const ImageUploadCard = ({
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (selected: File) => {
+    setError(null);
+
     if (
-      !ACCEPTED_TYPES.includes(selected.type as (typeof ACCEPTED_TYPES)[number])
+      !ACCEPTED_MIME_TYPES.includes(selected.type as (typeof ACCEPTED_MIME_TYPES)[number])
     ) {
+      setError(
+        `Unsupported file type: ${selected.type || "unknown"}. Please select a JPEG or PNG image.`
+      );
       return;
     }
 
@@ -107,6 +111,9 @@ export const ImageUploadCard = ({
           )}
         </button>
       </CardContent>
+      {error && (
+        <p className="mx-6 mb-4 text-sm text-red-600">{error}</p>
+      )}
       <CardFooter className="flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" onClick={openPicker}>
           <UploadIcon data-icon="inline-start" />
@@ -119,7 +126,7 @@ export const ImageUploadCard = ({
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPTED_TYPES.join(",")}
+        accept={ACCEPTED_MIME_TYPES.join(",")}
         onChange={handleChange}
         className="sr-only"
         aria-label="Upload receipt image"
