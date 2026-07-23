@@ -2,6 +2,14 @@
 # ultracite
 set -e
 
+# Make pnpm available in non-interactive shells where nvm is not auto-loaded
+# (e.g. IDE/Git integrations). On systems where pnpm is already on PATH this
+# is a no-op.
+if ! command -v pnpm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
+  export NVM_DIR="$HOME/.nvm"
+  . "$NVM_DIR/nvm.sh"
+fi
+
 # Check if there are any staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
 if [ -z "$STAGED_FILES" ]; then

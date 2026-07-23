@@ -32,7 +32,9 @@ export const ImageUploadCard = ({
     setError(null);
 
     if (
-      !ACCEPTED_MIME_TYPES.includes(selected.type as (typeof ACCEPTED_MIME_TYPES)[number])
+      !ACCEPTED_MIME_TYPES.includes(
+        selected.type as (typeof ACCEPTED_MIME_TYPES)[number]
+      )
     ) {
       setError(
         `Unsupported file type: ${selected.type || "unknown"}. Please select a JPEG or PNG image.`
@@ -111,9 +113,7 @@ export const ImageUploadCard = ({
           )}
         </button>
       </CardContent>
-      {error && (
-        <p className="mx-6 mb-4 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mx-6 mb-4 text-sm text-red-600">{error}</p>}
       <CardFooter className="flex items-center justify-between gap-2">
         <Button variant="outline" size="sm" onClick={openPicker}>
           <UploadIcon data-icon="inline-start" />

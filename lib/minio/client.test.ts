@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { ACCEPTED_MIME_TYPES } from "./constants";
 import { contentTypeFromKey, extensionForMime } from "./client";
+import { ACCEPTED_MIME_TYPES } from "./constants";
 
 describe("MIME type mapping", () => {
   it("ACCEPTED_MIME_TYPES includes JPEG and PNG", () => {
