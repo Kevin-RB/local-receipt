@@ -3,28 +3,9 @@ import { NextResponse } from "next/server";
 
 import { db, findReceiptByObjectKey, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
+import { parseMinioEvent } from "@/lib/minio/event";
 
 const { MINIO_WEBHOOK_SECRET } = process.env;
-
-export const extractKey = (
-  body: Record<string, unknown>
-): string | undefined => {
-  if (typeof body.Key === "string") {
-    return body.Key;
-  }
-
-  const records = body.Records;
-  if (Array.isArray(records) && records.length > 0) {
-    const first = records[0] as Record<string, unknown> | undefined;
-    const s3 = first?.s3 as Record<string, unknown> | undefined;
-    const object = s3?.object as Record<string, unknown> | undefined;
-    if (typeof object?.key === "string") {
-      return object.key;
-    }
-  }
-
-  return undefined;
-};
 
 export const POST = async (request: Request) => {
   const auth = request.headers.get("authorization");
@@ -36,14 +17,14 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const key = extractKey(body);
+  const key = parseMinioEvent(body);
   if (!key) {
     return NextResponse.json(
       { error: "Could not extract object key from event" },

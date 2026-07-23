@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 
 import { db, receipts } from "@/lib/db";
 import {
@@ -11,22 +12,23 @@ import {
 } from "@/lib/minio/client";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
-
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
+const UploadRequest = z.object({
+  contentType: z.enum(ACCEPTED_MIME_TYPES, {
+    error: "Unsupported content type",
+  }),
+  fileSize: z
+    .number({ error: "fileSize must be a number" })
+    .int({ error: "fileSize must be an integer" })
+    .positive({ error: "fileSize must be > 0" })
+    .max(MAX_FILE_SIZE, { error: `fileSize must be <= ${MAX_FILE_SIZE}` }),
+});
+
 export const POST = async (request: Request) => {
-  let contentType: string;
-  let fileSize: number;
-
+  let body: unknown;
   try {
-    const body = (await request.json()) as {
-      contentType: string;
-      fileSize: number;
-    };
-
-    ({ contentType, fileSize } = body);
+    body = await request.json();
   } catch {
     return NextResponse.json(
       { error: "Invalid request body" },
@@ -34,27 +36,20 @@ export const POST = async (request: Request) => {
     );
   }
 
-  if (!(ACCEPTED_MIME_TYPES as readonly string[]).includes(contentType)) {
+  const parsed = UploadRequest.safeParse(body);
+
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Only JPEG and PNG images are accepted" },
+      { error: parsed.error.issues[0]?.message ?? "Invalid request body" },
       { status: 400 }
     );
   }
 
-  if (typeof fileSize !== "number" || fileSize <= 0) {
-    return NextResponse.json({ error: "Invalid file size" }, { status: 400 });
-  }
-
-  if (fileSize > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: "File size must not exceed 5 MB" },
-      { status: 400 }
-    );
-  }
+  const { contentType } = parsed.data;
 
   const receiptId = randomUUID();
-  const ext = extensionForMime(contentType as AcceptedMimeType);
-  const objectKey = `receipts/${receiptId}.${ext}`;
+  const ext = extensionForMime(contentType);
+  const objectKey = `${receiptId}.${ext}`;
 
   await db.insert(receipts).values({
     id: receiptId,

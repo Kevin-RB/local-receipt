@@ -2,9 +2,12 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT ?? "localhost:9000";
+const MINIO_PUBLIC_ENDPOINT =
+  process.env.MINIO_PUBLIC_ENDPOINT ?? MINIO_ENDPOINT;
+// MinIO's root user/password double as the S3 access key / secret key for the
+// SDK client. Same credentials, dual role by MinIO convention.
 const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER ?? "minioadmin";
 const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD ?? "minioadmin";
-const MINIO_USE_SSL = process.env.MINIO_USE_SSL === "true";
 
 export const BUCKET = process.env.MINIO_BUCKET ?? "receipts";
 
@@ -37,9 +40,17 @@ export const s3Client = new S3Client({
     accessKeyId: MINIO_ROOT_USER,
     secretAccessKey: MINIO_ROOT_PASSWORD,
   },
-  endpoint: MINIO_USE_SSL
-    ? `https://${MINIO_ENDPOINT}`
-    : `http://${MINIO_ENDPOINT}`,
+  endpoint: `http://${MINIO_ENDPOINT}`,
+  forcePathStyle: true,
+  region: "us-east-1",
+});
+
+const s3PublicClient = new S3Client({
+  credentials: {
+    accessKeyId: MINIO_ROOT_USER,
+    secretAccessKey: MINIO_ROOT_PASSWORD,
+  },
+  endpoint: `http://${MINIO_PUBLIC_ENDPOINT}`,
   forcePathStyle: true,
   region: "us-east-1",
 });
@@ -56,7 +67,7 @@ export const createPresignedUrl = ({
   key: string;
 }) =>
   getSignedUrl(
-    s3Client,
+    s3PublicClient,
     new PutObjectCommand({
       Bucket: bucket,
       ContentType: contentType,

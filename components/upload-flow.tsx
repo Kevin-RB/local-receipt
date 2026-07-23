@@ -2,15 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { z } from "zod/v4";
 
 import { ImageUploadCard } from "./image-upload-card";
 
-type UploadState =
-  | "idle"
-  | "requesting-url"
-  | "uploading-to-minio"
-  | "done"
-  | "error";
+type UploadStage = "requesting-url" | "uploading-to-minio" | "done";
+
+class UploadError extends Error {
+  stage: UploadStage;
+  constructor(stage: UploadStage, message: string) {
+    super(message);
+    this.name = "UploadError";
+    this.stage = stage;
+  }
+}
+
+const UploadResponse = z.object({
+  receiptId: z.string(),
+  uploadUrl: z.string(),
+});
+
+type UploadState = "idle" | UploadStage | "error";
 
 export const UploadFlow = () => {
   const router = useRouter();
@@ -32,11 +44,22 @@ export const UploadFlow = () => {
       });
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error ?? "Upload failed");
+        throw new UploadError(
+          "requesting-url",
+          `Upload request failed (${res.status} ${res.statusText})`
+        );
       }
 
-      const { uploadUrl } = (await res.json()) as { uploadUrl: string };
+      const raw = await res.json();
+      const parsed = UploadResponse.safeParse(raw);
+      if (!parsed.success) {
+        throw new UploadError(
+          "requesting-url",
+          "Invalid response from upload endpoint"
+        );
+      }
+
+      const { uploadUrl } = parsed.data;
 
       setState("uploading-to-minio");
 
@@ -47,7 +70,10 @@ export const UploadFlow = () => {
       });
 
       if (!putRes.ok) {
-        throw new Error("Failed to upload image to storage");
+        throw new UploadError(
+          "uploading-to-minio",
+          "Failed to upload image to storage"
+        );
       }
 
       setState("done");

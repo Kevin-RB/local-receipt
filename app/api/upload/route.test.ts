@@ -47,7 +47,7 @@ describe("POST /api/upload", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("JPEG");
+    expect(body.error).toBe("Unsupported content type");
   });
 
   it("rejects invalid JSON body", async () => {
@@ -76,7 +76,7 @@ describe("POST /api/upload", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("5 MB");
+    expect(body.error).toContain("5242880");
   });
 
   it("rejects zero or negative file sizes", async () => {
@@ -92,7 +92,7 @@ describe("POST /api/upload", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("Invalid file size");
+    expect(body.error).toBe("fileSize must be > 0");
   });
 
   it("accepts a valid JPEG upload request", async () => {
