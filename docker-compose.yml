@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -19,8 +19,11 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: receipt-app
+      MINIO_ROOT_PASSWORD: possum123
+      MINIO_NOTIFY_WEBHOOK_ENABLE_primary: "on"
+      MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://next:3000/api/minio-events
+      MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: local-webhook-secret
     volumes:
       - minio-data:/data
     ports:
@@ -31,6 +34,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set local http://minio:9000 receipt-app possum123
+        mc mb --ignore-existing local/receipts
+        mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete
 
   inngest:
     image: inngest/inngest:latest
@@ -56,37 +72,53 @@ services:
         condition: service_healthy
 
   next:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:24-slim
+    working_dir: /app
+    command:
+      - "sh"
+      - "-c"
+      - "corepack enable && corepack prepare pnpm@11.12.0 --activate && pnpm install --store-dir /pnpm/store && pnpm dev"
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/receipts
       MINIO_ENDPOINT: minio:9000
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_PUBLIC_ENDPOINT: localhost:9000
+      MINIO_ROOT_USER: receipt-app
+      MINIO_ROOT_PASSWORD: possum123
+      MINIO_WEBHOOK_SECRET: local-webhook-secret
       INNGEST_DEV: "1"
       INNGEST_BASE_URL: http://inngest:8288
       INNGEST_EVENT_KEY: local
       INNGEST_SIGNING_KEY: local
-      # LM Studio runs on the host, outside the compose network.
       LM_STUDIO_URL: http://host.docker.internal:1234/v1
+      NODE_ENV: development
     ports:
       - "3000:3000"
     extra_hosts:
-      # Makes host.docker.internal resolvable on Linux Docker hosts.
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - next-cache:/app/.next
+      - pnpm-store:/pnpm/store
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:3000/'', r => process.exit(r.statusCode < 400 ? 0 : 1)).on(''error'', () => process.exit(1))"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
 volumes:
   postgres-data:
   minio-data:
+  node_modules:
+  next-cache:
+  pnpm-store:

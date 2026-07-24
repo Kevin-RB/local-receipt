@@ -8,18 +8,15 @@ RUN corepack enable && corepack prepare pnpm@11.12.0 --activate
 WORKDIR /app
 
 # Install dependencies first for layer caching.
-COPY pnpm-workspace.yaml package.json .npmrc pnpm-lock.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY packages/db/package.json ./packages/db/
+COPY package.json .npmrc pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Copy source and build.
 COPY . .
-RUN pnpm --filter @receipt-app/db build
-RUN pnpm --filter @receipt-app/web build
+RUN pnpm build
 
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["sh", "-c", "./scripts/check-lmstudio.sh && pnpm --filter @receipt-app/web start"]
+CMD ["sh", "-c", "./scripts/check-lmstudio.sh && pnpm start"]

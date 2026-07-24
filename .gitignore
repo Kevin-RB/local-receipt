@@ -7,4 +7,9 @@ dist/
 .DS_Store
 prototype/
 Receipts/
+!app/receipts/
 .agents/
+.vscode/
+.claude/
+.tmp/
+.pnpm-store/
