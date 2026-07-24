@@ -46,6 +46,7 @@ services:
       - |
         mc alias set local http://minio:9000 receipt-app possum123
         mc mb --ignore-existing local/receipts
+        mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete
 
   inngest:
     image: inngest/inngest:latest

@@ -1,44 +1,55 @@
 import { z } from "zod/v4";
 
-/**
- * MinIO sends bucket notifications in one of two shapes:
- *
- *  1. Flat (MinIO legacy): `{ EventName, Key }`
- *  2. S3-compatible:       `{ Records: [{ eventName, s3: { object: { key } } }] }`
- *
- * They share no discriminator field, so we parse with a union of two Zod schemas
- * rather than a tagged discriminated union.
- */
-
-const FlatEvent = z.object({
-  EventName: z.string().optional(),
+export const MinioEvent = z.looseObject({
+  EventName: z.string(),
   Key: z.string(),
-});
-
-const Record = z.object({
-  eventName: z.string().optional(),
-  s3: z
-    .object({
-      bucket: z.object({ name: z.string().optional() }).optional(),
-      object: z.object({ key: z.string() }).optional(),
+  Records: z.array(
+    z.looseObject({
+      awsRegion: z.string(),
+      eventName: z.string(),
+      eventSource: z.string(),
+      eventTime: z.string(),
+      eventVersion: z.string(),
+      requestParameters: z.object({
+        principalId: z.string(),
+        region: z.string(),
+        sourceIPAddress: z.string(),
+      }),
+      responseElements: z.object({
+        "x-amz-id-2": z.string(),
+        "x-amz-request-id": z.string(),
+        "x-minio-deployment-id": z.string(),
+        "x-minio-origin-endpoint": z.string(),
+      }),
+      s3: z.object({
+        bucket: z.object({
+          arn: z.string(),
+          name: z.string(),
+          ownerIdentity: z.object({
+            principalId: z.string(),
+          }),
+        }),
+        configurationId: z.string(),
+        object: z.object({
+          contentType: z.string().optional(),
+          eTag: z.string(),
+          key: z.string(),
+          sequencer: z.string(),
+          size: z.number(),
+          userMetadata: z.record(z.string(), z.string()),
+        }),
+        s3SchemaVersion: z.string(),
+      }),
+      source: z.object({
+        host: z.string(),
+        port: z.string(),
+        userAgent: z.string(),
+      }),
+      userIdentity: z.object({
+        principalId: z.string(),
+      }),
     })
-    .optional(),
+  ),
 });
 
-const RecordsEvent = z.object({
-  Records: z.array(Record),
-});
-
-export const parseMinioEvent = (body: unknown): string | undefined => {
-  const flat = FlatEvent.safeParse(body);
-  if (flat.success) {
-    return flat.data.Key;
-  }
-
-  const records = RecordsEvent.safeParse(body);
-  if (records.success && records.data.Records.length > 0) {
-    return records.data.Records[0]?.s3?.object?.key;
-  }
-
-  return undefined;
-};
+export type MinioEvent = z.infer<typeof MinioEvent>;

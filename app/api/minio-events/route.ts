@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { db, findReceiptByObjectKey, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
-import { parseMinioEvent } from "@/lib/minio/event";
+import { MinioEvent } from "@/lib/minio/event";
 
 const { MINIO_WEBHOOK_SECRET } = process.env;
 
@@ -18,13 +18,26 @@ export const POST = async (request: Request) => {
   }
 
   let body: unknown;
+
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const key = parseMinioEvent(body);
+  const parsed = MinioEvent.safeParse(body);
+  console.log("minio-events parsed body:", JSON.stringify(parsed, null, 2));
+
+  if (!parsed.success) {
+    console.error("minio-events: failed to parse event:", parsed.error);
+    return NextResponse.json(
+      { error: "Invalid event format" },
+      { status: 400 }
+    );
+  }
+
+  const { key } = parsed.data.Records[0].s3.object;
+
   if (!key) {
     return NextResponse.json(
       { error: "Could not extract object key from event" },
@@ -33,6 +46,7 @@ export const POST = async (request: Request) => {
   }
 
   const receipt = await findReceiptByObjectKey(key);
+  console.log("minio-events: key=%s receipt=%o", key, receipt);
   if (!receipt || receipt.status !== "uploading") {
     return NextResponse.json({ received: true });
   }
