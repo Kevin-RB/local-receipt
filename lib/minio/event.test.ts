@@ -51,7 +51,7 @@ const validBody = {
   ],
 };
 
-describe(MinioEvent, () => {
+describe("MinIO event schema", () => {
   it("parses a valid MinIO webhook body and extracts the object key", () => {
     const result = MinioEvent.safeParse(validBody);
     expect(result.success).toBeTruthy();
