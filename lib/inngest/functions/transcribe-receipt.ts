@@ -106,20 +106,15 @@ export const transcribeReceipt = inngest.createFunction(
 
     const integrityWarning = hasIntegrityMismatch(extraction);
 
-    let validatedExtraction;
-    try {
-      validatedExtraction = receiptExtractionSelectSchema.parse({
-        items: extraction.items,
-        merchant: extraction.merchant,
-        payment: extraction.payment,
-        totals: extraction.totals,
-        transaction: extraction.transaction,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? `Contract validation failed: ${error.message}`
-          : "Contract validation failed";
+    const validated = receiptExtractionSelectSchema.safeParse({
+      items: extraction.items,
+      merchant: extraction.merchant,
+      payment: extraction.payment,
+      totals: extraction.totals,
+      transaction: extraction.transaction,
+    });
+    if (!validated.success) {
+      const message = `Contract validation failed: ${validated.error.message}`;
       await step.realtime.publish(
         `state-${receiptId}-failed`,
         receiptChannel(receiptId).state,
@@ -127,6 +122,7 @@ export const transcribeReceipt = inngest.createFunction(
       );
       throw new NonRetriableError(message);
     }
+    const validatedExtraction = validated.data;
 
     await step.run("storing", async () => {
       await db
