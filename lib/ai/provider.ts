@@ -1,11 +1,12 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 const LM_STUDIO_URL = process.env.LM_STUDIO_URL ?? "http://localhost:1234/v1";
-const LM_STUDIO_API_KEY = process.env.LM_STUDIO_API_KEY ?? "not-needed";
 
-export const glmOrcProvider = createOpenAI({
-  apiKey: LM_STUDIO_API_KEY,
+export const lmstudio = createOpenAICompatible({
   baseURL: LM_STUDIO_URL,
+  name: "lmstudio",
 });
 
-export const GLM_ORC_MODEL = process.env.GLM_ORC_MODEL ?? "glm-orc";
+export const ORC_MODEL = process.env.ORC_MODEL ?? "glm-ocr";
+
+export const PARSE_MODEL = process.env.PARSE_MODEL ?? "google/gemma-4-e4b";

@@ -1,14 +1,29 @@
 import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
-import { transcribeReceiptImage } from "@/lib/ai/transcribe-receipt-image";
+import {
+  parseReceiptText,
+  transcribeReceiptImage,
+} from "@/lib/ai/transcribe-receipt-image";
 import { db, findReceiptById, receipts } from "@/lib/db";
-import type { ProcessingStatus } from "@/lib/db";
+import type { ProcessingStatus, ReceiptExtraction } from "@/lib/db";
+import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
 
 const setReceiptStatus = (id: string, status: ProcessingStatus) =>
   db.update(receipts).set({ status }).where(eq(receipts.id, id));
+
+const CENTS_EPSILON = 0.01;
+
+const hasIntegrityMismatch = (extraction: ReceiptExtraction): boolean => {
+  const lineSum = extraction.items.reduce(
+    (sum, item) => sum + item.line_total,
+    0
+  );
+  const diff = Math.abs(lineSum - extraction.totals.total);
+  return diff >= CENTS_EPSILON;
+};
 
 export const transcribeReceipt = inngest.createFunction(
   {
@@ -40,7 +55,13 @@ export const transcribeReceipt = inngest.createFunction(
       await setReceiptStatus(receiptId, "processing");
     });
 
-    const transcript = await step.run("transcribe-receipt-image", async () => {
+    await step.realtime.publish(
+      `state-${receiptId}-extracting`,
+      receiptChannel(receiptId).state,
+      { state: "extracting", ts: Date.now() }
+    );
+
+    const transcript = await step.run("extracting", async () => {
       const body = await downloadObject({
         bucket: BUCKET,
         key,
@@ -49,9 +70,55 @@ export const transcribeReceipt = inngest.createFunction(
         throw new NonRetriableError(`Empty body for object ${key}`);
       }
       const base64 = await body.transformToString("base64");
+
       return transcribeReceiptImage(base64, contentTypeFromKey(key));
     });
 
-    return { receiptId, transcript };
+    await step.realtime.publish(
+      `state-${receiptId}-parsing`,
+      receiptChannel(receiptId).state,
+      { state: "parsing", ts: Date.now() }
+    );
+
+    let extraction: ReceiptExtraction;
+    try {
+      extraction = await step.run("parsing", () =>
+        parseReceiptText(transcript)
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Parse extraction failed";
+      await step.realtime.publish(
+        `state-${receiptId}-failed`,
+        receiptChannel(receiptId).state,
+        { error: message, state: "failed", ts: Date.now() }
+      );
+      throw new NonRetriableError(message);
+    }
+
+    const integrityWarning = hasIntegrityMismatch(extraction);
+
+    await step.run("storing", async () => {
+      await db
+        .update(receipts)
+        .set({
+          hasIntegrityWarning: integrityWarning,
+          items: extraction.items,
+          merchant: extraction.merchant,
+          payment: extraction.payment,
+          status: "done",
+          totals: extraction.totals,
+          transaction: extraction.transaction,
+        })
+        .where(eq(receipts.id, receiptId));
+    });
+
+    await step.realtime.publish(
+      `state-${receiptId}-complete`,
+      receiptChannel(receiptId).state,
+      { state: "complete", ts: Date.now() }
+    );
+
+    return { extraction, integrityWarning, receiptId };
   }
 );

@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^4.0.20
         version: 4.0.20(zod@4.4.3)
+      '@ai-sdk/openai-compatible':
+        specifier: ^3.0.14
+        version: 3.0.14(zod@4.4.3)
       '@aws-sdk/client-s3':
         specifier: ^3.1091.0
         version: 3.1091.0
@@ -72,6 +75,9 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@inngest/test':
+        specifier: ^1.0.0
+        version: 1.0.0(inngest@4.13.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.12.30)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3))
       '@types/node':
         specifier: ^22.15.18
         version: 22.20.1
@@ -116,6 +122,12 @@ packages:
 
   '@ai-sdk/gateway@4.0.28':
     resolution: {integrity: sha512-ee9TsNO3mkgHDWmTmJ8Fvltr6PFh52zhrV2+FaKJY3F3iu7kWZi5tCRJCR1HVhhlpj6lHniUb28nLQdPHkA/1Q==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai-compatible@3.0.14':
+    resolution: {integrity: sha512-nUl7dBHUDTqcnuWGnEbKMwDDqL94BxRfibLwYv8uWp+kZn8Zqdxy7tUBt4sv2hpHQi+S2P6bUyqW18xmbykErw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -947,6 +959,11 @@ packages:
 
   '@inngest/ai@0.1.7':
     resolution: {integrity: sha512-5xWatW441jacGf9czKEZdgAmkvoy7GS2tp7X8GSbdGeRXzjisHR6vM+q8DQbv6rqRsmQoCQ5iShh34MguELvUQ==}
+
+  '@inngest/test@1.0.0':
+    resolution: {integrity: sha512-T3K6w0o/AHk34zzYhh1lC183ziQUCTEmY+G7ZOFwR5q4vXkbmZpXzbRecuG+Om/mixJnJCjZbt43e6OMR3QAnQ==}
+    peerDependencies:
+      inngest: ^4.0.0
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -4169,6 +4186,10 @@ packages:
     resolution: {integrity: sha512-op4nsTR47R6p0vMUUoYl/a+ljLFVtlfaXkLQmqfLR1qHma1h/ysYk4hEXZ880bf2CYgTskvTa/e196Vd5dDQXw==}
     engines: {node: '>=14.0.0'}
 
+  tinyspy@3.0.2:
+    resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
+    engines: {node: '>=14.0.0'}
+
   tinyspy@4.0.4:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
@@ -4452,6 +4473,12 @@ snapshots:
       '@ai-sdk/provider': 4.0.3
       '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
       '@vercel/oidc': 3.2.0
+      zod: 4.4.3
+
+  '@ai-sdk/openai-compatible@3.0.14(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
       zod: 4.4.3
 
   '@ai-sdk/openai@4.0.20(zod@4.4.3)':
@@ -5237,6 +5264,12 @@ snapshots:
     dependencies:
       '@types/node': 22.20.1
       typescript: 5.9.3
+
+  '@inngest/test@1.0.0(inngest@4.13.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.12.30)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3))':
+    dependencies:
+      inngest: 4.13.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(express@5.2.1)(hono@4.12.30)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+      tinyspy: 3.0.2
+      ulid: 2.4.0
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -8381,6 +8414,8 @@ snapshots:
   tinypool@2.1.0: {}
 
   tinyrainbow@2.0.0: {}
+
+  tinyspy@3.0.2: {}
 
   tinyspy@4.0.4: {}
 
