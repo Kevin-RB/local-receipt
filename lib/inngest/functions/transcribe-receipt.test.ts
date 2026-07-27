@@ -83,7 +83,7 @@ const createEngine = (overrides?: Partial<(typeof baseSteps)[number]>) =>
     },
   });
 
-describe(transcribeReceipt, () => {
+describe("transcribeReceipt function", () => {
   it("runs extracting → parsing → storing and returns the extraction", async () => {
     const engine = createEngine();
     const { result } = await engine.execute();

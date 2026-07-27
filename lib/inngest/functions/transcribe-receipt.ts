@@ -1,3 +1,4 @@
+import { APICallError, NoObjectGeneratedError } from "ai";
 import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
@@ -86,8 +87,14 @@ export const transcribeReceipt = inngest.createFunction(
         parseReceiptText(transcript)
       );
     } catch (error) {
-      const message =
+      const baseMessage =
         error instanceof Error ? error.message : "Parse extraction failed";
+      let message = baseMessage;
+      if (NoObjectGeneratedError.isInstance(error)) {
+        message = `Model did not return valid structured output: ${baseMessage}`;
+      } else if (APICallError.isInstance(error)) {
+        message = `AI provider error: ${baseMessage}`;
+      }
       await step.realtime.publish(
         `state-${receiptId}-failed`,
         receiptChannel(receiptId).state,
