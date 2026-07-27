@@ -1,4 +1,4 @@
-import { generateText, Output, zodSchema } from "ai";
+import { generateText, Output } from "ai";
 
 import { ReceiptExtraction } from "@/lib/db/contract";
 
@@ -86,9 +86,7 @@ export const parseReceiptText = async (
     ],
     model: lmstudio(PARSE_MODEL),
     output: Output.object({
-      description: "Structured receipt extraction",
-      name: "receipt_extraction",
-      schema: zodSchema(ReceiptExtraction),
+      schema: ReceiptExtraction,
     }),
     temperature: 0,
   });
