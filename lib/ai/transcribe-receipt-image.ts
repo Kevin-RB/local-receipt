@@ -78,6 +78,7 @@ export const parseReceiptText = async (
   transcript: string
 ): Promise<ReceiptExtraction> => {
   const { output } = await generateText({
+    maxRetries: 1,
     messages: [
       {
         content: `${PARSE_PROMPT}\n\nReceipt OCR transcript:\n\n${transcript}`,

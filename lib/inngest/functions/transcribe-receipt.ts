@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/transcribe-receipt-image";
 import { db, findReceiptById, receipts } from "@/lib/db";
 import type { ProcessingStatus, ReceiptExtraction } from "@/lib/db";
+import { receiptExtractionSelectSchema } from "@/lib/db/schema";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
@@ -105,17 +106,35 @@ export const transcribeReceipt = inngest.createFunction(
 
     const integrityWarning = hasIntegrityMismatch(extraction);
 
+    let validatedExtraction;
+    try {
+      validatedExtraction = receiptExtractionSelectSchema.parse({
+        items: extraction.items,
+        merchant: extraction.merchant,
+        payment: extraction.payment,
+        totals: extraction.totals,
+        transaction: extraction.transaction,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? `Contract validation failed: ${error.message}`
+          : "Contract validation failed";
+      await step.realtime.publish(
+        `state-${receiptId}-failed`,
+        receiptChannel(receiptId).state,
+        { error: message, state: "failed", ts: Date.now() }
+      );
+      throw new NonRetriableError(message);
+    }
+
     await step.run("storing", async () => {
       await db
         .update(receipts)
         .set({
           hasIntegrityWarning: integrityWarning,
-          items: extraction.items,
-          merchant: extraction.merchant,
-          payment: extraction.payment,
+          ...validatedExtraction,
           status: "done",
-          totals: extraction.totals,
-          transaction: extraction.transaction,
         })
         .where(eq(receipts.id, receiptId));
     });
