@@ -36,9 +36,30 @@ export const useReceiptRealtime = ({
 
   const lastState = messages.byTopic.state?.data;
 
+  const normalizedError = (() => {
+    if (error instanceof Error) {
+      return error;
+    }
+    if (!error) {
+      return null;
+    }
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === "string") {
+      return new Error(obj.message);
+    }
+    if (typeof obj.reason === "string") {
+      return new Error(
+        `WebSocket closed: ${obj.reason} (code ${String(obj.code ?? "N/A")})`
+      );
+    }
+    return new Error(
+      `Connection failed: ${typeof error === "string" ? error : Object.prototype.toString.call(error)}`
+    );
+  })();
+
   return {
     connectionStatus,
-    error,
+    error: normalizedError,
     failureReason: lastState?.error ?? null,
     receipt: lastState?.receipt ?? null,
     result,
