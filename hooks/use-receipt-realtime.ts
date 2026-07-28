@@ -37,17 +37,22 @@ export const useReceiptRealtime = ({
   const lastState = messages.byTopic.state?.data;
 
   const normalizedError = (() => {
-    if (error instanceof Error) {
-      return error;
-    }
     if (!error) {
       return null;
     }
-    const obj = error as Record<string, unknown>;
-    if (typeof obj.message === "string") {
-      return new Error(obj.message);
+    if (error instanceof Error) {
+      if (error.message.startsWith("[object ")) {
+        return new Error(
+          `Realtime connection failed (${error.message}) — check that Inngest dev server is running`
+        );
+      }
+      return error;
     }
-    if (typeof obj.reason === "string") {
+    if (typeof (error as Record<string, unknown>).message === "string") {
+      return new Error((error as Record<string, unknown>).message as string);
+    }
+    if (typeof (error as Record<string, unknown>).reason === "string") {
+      const obj = error as Record<string, unknown>;
       return new Error(
         `WebSocket closed: ${obj.reason} (code ${String(obj.code ?? "N/A")})`
       );
