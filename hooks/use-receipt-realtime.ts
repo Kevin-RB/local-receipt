@@ -23,6 +23,7 @@ export const useReceiptRealtime = ({
   receiptId: string | null;
 }): ReceiptRealtimeState => {
   const { connectionStatus, error, messages, result } = useRealtime({
+    apiBaseUrl: "http://localhost:8288",
     channel: receiptChannel({ receiptId: receiptId ?? "" }),
     enabled: enabled && receiptId !== null,
     token: () => {
@@ -41,11 +42,6 @@ export const useReceiptRealtime = ({
       return null;
     }
     if (error instanceof Error) {
-      if (error.message.startsWith("[object ")) {
-        return new Error(
-          `Realtime connection failed (${error.message}) — check that Inngest dev server is running`
-        );
-      }
       return error;
     }
     if (typeof (error as Record<string, unknown>).message === "string") {
