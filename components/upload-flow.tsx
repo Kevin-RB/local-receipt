@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod/v4";
 
+import { ReceiptLiveTracker } from "@/components/receipt-live-tracker";
 import { ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
 
 import { ImageUploadCard } from "./image-upload-card";
@@ -27,9 +27,9 @@ const UploadResponse = z.object({
 type UploadState = "idle" | UploadStage | "error";
 
 export const UploadFlow = () => {
-  const router = useRouter();
   const [state, setState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
 
   const handleFileSelect = async (file: File) => {
     if (
@@ -73,7 +73,8 @@ export const UploadFlow = () => {
         );
       }
 
-      const { uploadUrl } = parsed.data;
+      const { receiptId: id, uploadUrl } = parsed.data;
+      setReceiptId(id);
 
       setState("uploading-to-minio");
 
@@ -91,12 +92,20 @@ export const UploadFlow = () => {
       }
 
       setState("done");
-      router.push("/receipts");
     } catch (error) {
       setState("error");
       setUploadError(error instanceof Error ? error.message : "Upload failed");
     }
   };
+
+  if (state === "done" && receiptId) {
+    return (
+      <div className="flex flex-col items-center gap-4 w-full max-w-md">
+        <p className="text-sm text-green-600">Upload complete!</p>
+        <ReceiptLiveTracker receiptId={receiptId} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -106,11 +115,6 @@ export const UploadFlow = () => {
       )}
       {state === "uploading-to-minio" && (
         <p className="text-sm text-muted-foreground">Uploading image...</p>
-      )}
-      {state === "done" && (
-        <p className="text-sm text-green-600">
-          Upload complete! Redirecting...
-        </p>
       )}
       {state === "error" && uploadError && (
         <p className="text-sm text-red-600">{uploadError}</p>

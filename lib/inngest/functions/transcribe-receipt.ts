@@ -39,6 +39,8 @@ export const transcribeReceipt = inngest.createFunction(
   async ({ event, step }) => {
     const { receiptId } = event.data;
 
+    const ch = receiptChannel({ receiptId });
+
     const receipt = await step.run("lookup-receipt", async () => {
       const found = await findReceiptById(receiptId);
       if (!found) {
@@ -61,11 +63,10 @@ export const transcribeReceipt = inngest.createFunction(
       await setReceiptStatus(receiptId, "processing");
     });
 
-    await step.realtime.publish(
-      `state-${receiptId}-extracting`,
-      receiptChannel(receiptId).state,
-      { state: "extracting", ts: Date.now() }
-    );
+    await step.realtime.publish(`state-${receiptId}-extracting`, ch.state, {
+      state: "extracting",
+      ts: Date.now(),
+    });
 
     const transcript = await step.run("extracting", async () => {
       const body = await downloadObject({
@@ -80,11 +81,10 @@ export const transcribeReceipt = inngest.createFunction(
       return transcribeReceiptImage(base64, contentTypeFromKey(key));
     });
 
-    await step.realtime.publish(
-      `state-${receiptId}-parsing`,
-      receiptChannel(receiptId).state,
-      { state: "parsing", ts: Date.now() }
-    );
+    await step.realtime.publish(`state-${receiptId}-parsing`, ch.state, {
+      state: "parsing",
+      ts: Date.now(),
+    });
 
     let extraction: ReceiptExtraction;
     try {
@@ -102,11 +102,11 @@ export const transcribeReceipt = inngest.createFunction(
         message = `AI provider error: ${baseMessage}`;
       }
 
-      await step.realtime.publish(
-        `state-${receiptId}-failed`,
-        receiptChannel(receiptId).state,
-        { error: message, state: "failed", ts: Date.now() }
-      );
+      await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
+        error: message,
+        state: "failed",
+        ts: Date.now(),
+      });
 
       throw new NonRetriableError(message);
     }
@@ -121,11 +121,11 @@ export const transcribeReceipt = inngest.createFunction(
     });
     if (!validated.success) {
       const message = `Contract validation failed: ${validated.error.message}`;
-      await step.realtime.publish(
-        `state-${receiptId}-failed`,
-        receiptChannel(receiptId).state,
-        { error: message, state: "failed", ts: Date.now() }
-      );
+      await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
+        error: message,
+        state: "failed",
+        ts: Date.now(),
+      });
       throw new NonRetriableError(message);
     }
 
@@ -181,11 +181,26 @@ export const transcribeReceipt = inngest.createFunction(
       }
     });
 
-    await step.realtime.publish(
-      `state-${receiptId}-complete`,
-      receiptChannel(receiptId).state,
-      { state: "complete", ts: Date.now() }
-    );
+    const receiptPayload = {
+      hasIntegrityWarning: integrityWarning,
+      items: extraction.items.map((item) => ({
+        line_total: item.line_total,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      })),
+      merchant: data.merchant,
+      payment: data.payment,
+      receiptNumber: data.transaction.receipt_number,
+      totals: data.totals,
+      transactionDateTime: data.transaction.datetime,
+    };
+
+    await step.realtime.publish(`state-${receiptId}-complete`, ch.state, {
+      receipt: receiptPayload,
+      state: "complete",
+      ts: Date.now(),
+    });
 
     return { extraction, integrityWarning, receiptId };
   }
