@@ -6,9 +6,13 @@ import {
   parseReceiptText,
   transcribeReceiptImage,
 } from "@/lib/ai/transcribe-receipt-image";
-import { db, findReceiptById, receipts } from "@/lib/db";
+import { db, findReceiptById, receiptItems, receipts } from "@/lib/db";
 import type { ProcessingStatus, ReceiptExtraction } from "@/lib/db";
-import { receiptExtractionSelectSchema } from "@/lib/db/schema";
+import {
+  receiptExtractionSelectSchema,
+  receiptUpdateSchema,
+} from "@/lib/db/schema/receipt";
+import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
@@ -91,23 +95,25 @@ export const transcribeReceipt = inngest.createFunction(
       const baseMessage =
         error instanceof Error ? error.message : "Parse extraction failed";
       let message = baseMessage;
+
       if (NoObjectGeneratedError.isInstance(error)) {
         message = `Model did not return valid structured output: ${baseMessage}`;
       } else if (APICallError.isInstance(error)) {
         message = `AI provider error: ${baseMessage}`;
       }
+
       await step.realtime.publish(
         `state-${receiptId}-failed`,
         receiptChannel(receiptId).state,
         { error: message, state: "failed", ts: Date.now() }
       );
+
       throw new NonRetriableError(message);
     }
 
     const integrityWarning = hasIntegrityMismatch(extraction);
 
     const validated = receiptExtractionSelectSchema.safeParse({
-      items: extraction.items,
       merchant: extraction.merchant,
       payment: extraction.payment,
       totals: extraction.totals,
@@ -122,17 +128,57 @@ export const transcribeReceipt = inngest.createFunction(
       );
       throw new NonRetriableError(message);
     }
-    const validatedExtraction = validated.data;
+
+    const { data } = validated;
 
     await step.run("storing", async () => {
+      const updatePayload = {
+        hasIntegrityWarning: integrityWarning,
+        merchant: data.merchant,
+        merchantName: data.merchant.name,
+        payment: data.payment,
+        receiptNumber: data.transaction.receipt_number,
+        status: "done" as const,
+        totals: data.totals,
+        transaction: data.transaction,
+        transactionDateTime: data.transaction.datetime
+          ? new Date(data.transaction.datetime)
+          : undefined,
+      };
+
+      const updateValidated = receiptUpdateSchema.safeParse(updatePayload);
+
+      if (!updateValidated.success) {
+        throw new NonRetriableError(
+          `Update payload validation failed: ${updateValidated.error.message}`
+        );
+      }
+
       await db
         .update(receipts)
-        .set({
-          hasIntegrityWarning: integrityWarning,
-          ...validatedExtraction,
-          status: "done",
-        })
+        .set(updatePayload)
         .where(eq(receipts.id, receiptId));
+
+      if (extraction.items.length > 0) {
+        const itemsPayload = extraction.items.map((item) => ({
+          lineTotal: item.line_total.toString(),
+          name: item.name,
+          quantity: item.quantity?.toString(),
+          receiptId,
+          unitPrice: item.unit_price?.toString(),
+        }));
+
+        for (const item of itemsPayload) {
+          const itemValidated = receiptItemInsertSchema.safeParse(item);
+          if (!itemValidated.success) {
+            throw new NonRetriableError(
+              `Item validation failed: ${itemValidated.error.message}`
+            );
+          }
+        }
+
+        await db.insert(receiptItems).values(itemsPayload);
+      }
     });
 
     await step.realtime.publish(

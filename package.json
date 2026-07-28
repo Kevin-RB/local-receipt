@@ -15,16 +15,14 @@
     "typecheck": "tsc --noEmit",
     "lint": "ultracite check",
     "fix": "ultracite fix",
-    "check": "ultracite check",
     "prepare": "husky",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed": "tsx ./lib/db/seed.ts"
+    "db:seed": "tsx ./lib/db/seed.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.20",
     "@ai-sdk/openai-compatible": "^3.0.14",
     "@aws-sdk/client-s3": "^3.1091.0",
     "@aws-sdk/s3-request-presigner": "^3.1091.0",

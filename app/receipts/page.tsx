@@ -55,12 +55,12 @@ export default async function ReceiptsPage() {
                   {receipt.transaction.datetime}
                 </p>
               )}
-              {receipt.items && receipt.items.length > 0 && (
+              {receipt.receiptItems && receipt.receiptItems.length > 0 && (
                 <div className="mt-2 text-sm">
-                  {receipt.items.map((item, i) => (
-                    <div key={i} className="flex justify-between">
+                  {receipt.receiptItems.map((item) => (
+                    <div key={item.id} className="flex justify-between">
                       <span>{item.name}</span>
-                      <span>${item.line_total.toFixed(2)}</span>
+                      <span>${Number(item.lineTotal).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>

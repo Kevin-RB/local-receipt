@@ -1,15 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { db, receipts } from "@/lib/db";
+import { db, receiptItems, receipts } from "@/lib/db";
 
 const demoReceipt = {
   hasIntegrityWarning: false,
   id: randomUUID(),
-  items: [
-    { line_total: 2.9, name: "Milk 2L", quantity: 1, unit_price: 2.9 },
-    { line_total: 3.5, name: "Bread", quantity: 1, unit_price: 3.5 },
-    { line_total: 4.5, name: "Apples 1kg", quantity: 1, unit_price: 4.5 },
-  ],
   merchant: {
     abn: "89 654 321 098",
     address: "123 Smith St, Fitzroy VIC 3065",
@@ -31,10 +26,23 @@ const demoReceipt = {
   },
 };
 
+const demoItems = [
+  { lineTotal: "2.90", name: "Milk 2L", quantity: "1", unitPrice: "2.90" },
+  { lineTotal: "3.50", name: "Bread", quantity: "1", unitPrice: "3.50" },
+  { lineTotal: "4.50", name: "Apples 1kg", quantity: "1", unitPrice: "4.50" },
+];
+
 const inserted = await db
   .insert(receipts)
   .values(demoReceipt)
   .returning({ id: receipts.id });
 
-process.stdout.write(`Seeded receipt with id ${inserted[0]?.id}\n`);
+const receiptId = inserted[0]?.id;
+if (receiptId) {
+  await db
+    .insert(receiptItems)
+    .values(demoItems.map((item) => ({ ...item, receiptId })));
+}
+
+process.stdout.write(`Seeded receipt with id ${receiptId}\n`);
 process.exit(0);

@@ -13,8 +13,9 @@ export {
   Totals,
   Transaction,
 } from "./contract";
-export { receipts } from "./schema";
-export type { ProcessingStatus } from "./schema";
+export { receipts } from "./schema/receipt";
+export type { ProcessingStatus } from "./schema/receipt";
+export { receiptItems } from "./schema/receipt-item";
 
 const createDb = (connectionString: string) => {
   const pool = new Pool({
@@ -45,6 +46,9 @@ export const findReceiptByObjectKey = (minioObjectKey: string) =>
 export const listReceipts = () =>
   db.query.receipts.findMany({
     orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
+    with: {
+      receiptItems: true,
+    },
   });
 
 export { drizzle } from "drizzle-orm/node-postgres";
