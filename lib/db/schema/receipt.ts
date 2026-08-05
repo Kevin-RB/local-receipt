@@ -1,7 +1,7 @@
 import {
   boolean,
   jsonb,
-  pgTable,
+  snakeCase,
   text,
   timestamp,
   uuid,
@@ -11,17 +11,45 @@ import {
   createSelectSchema,
   createUpdateSchema,
 } from "drizzle-orm/zod";
+import { z } from "zod";
 
-import { Merchant, Payment, Totals, Transaction } from "../contract";
+export const processingStatusEnum = z.enum([
+  "uploading",
+  "pending",
+  "processing",
+  "done",
+  "error",
+]);
 
-export type ProcessingStatus =
-  | "uploading"
-  | "pending"
-  | "processing"
-  | "done"
-  | "error";
+export type ProcessingStatus = z.infer<typeof processingStatusEnum>;
 
-export const receipts = pgTable("receipts", {
+export const Merchant = z.strictObject({
+  abn: z.string().optional(),
+  address: z.string().optional(),
+  name: z.string(),
+  storeId: z.string().optional(),
+});
+export type Merchant = z.infer<typeof Merchant>;
+
+export const Transaction = z.strictObject({
+  datetime: z.string().optional(),
+  receiptNumber: z.string().optional(),
+});
+export type Transaction = z.infer<typeof Transaction>;
+
+export const Totals = z.strictObject({
+  gst: z.number().optional(),
+  subtotal: z.number().optional(),
+  total: z.number(),
+});
+export type Totals = z.infer<typeof Totals>;
+
+export const Payment = z.strictObject({
+  method: z.string().optional(),
+});
+export type Payment = z.infer<typeof Payment>;
+
+export const receipts = snakeCase.table("receipts", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -38,15 +66,23 @@ export const receipts = pgTable("receipts", {
   totals: jsonb("totals").$type<Totals>(),
   transaction: jsonb("transaction").$type<Transaction>(),
   transactionDateTime: timestamp("transaction_datetime", {
+    mode: "date",
     withTimezone: true,
   }),
 });
 
-export const receiptSelectSchema = createSelectSchema(receipts);
+export const receiptSelectSchema = createSelectSchema(receipts, {
+  merchant: Merchant.nullable(),
+  payment: Payment.nullable(),
+  totals: Totals.nullable(),
+  transaction: Transaction.nullable(),
+});
 export const receiptInsertSchema = createInsertSchema(receipts);
 export const receiptUpdateSchema = createUpdateSchema(receipts);
 
-export const receiptExtractionSelectSchema = receiptSelectSchema
+export type ReceiptSelect = z.infer<typeof receiptSelectSchema>;
+
+export const receiptExtractionInsertSchema = receiptInsertSchema
   .pick({
     merchant: true,
     payment: true,
@@ -59,3 +95,7 @@ export const receiptExtractionSelectSchema = receiptSelectSchema
     totals: Totals,
     transaction: Transaction,
   });
+
+export type ReceiptExtractionInsert = z.infer<
+  typeof receiptExtractionInsertSchema
+>;

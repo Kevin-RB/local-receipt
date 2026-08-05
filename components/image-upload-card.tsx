@@ -5,7 +5,7 @@ import { ImagePlusIcon } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod/v4";
+import z from "zod";
 
 import {
   Field,

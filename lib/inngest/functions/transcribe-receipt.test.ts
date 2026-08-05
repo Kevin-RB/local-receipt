@@ -1,25 +1,25 @@
 import { InngestTestEngine } from "@inngest/test";
 import { describe, it, expect, vi } from "vitest";
 
-import type { ReceiptExtraction } from "@/lib/db";
+import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 
 import { transcribeReceipt } from "./transcribe-receipt";
 
 interface FunctionOutput {
-  extraction: ReceiptExtraction;
+  extraction: ReceiptInformationExtraction;
   integrityWarning: boolean;
   receiptId: string;
 }
 
-const mockExtraction: ReceiptExtraction = {
+const mockExtraction: ReceiptInformationExtraction = {
   items: [
-    { line_total: 4.5, name: "REG LATTE" },
-    { line_total: 12.9, name: "SRIRACHA CHICKEN" },
+    { lineTotal: 4.5, name: "REG LATTE" },
+    { lineTotal: 12.9, name: "SRIRACHA CHICKEN" },
   ],
   merchant: { name: "Test Cafe" },
   payment: { method: "VISA" },
   totals: { total: 17.4 },
-  transaction: { datetime: "2025-01-15T10:30:00Z", receipt_number: "ABC123" },
+  transaction: { datetime: "2025-01-15T10:30:00Z", receiptNumber: "ABC123" },
 };
 
 const mockPublish = vi.fn<() => Promise<void>>();
@@ -96,8 +96,8 @@ describe("transcribeReceipt function", () => {
   });
 
   it("sets integrityWarning when line-sum mismatches total", async () => {
-    const badExtraction: ReceiptExtraction = {
-      items: [{ line_total: 10, name: "Item 1" }],
+    const badExtraction: ReceiptInformationExtraction = {
+      items: [{ lineTotal: 10, name: "Item 1" }],
       merchant: { name: "Store" },
       payment: {},
       totals: { total: 15 },
@@ -115,11 +115,11 @@ describe("transcribeReceipt function", () => {
   });
 
   it("sets integrityWarning false when line sum matches total exactly", async () => {
-    const exactExtraction: ReceiptExtraction = {
+    const exactExtraction: ReceiptInformationExtraction = {
       items: [
-        { line_total: 5, name: "A" },
-        { line_total: 5, name: "B" },
-        { line_total: 0.01, name: "C" },
+        { lineTotal: 5, name: "A" },
+        { lineTotal: 5, name: "B" },
+        { lineTotal: 0.01, name: "C" },
       ],
       merchant: { name: "Store" },
       payment: {},
@@ -138,14 +138,14 @@ describe("transcribeReceipt function", () => {
   });
 
   it("completes without integrity warning when subtotal and gst are present", async () => {
-    const fullExtraction: ReceiptExtraction = {
-      items: [{ line_total: 10, name: "Product" }],
+    const fullExtraction: ReceiptInformationExtraction = {
+      items: [{ lineTotal: 10, name: "Product" }],
       merchant: { abn: "12345678901", name: "Full Store" },
       payment: { method: "EFTPOS" },
       totals: { gst: 0.91, subtotal: 9.09, total: 10 },
       transaction: {
         datetime: "2025-06-01T12:00:00Z",
-        receipt_number: "RCPT-001",
+        receiptNumber: "RCPT-001",
       },
     };
 

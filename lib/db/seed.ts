@@ -27,9 +27,9 @@ const demoReceipt = {
 };
 
 const demoItems = [
-  { lineTotal: "2.90", name: "Milk 2L", quantity: "1", unitPrice: "2.90" },
-  { lineTotal: "3.50", name: "Bread", quantity: "1", unitPrice: "3.50" },
-  { lineTotal: "4.50", name: "Apples 1kg", quantity: "1", unitPrice: "4.50" },
+  { lineTotal: 2.9, name: "Milk 2L", quantity: 1, unitPrice: 2.9 },
+  { lineTotal: 3.5, name: "Bread", quantity: 1, unitPrice: 3.5 },
+  { lineTotal: 4.5, name: "Apples 1kg", quantity: 1, unitPrice: 4.5 },
 ];
 
 const inserted = await db

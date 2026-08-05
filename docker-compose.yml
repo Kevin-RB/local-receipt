@@ -22,13 +22,15 @@ services:
       MINIO_ROOT_USER: receipt-app
       MINIO_ROOT_PASSWORD: possum123
       MINIO_NOTIFY_WEBHOOK_ENABLE_primary: "on"
-      MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://next:3000/api/minio-events
+      MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://host.docker.internal:3000/api/minio-events
       MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: local-webhook-secret
     volumes:
       - minio-data:/data
     ports:
       - "9000:9000"
       - "9001:9001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
@@ -54,80 +56,22 @@ services:
       - "inngest"
       - "dev"
       - "-u"
-      - "http://next:3000/api/inngest"
+      - "http://host.docker.internal:3000/api/inngest"
       - "--no-discovery"
       - "--port"
       - "8288"
     ports:
       - "8288:8288"
       - "8289:8289"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8288'"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
-    depends_on:
-      next:
-        condition: service_healthy
-
-  next:
-    image: node:24-slim
-    working_dir: /app
-    command:
-      - "sh"
-      - "-c"
-      - |
-        echo "Checking LM Studio..."
-        ./scripts/check-lmstudio.sh &&
-        corepack enable &&
-        corepack prepare pnpm@11.12.0 --activate &&
-        pnpm install --store-dir /pnpm/store &&
-        pnpm dev
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/receipts
-      MINIO_ENDPOINT: minio:9000
-      MINIO_PUBLIC_ENDPOINT: localhost:9000
-      MINIO_ROOT_USER: receipt-app
-      MINIO_ROOT_PASSWORD: possum123
-      MINIO_WEBHOOK_SECRET: local-webhook-secret
-      INNGEST_DEV: "1"
-      INNGEST_BASE_URL: http://inngest:8288
-      INNGEST_EVENT_KEY: local
-      INNGEST_SIGNING_KEY: local
-      LM_STUDIO_URL: http://host.docker.internal:1234/v1
-      ORC_MODEL: glm-ocr@q8_0
-      PARSE_MODEL: google/gemma-4-e4b
-      NODE_ENV: development
-      CI: "true"
-    ports:
-      - "3000:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
-      - next-cache:/app/.next
-      - pnpm-store:/pnpm/store
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'node -e "require(''http'').get(''http://localhost:3000/'', r => process.exit(r.statusCode < 400 ? 0 : 1)).on(''error'', () => process.exit(1))"',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
 
 volumes:
   postgres-data:
   minio-data:
-  node_modules:
-  next-cache:
-  pnpm-store:

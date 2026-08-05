@@ -39,14 +39,6 @@ export const UploadFlow = () => {
             onUploadStateChange={(stage) => setUpload({ status: stage })}
           />
         </CardContent>
-        {/* <CardFooter className="flex flex-col items-start gap-2">
-          {upload.status === "requesting-url" && (
-            <p className="text-sm text-muted-foreground">Preparing upload...</p>
-          )}
-          {upload.status === "uploading-to-minio" && (
-            <p className="text-sm text-muted-foreground">Uploading image...</p>
-          )}
-        </CardFooter> */}
       </Card>
       {upload.status === "done" && (
         <ReceiptToastNotifier receiptId={upload.receiptId} />

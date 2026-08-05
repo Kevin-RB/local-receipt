@@ -12,37 +12,17 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-Single-context repo (most repos):
+This repo uses the **single-context** layout:
 
 ```
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
-└── src/
+│   └── 0001-upload-via-presigned-url.md
+└── app/
 ```
 
-Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
-
-```
-/
-├── CONTEXT-MAP.md
-├── docs/adr/                          ← system-wide decisions
-├── apps/
-│   ├── frontend/
-│   │   ├── CONTEXT.md
-│   │   └── docs/adr/                  ← frontend-context decisions
-│   └── backend/
-│       ├── CONTEXT.md
-│       └── docs/adr/                  ← backend-context decisions
-└── packages/
-    └── <pkg>/
-        ├── CONTEXT.md                 ← optional, if the package has its own domain
-        └── docs/adr/
-```
-
-This repo uses the **multi-context** layout, with contexts under `apps/<context>/` (e.g. `apps/frontend`, `apps/backend`) and shared libraries under `packages/<pkg>/`.
+For multi-context repos (presence of `CONTEXT-MAP.md` at the root), see the skill template. Read the root `CONTEXT.md` here and check `docs/adr/` for any decisions that touch the area you are working on.
 
 ## Use the glossary's vocabulary
 

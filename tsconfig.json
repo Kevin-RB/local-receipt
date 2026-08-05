@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "ES2022"],
+    "target": "ESNext",
+    "lib": ["ESNext", "ESNext.Temporal", "DOM"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,

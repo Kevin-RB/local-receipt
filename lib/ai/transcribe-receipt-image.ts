@@ -1,6 +1,6 @@
 import { generateText, Output } from "ai";
 
-import { ReceiptExtraction } from "@/lib/db/contract";
+import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
 
 import { lmstudio, ORC_MODEL, PARSE_MODEL } from "./provider";
 
@@ -14,10 +14,10 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **merchant.name**: The store or business name, typically at the top of the receipt.
 - **merchant.abn**: Australian Business Number if present (11-digit number, may be formatted as XX XXX XXX XXX).
 - **merchant.address**: Store address, typically near the top.
-- **merchant.store_id**: Store/branch identifier if present.
+- **merchant.storeId**: Store/branch identifier if present.
 - **transaction.datetime**: Transaction date and time in ISO 8601 format.
-- **transaction.receipt_number**: Receipt/invoice/transaction number if present.
-- **items**: Array of line items. Each item must have a **name** (string) and **line_total** (number, in dollars). May optionally have **quantity** (number) and **unit_price** (number).
+- **transaction.receiptNumber**: Receipt/invoice/transaction number if present.
+- **items**: Array of line items. Each item must have a **name** (string) and **lineTotal** (number, in dollars). May optionally have **quantity** (number) and **unitPrice** (number).
 - **totals.total**: The final total amount paid (number, in dollars). Always required.
 - **totals.subtotal**: Pre-tax subtotal if present (number, in dollars).
 - **totals.gst**: GST amount if present (number, in dollars).
@@ -33,7 +33,7 @@ Example:
   "DINE IN"
   "LARGE"
 Should become:
-  { name: "REG LATTE SRIRACHA CHICKEN LARGE (DINE IN)", line_total: ... }
+  { name: "REG LATTE SRIRACHA CHICKEN LARGE (DINE IN)", lineTotal: ... }
 
 Rules for folding:
 - Lines that are only a size/colour/modifier or dine-in/takeaway flag that follow an item line should be appended to the preceding item name.
@@ -43,7 +43,7 @@ Rules for folding:
 
 - All amounts are in dollars (e.g. "$12.50" → 12.50).
 - Remove currency symbols, parse as numbers.
-- Negative amounts (discounts) should be treated as negative values in item line_totals.
+- Negative amounts (discounts) should be treated as negative values in item lineTotals.
 
 ## Fallback rules
 
@@ -74,9 +74,7 @@ export const transcribeReceiptImage = async (
   return text;
 };
 
-export const parseReceiptText = async (
-  transcript: string
-): Promise<ReceiptExtraction> => {
+export const parseReceiptText = async (transcript: string) => {
   const { output } = await generateText({
     maxRetries: 1,
     messages: [
@@ -87,9 +85,10 @@ export const parseReceiptText = async (
     ],
     model: lmstudio(PARSE_MODEL),
     output: Output.object({
-      schema: ReceiptExtraction,
+      schema: ReceiptInformationExtractionSchema,
     }),
     temperature: 0,
   });
+
   return output;
 };
