@@ -15,7 +15,7 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **merchant.abn**: Australian Business Number if present (11-digit number, may be formatted as XX XXX XXX XXX).
 - **merchant.address**: Store address, typically near the top.
 - **merchant.storeId**: Store/branch identifier if present.
-- **transaction.datetime**: Transaction date and time in ISO 8601 format.
+- **transaction.datetime**: Transaction date and time as a bare ISO 8601 string representing the local wall-clock time printed on the receipt (e.g. "2026-07-28T18:51:00"). Do NOT include a timezone suffix ("Z", "+10:00", etc.).
 - **transaction.receiptNumber**: Receipt/invoice/transaction number if present.
 - **items**: Array of line items. Each item must have a **name** (string) and **lineTotal** (number, in dollars). May optionally have **quantity** (number) and **unitPrice** (number).
 - **totals.total**: The final total amount paid (number, in dollars). Always required.
@@ -59,6 +59,7 @@ export const transcribeReceiptImage = async (
   mimeType: string
 ): Promise<string> => {
   const { text } = await generateText({
+    maxRetries: 1,
     messages: [
       {
         content: [

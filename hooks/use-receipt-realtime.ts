@@ -19,10 +19,10 @@ export const useReceiptRealtime = ({
   receiptId: string | null;
 }) =>
   useRealtime({
-    autoCloseOnTerminal: true,
+    autoCloseOnTerminal: false,
     channel: receiptChannel(receiptId ?? ""),
     enabled: !!receiptId,
-    pauseOnHidden: true,
+    pauseOnHidden: false,
     reconnect: true,
     token: () => {
       if (!receiptId) {

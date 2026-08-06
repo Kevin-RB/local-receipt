@@ -38,8 +38,9 @@ const resolveToastBody = (input: {
   error: Error | null;
   runStatus: UseRealtimeRunStatus;
   state: "done" | "extracting" | "failed" | "parsing" | "storing" | undefined;
+  stateError: string | undefined;
 }): ToastBody => {
-  const { connectionStatus, error, runStatus, state } = input;
+  const { connectionStatus, error, runStatus, state, stateError } = input;
 
   if (error && !TERMINAL_RUN_STATUSES.has(runStatus)) {
     return {
@@ -61,7 +62,7 @@ const resolveToastBody = (input: {
     }
     case "failed": {
       return {
-        description: "An unknown error occurred",
+        description: stateError ?? "An unknown error occurred",
         timeout: 0,
         title: "Processing failed",
         type: "error",
@@ -124,8 +125,9 @@ const resolveToastBody = (input: {
   }
 
   if (runStatus === "failed" || runStatus === "cancelled") {
+    console.error("Run failed or cancelled", { error, runStatus });
     return {
-      description: "An unknown error occurred",
+      description: stateError ?? error?.message ?? "An unknown error occurred",
       timeout: 0,
       title: "Processing failed",
       type: "error",
@@ -149,6 +151,7 @@ export const ReceiptToastNotifier = ({ receiptId }: { receiptId: string }) => {
     receiptId,
   });
   const state = messages.byTopic.state?.data.state;
+  const stateError = messages.byTopic.state?.data.error;
 
   useEffect(() => {
     const { description, timeout, title, type } = resolveToastBody({
@@ -156,6 +159,7 @@ export const ReceiptToastNotifier = ({ receiptId }: { receiptId: string }) => {
       error,
       runStatus,
       state,
+      stateError,
     });
 
     isTerminalRef.current =
@@ -186,7 +190,7 @@ export const ReceiptToastNotifier = ({ receiptId }: { receiptId: string }) => {
         type,
       });
     }
-  }, [state, runStatus, connectionStatus, error]);
+  }, [state, stateError, runStatus, connectionStatus, error]);
 
   useEffect(
     () => () => {

@@ -1,6 +1,7 @@
-import { APICallError, NoObjectGeneratedError } from "ai";
+import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import { eq } from "drizzle-orm";
-import { NonRetriableError } from "inngest";
+import { NonRetriableError, eventType } from "inngest";
+import { z } from "zod/v4";
 
 import {
   parseReceiptText,
@@ -14,6 +15,34 @@ import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { receiptDateTimeToDate } from "@/lib/inngest/helper-functions";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
+
+const isApiUnreachable = (error: unknown): boolean => {
+  if (!APICallError.isInstance(error)) {
+    return false;
+  }
+  if (error.statusCode !== undefined) {
+    return false;
+  }
+
+  const { cause } = error;
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "code" in cause &&
+    (cause as { code: unknown }).code === "ECONNREFUSED"
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const isUnreachableError = (error: unknown): boolean => {
+  if (RetryError.isInstance(error)) {
+    return error.errors.some(isApiUnreachable);
+  }
+  return isApiUnreachable(error);
+};
+const LM_STUDIO_URL = process.env.LM_STUDIO_URL ?? "http://localhost:1234/v1";
 
 const setReceiptStatus = (id: string, status: ProcessingStatus) =>
   db.update(receipts).set({ status }).where(eq(receipts.id, id));
@@ -29,8 +58,9 @@ const hasIntegrityMismatch = (total: number, lineTotals: number[]): boolean => {
   return diff >= CENTS_EPSILON;
 };
 
-const itemSchema = receiptItemInsertSchema.omit({ id: true, receiptId: true });
-const itemsSchema = itemSchema.array();
+const itemsSchema = receiptItemInsertSchema
+  .omit({ id: true, receiptId: true })
+  .array();
 
 const MY_TIMEZONE = "Australia/Brisbane";
 
@@ -44,22 +74,28 @@ const formatFailureMessage = (error: Error): string => {
   return error.message;
 };
 
+export const receiptUploadedEvent = eventType("receipt/uploaded", {
+  schema: z.object({ receiptId: z.string() }),
+});
+
 export const transcribeReceipt = inngest.createFunction(
   {
     id: "transcribe-receipt",
     onFailure: async ({ event, step }) => {
       const { receiptId } = event.data.event.data;
       const ch = receiptChannel(receiptId);
+      const errorMessage = event.data.error?.message;
 
       await step.run("mark-error", async () => {
         await setReceiptStatus(receiptId, "error");
       });
 
       await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
+        error: errorMessage,
         state: "failed",
       });
     },
-    triggers: [{ event: "receipt/uploaded" }],
+    triggers: [receiptUploadedEvent],
   },
   async ({ event, step }) => {
     const { receiptId } = event.data;
@@ -102,7 +138,16 @@ export const transcribeReceipt = inngest.createFunction(
       }
       const base64 = await body.transformToString("base64");
 
-      return transcribeReceiptImage(base64, contentTypeFromKey(key));
+      try {
+        return await transcribeReceiptImage(base64, contentTypeFromKey(key));
+      } catch (error) {
+        if (isUnreachableError(error)) {
+          throw new NonRetriableError(
+            `LM Studio is not reachable at ${LM_STUDIO_URL}. Start LM Studio and try again.`
+          );
+        }
+        throw error;
+      }
     });
 
     await step.realtime.publish("publish-parsing", ch.state, {
@@ -115,6 +160,11 @@ export const transcribeReceipt = inngest.createFunction(
         parseReceiptText(transcript)
       );
     } catch (error) {
+      if (isUnreachableError(error)) {
+        throw new NonRetriableError(
+          `LM Studio is not reachable at ${LM_STUDIO_URL}. Start LM Studio and try again.`
+        );
+      }
       if (APICallError.isInstance(error) && error.isRetryable) {
         // let it bubble up unwrapped -> Inngest retries the step automatically
         throw error;

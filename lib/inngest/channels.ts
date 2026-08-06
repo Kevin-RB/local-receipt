@@ -2,6 +2,7 @@ import { channel } from "inngest/realtime";
 import { z } from "zod";
 
 export const receiptStateSchema = z.object({
+  error: z.string().optional(),
   state: z.enum(["extracting", "parsing", "storing", "done", "failed"]),
 });
 
