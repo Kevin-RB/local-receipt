@@ -44,6 +44,10 @@ Before committing, run the checks in this order:
 
 The pre-commit hook runs `pnpm test` and then `pnpm dlx ultracite fix` and re-stages any files it changed.
 
+## GitHub operations
+
+Always use the `gh` CLI for GitHub operations (`gh pr`, `gh issue`, `gh repo`, `gh release`, `gh auth`, etc.). Do not use raw `git push --force`, manual browser-based PR creation, or other approaches — use `gh`. Refer to `docs/agents/issue-tracker.md` for issue/PR conventions.
+
 ---
 
 ## Local development
