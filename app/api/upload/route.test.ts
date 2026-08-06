@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 
-const mockInsertValues = vi.fn<() => void>();
+const mockReturning = vi
+  .fn<() => Promise<{ receiptId: string }[]>>()
+  .mockResolvedValue([{ receiptId: "00000000-0000-0000-0000-000000000001" }]);
+const mockInsertValues = vi
+  .fn<() => { returning: typeof mockReturning }>()
+  .mockReturnValue({ returning: mockReturning });
 const mockInsert = vi
   .fn<() => { values: typeof mockInsertValues }>()
   .mockReturnValue({ values: mockInsertValues });

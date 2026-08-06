@@ -1,142 +1,138 @@
 ## Agent skills
 
-### Issue tracker
+Use the repo-specific skill docs for workflows:
 
-GitHub Issues (via `gh` CLI); external PRs are **not** a triage surface. See `docs/agents/issue-tracker.md`.
+- `docs/agents/issue-tracker.md` — GitHub Issues via `gh`.
+- `docs/agents/triage-labels.md` — canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`).
+- `docs/agents/domain.md` — how to consume `CONTEXT.md` and `docs/adr/`.
 
-### Triage labels
-
-Uses the five canonical label strings as-is (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Multi-context layout (`CONTEXT-MAP.md` at root pointing to per-context `CONTEXT.md` files under `app/<context>/`). See `docs/agents/domain.md`.
+This is a **single-context** repo: read `CONTEXT.md` at the root and `docs/adr/` for decisions. (The multi-context example in `docs/agents/domain.md` is a template; this repo has no `apps/` or `packages/` hierarchy.)
 
 ---
 
-# Ultracite Code Standards
+## Design principles
 
-This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
-
-## Quick Reference
-
-- **Format code**: `pnpm dlx ultracite fix`
-- **Check for issues**: `pnpm dlx ultracite check`
-- **Diagnose setup**: `pnpm dlx ultracite doctor`
-
-Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
+- Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
+- Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
+- Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that already works. Never trade a working product for unfinished complexity.
+- Keep components modular and concerns clearly separated.
+- Prefer established, well-maintained libraries when they reduce overall complexity or improve reliability. Do not reimplement common functionality without a clear reason.
+- Lean on the dependencies already in the project before writing your own implementation or adding packages. Do not assume a library lacks a capability without checking its documentation and types.
+- Make architectural decisions for the long term. Do not accept a stopgap that only works for now and is meant to be replaced later.
 
 ---
 
-## Core Principles
+## Developer commands
 
-Write code that is **accessible, performant, type-safe, and maintainable**. Focus on clarity and explicit intent over brevity.
+Use `pnpm` (package manager is pinned to `pnpm@11.19.0` in `packageManager`).
 
-### Type Safety & Explicitness
+- `pnpm install` — install dependencies.
+- `pnpm dev` — Next.js dev server, bound to `0.0.0.0`.
+- `pnpm build` — production build.
+- `pnpm start` — production start, bound to `0.0.0.0`.
+- `pnpm typecheck` — `tsc --noEmit`.
+- `pnpm test` — run the full Vitest suite.
+- `pnpm lint` — `ultracite check`.
+- `pnpm fix` — `ultracite fix` (auto-fixes most issues).
+- `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:push` / `pnpm db:studio` / `pnpm db:seed` — Drizzle operations.
 
-- Use explicit types for function parameters and return values when they enhance clarity
-- Prefer `unknown` over `any` when the type is genuinely unknown
-- Use const assertions (`as const`) for immutable values and literal types
-- Leverage TypeScript's type narrowing instead of type assertions
-- Use meaningful variable names instead of magic numbers - extract constants with descriptive names
+Before committing, run the checks in this order:
 
-### Modern JavaScript/TypeScript
+1. `pnpm fix` (or `pnpm lint` if you want to see issues first)
+2. `pnpm typecheck`
+3. `pnpm test`
 
-- Use arrow functions for callbacks and short functions
-- Prefer `for...of` loops over `.forEach()` and indexed `for` loops
-- Use optional chaining (`?.`) and nullish coalescing (`??`) for safer property access
-- Prefer template literals over string concatenation
-- Use destructuring for object and array assignments
-- Use `const` by default, `let` only when reassignment is needed, never `var`
+The pre-commit hook runs `pnpm test` and then `pnpm dlx ultracite fix` and re-stages any files it changed.
 
-### Async & Promises
+---
 
-- Always `await` promises in async functions - don't forget to use the return value
-- Use `async/await` syntax instead of promise chains for better readability
-- Handle errors appropriately in async code with try-catch blocks
-- Don't use async functions as Promise executors
+## Local development
 
-### React & JSX
+The app is a single Next.js 16 App Router app. Backend services run in Docker; the Next.js app runs on the host.
 
-- Use function components over class components
-- Call hooks at the top level only, never conditionally
-- Specify all dependencies in hook dependency arrays correctly
-- Use the `key` prop for elements in iterables (prefer unique IDs over array indices)
-- Nest children between opening and closing tags instead of passing as props
-- Don't define components inside other components
-- Use semantic HTML and ARIA attributes for accessibility:
-  - Provide meaningful alt text for images
-  - Use proper heading hierarchy
-  - Add labels for form inputs
-  - Include keyboard event handlers alongside mouse events
-  - Use semantic elements (`<button>`, `<nav>`, etc.) instead of divs with roles
+1. Start **LM Studio** on the host and load an OpenAI-compatible model at `http://localhost:1234/v1`.
+2. Start backing services: `docker compose up`.
+   - Postgres: `localhost:5432` (database `receipts`).
+   - MinIO: API `localhost:9000`, console `localhost:9001`.
+   - Inngest dev server: `localhost:8288`.
+3. In another shell, run `pnpm dev`. The app is at `http://localhost:3000`.
 
-### Error Handling & Debugging
+`docker compose up` only starts services; it does **not** start the Next.js app. The MinIO webhook and Inngest dev server point to `host.docker.internal:3000/api/...`, so the host app must be reachable at `localhost:3000`.
 
-- Remove `console.log`, `debugger`, and `alert` statements from production code
-- Throw `Error` objects with descriptive messages, not strings or other values
-- Use try-catch blocks meaningfully - don't catch errors just to rethrow them
-- Prefer early returns over nested conditionals for error cases
+Local env defaults are in `.env.local` (which is gitignored). Key variables:
 
-### Code Organization
+- `DATABASE_URL`, `MINIO_ENDPOINT`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_WEBHOOK_SECRET`
+- `INNGEST_DEV=1`, `INNGEST_BASE_URL=http://localhost:8288`
+- `LM_STUDIO_URL`, `ORC_MODEL`, `PARSE_MODEL`
 
-- Keep functions focused and under reasonable cognitive complexity limits
-- Extract complex conditions into well-named boolean variables
-- Use early returns to reduce nesting
-- Prefer simple conditionals over nested ternary operators
-- Group related code together and separate concerns
+---
 
-### Security
+## App architecture
 
-- Add `rel="noopener"` when using `target="_blank"` on links
-- Avoid `dangerouslySetInnerHTML` unless absolutely necessary
-- Don't use `eval()` or assign directly to `document.cookie`
-- Validate and sanitize user input
+- **UI**: Next.js App Router, React 19, Tailwind CSS v4, shadcn/ui `base-lyra` style.
+- **Upload flow**: `POST /api/upload` creates a receipt row with `status = uploading` and returns a presigned MinIO URL. The browser uploads directly to MinIO. MinIO sends a bucket-notification `POST /api/minio-events`, which promotes the row to `status = pending` and sends `receipt/uploaded` to Inngest.
+- **Extraction workflow**: `lib/inngest/functions/transcribe-receipt.ts` runs in the Inngest dev server:
+  1. Mark `processing`.
+  2. Download the image from MinIO.
+  3. OCR with a vision model (`ORC_MODEL`).
+  4. Parse the transcript into structured JSON (`PARSE_MODEL`, structured output).
+  5. Store the result in Postgres and publish realtime state on `receipt:<id>`.
+- **Realtime**: UI subscribes to `receipt:<id>` via `lib/inngest/channels.ts` and `lib/inngest/actions.ts`.
+- **Processing status lifecycle**: `uploading` → `pending` → `processing` → `done`/`error`. See `CONTEXT.md` for domain terms.
 
-### Performance
+---
 
-- Avoid spread syntax in accumulators within loops
-- Use top-level regex literals instead of creating them in loops
-- Prefer specific imports over namespace imports
-- Avoid barrel files (index files that re-export everything)
-- Use proper image components (e.g. Next.js `<Image>`) over `<img>` tags
+## Code style
 
-### Framework-Specific Guidance
+- Formatting and linting are handled by **Ultracite** (Oxlint + Oxfmt). Do not run Prettier on the source.
+- `components/ui/**` and `README.md` are ignored by `oxfmt.config.ts` and `oxlint.config.ts` because `components/ui` is shadcn-generated. Do not manually lint or reformat those files.
+- TypeScript is strict; `tsconfig.json` includes `ESNext.Temporal`. The app uses the native `Temporal` global.
 
-**Next.js:**
+## UI and styling
 
-- Use Next.js `<Image>` component for images
-- Use `next/head` or App Router metadata API for head elements
-- Use Server Components for async data fetching instead of async Client Components
+- Use existing **shadcn/ui** primitives from `components/ui/` before building a custom component. The project already has button, card, dialog, input, label, table, toast, etc.
+- Add new shadcn components via the shadcn CLI; generated files land in `components/ui/` and are ignored by the linter/formatter.
+- Use the theme tokens in `app/globals.css` (Tailwind CSS v4, CSS variables, `base-lyra` style). Do not introduce one-off color/spacing values or duplicate the theme elsewhere.
 
-**React 19+:**
+## Types
 
-- Use ref as a prop instead of `React.forwardRef`
+- The database schema in `lib/db/schema/` is the single source of truth for domain types.
+- Derive new types from the Drizzle tables and their Zod schemas (e.g., `createSelectSchema`, `createInsertSchema`, `.pick()`, `.extend()`). Re-export from `lib/db/` when the type is needed in multiple places.
+- Avoid duplicating field definitions in hand-written interfaces.
 
-**Solid/Svelte/Vue/Qwik:**
+---
 
-- Use `class` and `for` attributes (not `className` or `htmlFor`)
+## Database
+
+- Drizzle ORM (`1.0.0-rc.4`) with `pg` and Postgres.
+- Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`. Relations: `lib/db/relations.ts`.
+- Migrations live in `drizzle/` and are generated with `pnpm db:generate`.
+- For local dev you can either run `pnpm db:migrate` after generating or use `pnpm db:push`.
+- `pnpm db:seed` runs `lib/db/seed.ts` via `tsx` and requires a running Postgres.
 
 ---
 
 ## Testing
 
-- Write assertions inside `it()` or `test()` blocks
-- Avoid done callbacks in async tests - use async/await instead
-- Don't use `.only` or `.skip` in committed code
-- Keep test suites reasonably flat - avoid excessive `describe` nesting
-
-## When Oxlint + Oxfmt Can't Help
-
-Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attention on:
-
-1. **Business logic correctness** - Oxlint + Oxfmt can't validate your algorithms
-2. **Meaningful naming** - Use descriptive names for functions, variables, and types
-3. **Architecture decisions** - Component structure, data flow, and API design
-4. **Edge cases** - Handle boundary conditions and error states
-5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
+- Vitest with `globals: true`. The `@/` alias is mapped in `vitest.config.ts`.
+- Run the whole suite: `pnpm test`.
+- Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
+- Current tests are mostly unit tests with mocked DB / AI / MinIO; they do not require Postgres, MinIO, or LM Studio.
 
 ---
 
-Most formatting and common issues are automatically fixed by Oxlint + Oxfmt. Run `pnpm dlx ultracite fix` before committing to ensure compliance.
+## AI / local models
+
+- The AI provider is in `lib/ai/provider.ts` and uses `@ai-sdk/openai-compatible` pointing at LM Studio.
+- Default models are `glm-ocr@q8_0` (OCR) and `google/gemma-4-e4b` (parsing), configurable via `ORC_MODEL` and `PARSE_MODEL`.
+- The extraction contract is `lib/db/contract.ts` (`ReceiptInformationExtractionSchema`).
+
+---
+
+## Gotchas
+
+- `Dockerfile` installs `pnpm@11.12.0` but `package.json` pins `pnpm@11.19.0`. Align these if you change either.
+- The pre-commit hook will auto-format and re-stage files. If it fails, inspect the hook output rather than manually re-running `git add`.
+- The dev server binds to `0.0.0.0` so the Docker-hosted services can reach it via `host.docker.internal`.
+- MinIO webhook auth must match `MINIO_WEBHOOK_SECRET` (the bucket notification uses `Authorization: Bearer <secret>`).
+- `zod` is at v4. Some files import from `"zod"` and some from `"zod/v4"`; both resolve to v4. Prefer `"zod"` unless the file already uses `"zod/v4"`.

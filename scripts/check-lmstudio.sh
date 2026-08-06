@@ -1,13 +1,35 @@
 #!/bin/sh
-# Smoke check that the Next.js container can resolve the host LM Studio endpoint.
-# This script is non-blocking; it only logs the result.
-set -e
+set -eu
 
-LM_STUDIO_URL="${LM_STUDIO_URL:-http://host.docker.internal:1234/v1}"
+HOST="${LM_STUDIO_HOST:-host.docker.internal}"
+PORT="${LM_STUDIO_PORT:-1234}"
+RETRIES="${LM_STUDIO_RETRIES:-5}"
+INTERVAL="${LM_STUDIO_RETRY_INTERVAL:-2}"
 
-echo "Checking LM Studio connectivity at ${LM_STUDIO_URL} ..."
-if curl -sf "${LM_STUDIO_URL}/models" >/dev/null 2>&1; then
-  echo "LM Studio is reachable at ${LM_STUDIO_URL}"
-else
-  echo "WARNING: LM Studio is not reachable at ${LM_STUDIO_URL} (it should be running on the host)"
-fi
+check_lmstudio() {
+  node -e "
+    const opts = { hostname: '$HOST', port: $PORT, path: '/v1/models', timeout: 3000 };
+    const req = require('http').get(opts, (res) => {
+      process.exit(res.statusCode === 200 ? 0 : 1);
+    });
+    req.on('error', () => process.exit(1));
+    req.on('timeout', () => { req.destroy(); process.exit(1); });
+  "
+}
+
+echo "Checking LM Studio at ${HOST}:${PORT}..."
+
+count=0
+until check_lmstudio; do
+  count=$((count + 1))
+  if [ "$count" -ge "$RETRIES" ]; then
+    echo "⚠️  LM Studio not reachable after $((RETRIES * INTERVAL))s."
+    echo "⚠️  Starting anyway — AI features will fail until LM Studio is available."
+    exit 0
+  fi
+  echo "LM Studio not ready, retrying in ${INTERVAL}s... ($count/$RETRIES)"
+  sleep "$INTERVAL"
+done
+
+echo "✅ LM Studio is reachable"
+exit 0

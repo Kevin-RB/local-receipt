@@ -47,15 +47,17 @@ export const POST = async (request: Request) => {
 
   const { contentType } = parsed.data;
 
-  const receiptId = randomUUID();
+  const objectId = randomUUID();
   const ext = extensionForMime(contentType);
-  const objectKey = `${receiptId}.${ext}`;
+  const objectKey = `${objectId}.${ext}`;
 
-  await db.insert(receipts).values({
-    id: receiptId,
-    minioObjectKey: objectKey,
-    status: "uploading",
-  });
+  const [{ receiptId }] = await db
+    .insert(receipts)
+    .values({
+      minioObjectKey: objectKey,
+      status: "uploading",
+    })
+    .returning({ receiptId: receipts.id });
 
   const uploadUrl = await createPresignedUrl({
     bucket: BUCKET,
