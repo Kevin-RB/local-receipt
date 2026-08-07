@@ -5,6 +5,7 @@ import { BadgeAlert, Eye, FileCheck } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod/v4";
 
+import type { DataTableFeatures } from "@/components/receipts/features";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -37,9 +38,9 @@ const dateFormatter = new Intl.DateTimeFormat("en-AU", {
   timeZone: "Australia/Brisbane",
 });
 
-const columnHelper = createColumnHelper<ReceiptTable>();
+const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
 
-export const receiptColumns = [
+export const receiptColumns = columnHelper.columns([
   columnHelper.accessor("status", {
     cell: ({ row }) => {
       const { status } = row.original;
@@ -50,7 +51,6 @@ export const receiptColumns = [
   columnHelper.accessor("transactionDateTime", {
     cell: ({ row }) => {
       const { transactionDateTime } = row.original;
-      // Parse the stored value into a Temporal Instant
       const instant = transactionDateTime.toTemporalInstant();
       return <div className="text-right">{dateFormatter.format(instant)}</div>;
     },
@@ -115,4 +115,4 @@ export const receiptColumns = [
     header: "Actions",
     id: "actions",
   }),
-];
+]);

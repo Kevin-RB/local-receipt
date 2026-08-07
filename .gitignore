@@ -9,6 +9,7 @@ prototype/
 Receipts/
 !app/receipts/
 !app/api/receipts/
+!components/receipts/
 .agents/
 .vscode/
 .claude/

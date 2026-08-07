@@ -1,8 +1,8 @@
 import z from "zod";
 
-import { receiptColumns } from "@/app/columns";
-import type { ReceiptTable } from "@/app/columns";
-import { DataTable } from "@/app/data-table";
+import { receiptColumns } from "@/components/receipts/columns";
+import type { ReceiptTable } from "@/components/receipts/columns";
+import { DataTable } from "@/components/receipts/table";
 import { UploadFlow } from "@/components/upload-flow";
 import { listReceipts } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";

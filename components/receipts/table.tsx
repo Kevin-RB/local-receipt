@@ -1,14 +1,10 @@
 "use client";
 
-/* eslint-disable react-compiler */
+import { useTable } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 
-import type { ColumnDef } from "@tanstack/react-table";
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-
+import { features } from "@/components/receipts/features";
+import type { DataTableFeatures } from "@/components/receipts/features";
 import {
   Table,
   TableBody,
@@ -18,22 +14,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// TValue is erased at the table boundary: each column carries its own precise
-// TValue (via createColumnHelper), and ColumnDef is invariant in TValue, so no
-// single TValue can type a heterogeneous columns array. TanStack's own
-// TableOptions uses ColumnDef<TData, any>[] here for the same reason.
-interface DataTableProps<TData> {
-  // oxlint-disable-next-line no-explicit-any
-  columns: ColumnDef<TData, any>[];
+interface DataTableProps<TData extends RowData> {
+  columns: ColumnDef<DataTableFeatures, TData>[];
   data: TData[];
 }
 
-export const DataTable = <TData,>({ columns, data }: DataTableProps<TData>) => {
-  "use no memo";
-  const table = useReactTable({
+export const DataTable = <TData extends RowData>({
+  columns,
+  data,
+}: DataTableProps<TData>) => {
+  const table = useTable({
     columns,
     data,
-    getCoreRowModel: getCoreRowModel(),
+    features,
   });
 
   return (
@@ -44,12 +37,9 @@ export const DataTable = <TData,>({ columns, data }: DataTableProps<TData>) => {
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+                  {header.isPlaceholder ? null : (
+                    <table.FlexRender header={header} />
+                  )}
                 </TableHead>
               ))}
             </TableRow>
@@ -62,9 +52,9 @@ export const DataTable = <TData,>({ columns, data }: DataTableProps<TData>) => {
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
               >
-                {row.getVisibleCells().map((cell) => (
+                {row.getAllCells().map((cell) => (
                   <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <table.FlexRender cell={cell} />
                   </TableCell>
                 ))}
               </TableRow>
