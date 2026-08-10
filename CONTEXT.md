@@ -21,3 +21,5 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Processing status**: The lifecycle state of a receipt row: `uploading`, `pending`, `processing`, `done`, or `error`. _Avoid_: Status, job state, run state.
 
 **Integrity warning**: A flag on a completed receipt indicating the extracted line items do not sum to the stated total. The receipt is still stored, but the user is warned. _Avoid_: Validation error, mismatch flag.
+
+**Manual edit**: A user's correction of the stored extraction on a completed receipt. Available only when the processing status is `done`, and covers merchant, payment, totals, transaction, and line items. _Avoid_: Edit, amendment, correction (too generic — use "manual edit" when contrasting with AI-extracted data).

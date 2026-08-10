@@ -64,5 +64,10 @@
     "ultracite": "7.9.3",
     "vitest": "^3.2.1",
     "zod": "^4.4.3"
+  },
+  "intent": {
+    "skills": [
+      "@tanstack/*"
+    ]
   }
 }
