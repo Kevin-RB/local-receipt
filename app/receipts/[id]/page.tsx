@@ -34,12 +34,7 @@ const ReceiptImage = ({
   receiptId: string;
   className?: string;
 }) => (
-  <div
-    className={cn(
-      "relative min-h-[400px] rounded-lg border bg-muted",
-      className
-    )}
-  >
+  <div className={cn("relative min-h-[400px]", className)}>
     {hasImage ? (
       <Image
         alt="Receipt image"
