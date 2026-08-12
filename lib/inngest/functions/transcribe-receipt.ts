@@ -15,6 +15,7 @@ import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { receiptDateTimeToDate } from "@/lib/inngest/helper-functions";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
+import { computeIntegrityWarning } from "@/lib/receipt/integrity";
 
 const isApiUnreachable = (error: unknown): boolean => {
   if (!APICallError.isInstance(error)) {
@@ -46,17 +47,6 @@ const LM_STUDIO_URL = process.env.LM_STUDIO_URL ?? "http://localhost:1234/v1";
 
 const setReceiptStatus = (id: string, status: ProcessingStatus) =>
   db.update(receipts).set({ status }).where(eq(receipts.id, id));
-
-const CENTS_EPSILON = 0.01;
-
-const hasIntegrityMismatch = (total: number, lineTotals: number[]): boolean => {
-  const lineSum = lineTotals.reduce(
-    (sum, currentTotal) => sum + currentTotal,
-    0
-  );
-  const diff = Math.abs(lineSum - total);
-  return diff >= CENTS_EPSILON;
-};
 
 const itemsSchema = receiptItemInsertSchema
   .omit({ id: true, receiptId: true })
@@ -194,9 +184,9 @@ export const transcribeReceipt = inngest.createFunction(
       );
     }
 
-    const integrityWarning = hasIntegrityMismatch(
-      extraction.totals.total,
-      extraction.items.map((item) => item.lineTotal)
+    const integrityWarning = computeIntegrityWarning(
+      extraction.items.map((item) => ({ lineTotal: item.lineTotal })),
+      { total: extraction.totals.total }
     );
 
     await step.realtime.publish("publish-storing", ch.state, {

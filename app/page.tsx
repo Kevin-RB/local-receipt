@@ -33,14 +33,13 @@ export default async function Home() {
   const receipts = await getReceiptData();
 
   return (
-    <main className="flex min-h-svh flex-col gap-6 p-6">
+    <main className="container mx-auto flex min-h-svh flex-col gap-6 p-6">
       <h1 className="text-2xl font-bold">Possum Receipts</h1>
       <div className="flex justify-center">
         <UploadFlow />
       </div>
-      <section className="mx-auto w-full max-w-5xl">
+      <section className="mx-auto w-full">
         <h2 className="text-lg font-semibold">Receipts</h2>
-        {/* <ReceiptsDataTable receipts={receipts} /> */}
         <DataTable columns={receiptColumns} data={receipts} />
       </section>
     </main>
