@@ -17,11 +17,15 @@ import {
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldError,
+  FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
@@ -83,19 +87,6 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => ({
       receipt.transaction?.receiptNumber ?? receipt.receiptNumber ?? undefined,
   },
 });
-
-const Section = ({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) => (
-  <section>
-    <h2 className="mb-4 font-heading text-sm font-medium">{title}</h2>
-    <div className="space-y-3">{children}</div>
-  </section>
-);
 
 const FormFieldError = ({ error }: { error?: { message?: string } }) =>
   error?.message ? <FieldError errors={[{ message: error.message }]} /> : null;
@@ -169,147 +160,169 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
         </CardHeader>
 
         <CardContent>
-          <Section title="Merchant">
-            <Field data-invalid={!!errors.merchant?.name}>
-              <FieldLabel>Name</FieldLabel>
-              <FieldContent>
-                <Input
-                  {...register("merchant.name")}
-                  placeholder="Store name"
-                />
-                <FormFieldError error={errors.merchant?.name} />
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldLabel>Address</FieldLabel>
-              <FieldContent>
-                <Input
-                  {...register("merchant.address")}
-                  placeholder="Street address"
-                />
-              </FieldContent>
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field>
-                <FieldLabel>ABN</FieldLabel>
+          <FieldGroup>
+            <FieldSet>
+              <FieldLegend>Merchant</FieldLegend>
+              <FieldDescription>
+                The merchant information is used to identify the store where the
+                purchase was made.
+              </FieldDescription>
+              <Field data-invalid={!!errors.merchant?.name}>
+                <FieldLabel>Name</FieldLabel>
                 <FieldContent>
                   <Input
-                    {...register("merchant.abn")}
-                    placeholder="00 000 000 000"
+                    {...register("merchant.name")}
+                    placeholder="Store name"
+                  />
+                  <FormFieldError error={errors.merchant?.name} />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Address</FieldLabel>
+                <FieldContent>
+                  <Input
+                    {...register("merchant.address")}
+                    placeholder="Street address"
                   />
                 </FieldContent>
               </Field>
-              <Field>
-                <FieldLabel>Store ID</FieldLabel>
-                <FieldContent>
-                  <Input {...register("merchant.storeId")} placeholder="1234" />
-                </FieldContent>
-              </Field>
-            </div>
-          </Section>
+              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>ABN</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      {...register("merchant.abn")}
+                      placeholder="00 000 000 000"
+                    />
+                  </FieldContent>
+                </Field>
+                <Field>
+                  <FieldLabel>Store ID</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      {...register("merchant.storeId")}
+                      placeholder="1234"
+                    />
+                  </FieldContent>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
 
-          <Separator className="my-(--card-spacing)" />
+            <FieldSeparator />
 
-          <Section title="Transaction">
-            <Field>
-              <FieldLabel>Date &amp; Time</FieldLabel>
-              <FieldContent>
-                <Input
-                  type="datetime-local"
-                  {...register("transaction.datetime")}
-                />
-              </FieldContent>
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FieldSet>
+              <FieldLegend>Transaction</FieldLegend>
+              <FieldDescription>
+                When the purchase was made, the receipt number, and how it was
+                paid.
+              </FieldDescription>
               <Field>
-                <FieldLabel>Receipt Number</FieldLabel>
+                <FieldLabel>Date &amp; Time</FieldLabel>
                 <FieldContent>
                   <Input
-                    {...register("transaction.receiptNumber")}
-                    placeholder="0001"
+                    type="datetime-local"
+                    {...register("transaction.datetime")}
                   />
                 </FieldContent>
               </Field>
-              <Field>
-                <FieldLabel>Payment Method</FieldLabel>
-                <FieldContent>
-                  <Input {...register("payment.method")} placeholder="card" />
-                </FieldContent>
-              </Field>
-            </div>
-          </Section>
+              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>Receipt Number</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      {...register("transaction.receiptNumber")}
+                      placeholder="0001"
+                    />
+                  </FieldContent>
+                </Field>
+                <Field>
+                  <FieldLabel>Payment Method</FieldLabel>
+                  <FieldContent>
+                    <Input {...register("payment.method")} placeholder="card" />
+                  </FieldContent>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
 
-          <Separator className="my-(--card-spacing)" />
+            <FieldSeparator />
 
-          <Section title="Totals">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field>
-                <FieldLabel>Subtotal</FieldLabel>
-                <FieldContent>
-                  <Input
-                    min="0"
-                    step="0.01"
-                    type="number"
-                    {...register("totals.subtotal", {
-                      setValueAs: toOptionalNumber,
-                    })}
-                  />
-                  <FormFieldError error={errors.totals?.subtotal} />
-                </FieldContent>
-              </Field>
-              <Field>
-                <FieldLabel>GST</FieldLabel>
-                <FieldContent>
-                  <Input
-                    min="0"
-                    step="0.01"
-                    type="number"
-                    {...register("totals.gst", {
-                      setValueAs: toOptionalNumber,
-                    })}
-                  />
-                  <FormFieldError error={errors.totals?.gst} />
-                </FieldContent>
-              </Field>
-              <Field data-invalid={!!errors.totals?.total}>
-                <FieldLabel>Total</FieldLabel>
-                <FieldContent>
-                  <Input
-                    aria-invalid={!!errors.totals?.total}
-                    min="0"
-                    step="0.01"
-                    type="number"
-                    {...register("totals.total", {
-                      setValueAs: toRequiredNumber,
-                    })}
-                  />
-                  <FormFieldError error={errors.totals?.total} />
-                </FieldContent>
-              </Field>
-            </div>
-          </Section>
+            <FieldSet>
+              <FieldLegend>Totals</FieldLegend>
+              <FieldDescription>
+                The amounts shown on the receipt, before and after tax.
+              </FieldDescription>
+              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel>Subtotal</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      min="0"
+                      step="0.01"
+                      type="number"
+                      {...register("totals.subtotal", {
+                        setValueAs: toOptionalNumber,
+                      })}
+                    />
+                    <FormFieldError error={errors.totals?.subtotal} />
+                  </FieldContent>
+                </Field>
+                <Field>
+                  <FieldLabel>GST</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      min="0"
+                      step="0.01"
+                      type="number"
+                      {...register("totals.gst", {
+                        setValueAs: toOptionalNumber,
+                      })}
+                    />
+                    <FormFieldError error={errors.totals?.gst} />
+                  </FieldContent>
+                </Field>
+                <Field data-invalid={!!errors.totals?.total}>
+                  <FieldLabel>Total</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      aria-invalid={!!errors.totals?.total}
+                      min="0"
+                      step="0.01"
+                      type="number"
+                      {...register("totals.total", {
+                        setValueAs: toRequiredNumber,
+                      })}
+                    />
+                    <FormFieldError error={errors.totals?.total} />
+                  </FieldContent>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
 
-          <Separator className="my-(--card-spacing)" />
+            <FieldSeparator />
 
-          <Section title="Items">
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div className="rounded-lg border p-3" key={field.id}>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <Field data-invalid={!!errors.items?.[index]?.name}>
-                        <FieldLabel>Name</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            placeholder="Item name"
-                            {...register(`items.${index}.name` as const)}
-                          />
-                          <FormFieldError error={errors.items?.[index]?.name} />
-                        </FieldContent>
-                      </Field>
-                    </div>
+            <FieldSet>
+              <FieldLegend>Items</FieldLegend>
+              <FieldDescription>
+                The individual lines on the receipt, one per product or service.
+              </FieldDescription>
+              <FieldGroup className="space-y-3">
+                {fields.map((field, index) => (
+                  <FieldGroup
+                    key={field.id}
+                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3"
+                  >
+                    <Field data-invalid={!!errors.items?.[index]?.name}>
+                      <FieldLabel>Name</FieldLabel>
+                      <FieldContent>
+                        <Input
+                          placeholder="Item name"
+                          {...register(`items.${index}.name` as const)}
+                        />
+                        <FormFieldError error={errors.items?.[index]?.name} />
+                      </FieldContent>
+                    </Field>
                     <Field>
-                      <FieldLabel>Qty</FieldLabel>
+                      <FieldLabel>Quantity</FieldLabel>
                       <FieldContent>
                         <Input
                           min="0"
@@ -340,58 +353,56 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                         />
                       </FieldContent>
                     </Field>
-                    <div className="col-span-2">
-                      <Field data-invalid={!!errors.items?.[index]?.lineTotal}>
-                        <FieldLabel>Line Total</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            aria-invalid={!!errors.items?.[index]?.lineTotal}
-                            min="0"
-                            step="0.01"
-                            type="number"
-                            {...register(`items.${index}.lineTotal` as const, {
-                              setValueAs: toRequiredNumber,
-                            })}
-                          />
-                          <FormFieldError
-                            error={errors.items?.[index]?.lineTotal}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex justify-end">
+                    <Field data-invalid={!!errors.items?.[index]?.lineTotal}>
+                      <FieldLabel>Line Total</FieldLabel>
+                      <FieldContent>
+                        <Input
+                          aria-invalid={!!errors.items?.[index]?.lineTotal}
+                          min="0"
+                          step="0.01"
+                          type="number"
+                          {...register(`items.${index}.lineTotal` as const, {
+                            setValueAs: toRequiredNumber,
+                          })}
+                        />
+                        <FormFieldError
+                          error={errors.items?.[index]?.lineTotal}
+                        />
+                      </FieldContent>
+                    </Field>
+
                     <Button
                       aria-label="Remove item"
+                      className="self-end"
                       onClick={() => remove(index)}
                       type="button"
                       variant="ghost"
+                      size="icon"
                     >
-                      <Trash2 data-icon="inline-start" />
-                      Remove
+                      <Trash2 />
                     </Button>
-                  </div>
-                </div>
-              ))}
+                  </FieldGroup>
+                ))}
 
-              <Button
-                className={cn(fields.length === 0 && "w-full")}
-                onClick={() =>
-                  append({
-                    lineTotal: Number.NaN,
-                    name: "",
-                    quantity: undefined,
-                    unitPrice: undefined,
-                  })
-                }
-                type="button"
-                variant="outline"
-              >
-                <Plus data-icon="inline-start" />
-                Add Item
-              </Button>
-            </div>
-          </Section>
+                <Button
+                  className={cn(fields.length === 0 && "w-full")}
+                  onClick={() =>
+                    append({
+                      lineTotal: Number.NaN,
+                      name: "",
+                      quantity: undefined,
+                      unitPrice: undefined,
+                    })
+                  }
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus data-icon="inline-start" />
+                  Add Item
+                </Button>
+              </FieldGroup>
+            </FieldSet>
+          </FieldGroup>
         </CardContent>
 
         <CardFooter className="justify-end">
