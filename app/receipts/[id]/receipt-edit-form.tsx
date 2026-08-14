@@ -26,14 +26,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/components/ui/toast";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -67,13 +60,21 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   other: "Other",
 };
 
-const paymentMethodItems: { label: string; value: PaymentMethod | null }[] = [
-  { label: "No payment method", value: null },
-  ...paymentMethodEnum.options.map((value) => ({
-    label: paymentMethodLabels[value],
-    value,
-  })),
-];
+const paymentMethodDescriptions: Record<PaymentMethod, string> = {
+  card: "Visa, Mastercard, EFTPOS, debit or credit",
+  cash: "Notes and coins",
+  other: "Cheque, gift card or unrecognised",
+};
+
+const paymentMethodOptions: {
+  description: string;
+  label: string;
+  value: PaymentMethod;
+}[] = paymentMethodEnum.options.map((value) => ({
+  description: paymentMethodDescriptions[value],
+  label: paymentMethodLabels[value],
+  value,
+}));
 
 const normalizeDatetime = (value: string | undefined) => {
   if (!value) {
@@ -236,8 +237,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
             <FieldSet>
               <FieldLegend>Transaction</FieldLegend>
               <FieldDescription>
-                When the purchase was made, the receipt number, and how it was
-                paid.
+                When the purchase was made and the receipt number.
               </FieldDescription>
               <Field>
                 <FieldLabel>Date &amp; Time</FieldLabel>
@@ -248,55 +248,51 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   />
                 </FieldContent>
               </Field>
-              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel>Receipt Number</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      {...register("transaction.receiptNumber")}
-                      placeholder="0001"
-                    />
-                  </FieldContent>
-                </Field>
-                <Field data-invalid={!!errors.payment?.method}>
-                  <FieldLabel>Payment Method</FieldLabel>
-                  <FieldContent>
-                    <Controller
-                      control={control}
-                      name="payment.method"
-                      render={({ field }) => (
-                        <Select
-                          items={paymentMethodItems}
-                          onValueChange={(value) =>
-                            field.onChange(value ?? undefined)
-                          }
-                          value={field.value ?? null}
-                        >
-                          <SelectTrigger
-                            aria-invalid={!!errors.payment?.method}
-                            className="w-full"
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {paymentMethodItems.map((item) => (
-                                <SelectItem
-                                  key={item.value ?? "none"}
-                                  value={item.value}
-                                >
-                                  {item.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    <FormFieldError error={errors.payment?.method} />
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
+              <Field>
+                <FieldLabel>Receipt Number</FieldLabel>
+                <FieldContent>
+                  <Input
+                    {...register("transaction.receiptNumber")}
+                    placeholder="0001"
+                  />
+                </FieldContent>
+              </Field>
+            </FieldSet>
+
+            <FieldSeparator />
+
+            <FieldSet>
+              <FieldLegend>Payment Method</FieldLegend>
+              <Controller
+                control={control}
+                name="payment.method"
+                render={({ field }) => (
+                  <RadioGroup
+                    onValueChange={(value) => field.onChange(value)}
+                    value={field.value}
+                  >
+                    {paymentMethodOptions.map((option) => (
+                      <FieldLabel
+                        key={option.value}
+                        htmlFor={`payment-${option.value}`}
+                      >
+                        <Field orientation="horizontal">
+                          <FieldContent>
+                            <div className="font-medium">{option.label}</div>
+                            <FieldDescription>
+                              {option.description}
+                            </FieldDescription>
+                          </FieldContent>
+                          <RadioGroupItem
+                            id={`payment-${option.value}`}
+                            value={option.value}
+                          />
+                        </Field>
+                      </FieldLabel>
+                    ))}
+                  </RadioGroup>
+                )}
+              />
             </FieldSet>
 
             <FieldSeparator />
