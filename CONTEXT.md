@@ -22,4 +22,14 @@ A local-first web app that turns photos of paper receipts into structured, persi
 
 **Integrity warning**: A flag on a completed receipt indicating the extracted line items do not sum to the stated total. The receipt is still stored, but the user is warned. _Avoid_: Validation error, mismatch flag.
 
-**Manual edit**: A user's correction of the stored extraction on a completed receipt. Available only when the processing status is `done`, and covers merchant, payment, totals, transaction, and line items. _Avoid_: Edit, amendment, correction (too generic — use "manual edit" when contrasting with AI-extracted data).
+**Manual edit**: A user's correction of the stored extraction on a completed receipt. Available only when the processing status is `done`, and covers merchant, payment method, totals, transaction, and line items. _Avoid_: Edit, amendment, correction (too generic — use "manual edit" when contrasting with AI-extracted data).
+
+**Merchant**: The business the purchase was made at. A merchant may operate several stores, distinguished by store ID. _Avoid_: Vendor, retailer, business, store.
+
+**Payment method**: How a receipt was paid, drawn from a controlled set: `cash`, `card`, or `other` (for any unrecognized value). _Avoid_: Payment, tender type, payment type.
+
+**Transaction datetime**: The date and time the purchase was made. Distinct from the upload time (when the receipt image was added). _Avoid_: Purchase date, receipt date.
+
+**Totals**: The money amounts stated on a receipt: a required total, plus optional subtotal and GST. _Avoid_: Sum, grand total, amount.
+
+**Line item**: A single product or service line on a receipt, with a name, quantity, unit price, and line total. A discount is a line item with a negative line total. _Avoid_: Item, entry, row.

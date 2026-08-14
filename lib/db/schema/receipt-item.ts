@@ -1,4 +1,4 @@
-import { numeric, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { numeric, snakeCase, text, uuid } from "drizzle-orm/pg-core";
 import {
   createInsertSchema,
   createSelectSchema,
@@ -8,7 +8,7 @@ import type z from "zod";
 
 import { receipts } from "@/lib/db/schema/receipt";
 
-export const receiptItems = pgTable("receipt_items", {
+export const receiptItems = snakeCase.table("receipt_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   lineTotal: numeric("line_total", {
     mode: "number",
