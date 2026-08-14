@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { IntegrityBadge } from "@/components/integrity-badge";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,17 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
-import type { ReceiptSelect } from "@/lib/db/schema/receipt";
+import { paymentMethodEnum } from "@/lib/db/schema/receipt";
+import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
 import { cn } from "@/lib/utils";
@@ -51,6 +60,20 @@ const toOptionalNumber = (value: string) =>
 
 const toRequiredNumber = (value: string) =>
   value === "" ? Number.NaN : Number(value);
+
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  card: "Card",
+  cash: "Cash",
+  other: "Other",
+};
+
+const paymentMethodItems: { label: string; value: PaymentMethod | null }[] = [
+  { label: "No payment method", value: null },
+  ...paymentMethodEnum.options.map((value) => ({
+    label: paymentMethodLabels[value],
+    value,
+  })),
+];
 
 const normalizeDatetime = (value: string | undefined) => {
   if (!value) {
@@ -235,10 +258,42 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                     />
                   </FieldContent>
                 </Field>
-                <Field>
+                <Field data-invalid={!!errors.payment?.method}>
                   <FieldLabel>Payment Method</FieldLabel>
                   <FieldContent>
-                    <Input {...register("payment.method")} placeholder="card" />
+                    <Controller
+                      control={control}
+                      name="payment.method"
+                      render={({ field }) => (
+                        <Select
+                          items={paymentMethodItems}
+                          onValueChange={(value) =>
+                            field.onChange(value ?? undefined)
+                          }
+                          value={field.value ?? null}
+                        >
+                          <SelectTrigger
+                            aria-invalid={!!errors.payment?.method}
+                            className="w-full"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {paymentMethodItems.map((item) => (
+                                <SelectItem
+                                  key={item.value ?? "none"}
+                                  value={item.value}
+                                >
+                                  {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    <FormFieldError error={errors.payment?.method} />
                   </FieldContent>
                 </Field>
               </FieldGroup>

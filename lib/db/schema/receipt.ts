@@ -44,8 +44,11 @@ export const Totals = z.strictObject({
 });
 export type Totals = z.infer<typeof Totals>;
 
+export const paymentMethodEnum = z.enum(["cash", "card", "other"]);
+export type PaymentMethod = z.infer<typeof paymentMethodEnum>;
+
 export const Payment = z.strictObject({
-  method: z.string().optional(),
+  method: paymentMethodEnum.optional(),
 });
 export type Payment = z.infer<typeof Payment>;
 

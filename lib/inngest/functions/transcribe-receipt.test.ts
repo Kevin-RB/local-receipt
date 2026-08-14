@@ -17,7 +17,7 @@ const mockExtraction: ReceiptInformationExtraction = {
     { lineTotal: 12.9, name: "SRIRACHA CHICKEN" },
   ],
   merchant: { name: "Test Cafe" },
-  payment: { method: "VISA" },
+  payment: { method: "card" },
   totals: { total: 17.4 },
   transaction: { datetime: "2025-01-15T10:30:00Z", receiptNumber: "ABC123" },
 };
@@ -141,7 +141,7 @@ describe("transcribeReceipt function", () => {
     const fullExtraction: ReceiptInformationExtraction = {
       items: [{ lineTotal: 10, name: "Product" }],
       merchant: { abn: "12345678901", name: "Full Store" },
-      payment: { method: "EFTPOS" },
+      payment: { method: "card" },
       totals: { gst: 0.91, subtotal: 9.09, total: 10 },
       transaction: {
         datetime: "2025-06-01T12:00:00Z",
