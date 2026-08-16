@@ -268,6 +268,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 name="payment.method"
                 render={({ field }) => (
                   <RadioGroup
+                    className="grid grid-cols-1 gap-3 sm:grid-cols-3"
                     onValueChange={(value) => field.onChange(value)}
                     value={field.value}
                   >
