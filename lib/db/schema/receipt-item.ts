@@ -1,4 +1,4 @@
-import { numeric, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { numeric, snakeCase, text, uuid } from "drizzle-orm/pg-core";
 import {
   createInsertSchema,
   createSelectSchema,
@@ -8,19 +8,15 @@ import type z from "zod";
 
 import { receipts } from "@/lib/db/schema/receipt";
 
-export const receiptItems = pgTable("receipt_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  lineTotal: numeric("line_total", {
-    mode: "number",
-    precision: 10,
-    scale: 2,
-  }).notNull(),
-  name: text("name").notNull(),
-  quantity: numeric("quantity", { mode: "number" }),
-  receiptId: uuid("receipt_id")
+export const receiptItems = snakeCase.table("receipt_items", {
+  id: uuid().primaryKey().defaultRandom(),
+  lineTotal: numeric({ mode: "number", precision: 10, scale: 2 }).notNull(),
+  name: text().notNull(),
+  quantity: numeric({ mode: "number" }),
+  receiptId: uuid()
     .notNull()
     .references(() => receipts.id, { onDelete: "cascade" }),
-  unitPrice: numeric("unit_price", { mode: "number", precision: 10, scale: 2 }),
+  unitPrice: numeric({ mode: "number", precision: 10, scale: 2 }),
 });
 
 export const receiptItemSelectSchema = createSelectSchema(receiptItems);

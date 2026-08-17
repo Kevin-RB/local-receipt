@@ -180,6 +180,19 @@ describe(updateReceipt, () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
+  it("rejects payloads with a non-enum payment method", async () => {
+    const result = await updateReceipt({
+      ...validInput,
+      payment: { method: "VISA" },
+    } as unknown as UpdateReceiptInput);
+
+    expect(result).toStrictEqual({
+      error: "Validation failed",
+      success: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
   it("rejects payloads with an invalid receipt id", async () => {
     const result = await updateReceipt({
       ...validInput,

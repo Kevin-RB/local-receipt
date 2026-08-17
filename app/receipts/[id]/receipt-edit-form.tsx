@@ -3,7 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import type z from "zod";
 
 import { IntegrityBadge } from "@/components/integrity-badge";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,13 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/components/ui/toast";
-import type { ReceiptSelect } from "@/lib/db/schema/receipt";
+import { paymentMethodEnum } from "@/lib/db/schema/receipt";
+import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import { normalizePaymentMethod } from "@/lib/receipt/payment-method";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -44,13 +48,35 @@ interface ReceiptEditFormProps {
   receipt: ReceiptWithItems;
 }
 
-type FormValues = UpdateReceiptInput;
+type FormValues = z.input<typeof updateReceiptSchema>;
 
 const toOptionalNumber = (value: string) =>
   value === "" ? undefined : Number(value);
 
 const toRequiredNumber = (value: string) =>
   value === "" ? Number.NaN : Number(value);
+
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  card: "Card",
+  cash: "Cash",
+  other: "Other",
+};
+
+const paymentMethodDescriptions: Record<PaymentMethod, string> = {
+  card: "Visa, Mastercard, EFTPOS, debit or credit",
+  cash: "Notes and coins",
+  other: "Cheque, gift card or unrecognised",
+};
+
+const paymentMethodOptions: {
+  description: string;
+  label: string;
+  value: PaymentMethod;
+}[] = paymentMethodEnum.options.map((value) => ({
+  description: paymentMethodDescriptions[value],
+  label: paymentMethodLabels[value],
+  value,
+}));
 
 const normalizeDatetime = (value: string | undefined) => {
   if (!value) {
@@ -73,7 +99,7 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => ({
     storeId: receipt.merchant?.storeId,
   },
   payment: {
-    method: receipt.payment?.method,
+    method: normalizePaymentMethod(receipt.payment),
   },
   receiptId: receipt.id,
   totals: {
@@ -97,7 +123,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
-  } = useForm<FormValues>({
+  } = useForm<FormValues, undefined, UpdateReceiptInput>({
     defaultValues: buildDefaultValues(receipt),
     resolver: zodResolver(updateReceiptSchema),
   });
@@ -126,7 +152,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     [watchedItems, watchedTotals]
   );
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: UpdateReceiptInput) => {
     const result = await updateReceipt({
       ...data,
       transaction: {
@@ -213,8 +239,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
             <FieldSet>
               <FieldLegend>Transaction</FieldLegend>
               <FieldDescription>
-                When the purchase was made, the receipt number, and how it was
-                paid.
+                When the purchase was made and the receipt number.
               </FieldDescription>
               <Field>
                 <FieldLabel>Date &amp; Time</FieldLabel>
@@ -225,23 +250,52 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   />
                 </FieldContent>
               </Field>
-              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel>Receipt Number</FieldLabel>
-                  <FieldContent>
-                    <Input
-                      {...register("transaction.receiptNumber")}
-                      placeholder="0001"
-                    />
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel>Payment Method</FieldLabel>
-                  <FieldContent>
-                    <Input {...register("payment.method")} placeholder="card" />
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
+              <Field>
+                <FieldLabel>Receipt Number</FieldLabel>
+                <FieldContent>
+                  <Input
+                    {...register("transaction.receiptNumber")}
+                    placeholder="0001"
+                  />
+                </FieldContent>
+              </Field>
+            </FieldSet>
+
+            <FieldSeparator />
+
+            <FieldSet>
+              <FieldLegend>Payment Method</FieldLegend>
+              <Controller
+                control={control}
+                name="payment.method"
+                render={({ field }) => (
+                  <RadioGroup
+                    className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                    onValueChange={(value) => field.onChange(value)}
+                    value={field.value}
+                  >
+                    {paymentMethodOptions.map((option) => (
+                      <FieldLabel
+                        key={option.value}
+                        htmlFor={`payment-${option.value}`}
+                      >
+                        <Field orientation="horizontal">
+                          <FieldContent>
+                            <div className="font-medium">{option.label}</div>
+                            <FieldDescription>
+                              {option.description}
+                            </FieldDescription>
+                          </FieldContent>
+                          <RadioGroupItem
+                            id={`payment-${option.value}`}
+                            value={option.value}
+                          />
+                        </Field>
+                      </FieldLabel>
+                    ))}
+                  </RadioGroup>
+                )}
+              />
             </FieldSet>
 
             <FieldSeparator />

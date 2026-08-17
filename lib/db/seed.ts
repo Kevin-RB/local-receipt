@@ -12,7 +12,7 @@ const demoReceipt = {
     store_id: "0342",
   },
   payment: {
-    method: "EFT",
+    method: "card" as const,
   },
   status: "done" as const,
   totals: {
