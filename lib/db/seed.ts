@@ -3,27 +3,19 @@ import { randomUUID } from "node:crypto";
 import { db, receiptItems, receipts } from "@/lib/db";
 
 const demoReceipt = {
+  gst: 1,
   hasIntegrityWarning: false,
   id: randomUUID(),
-  merchant: {
-    abn: "89 654 321 098",
-    address: "123 Smith St, Fitzroy VIC 3065",
-    name: "Coles",
-    store_id: "0342",
-  },
-  payment: {
-    method: "card" as const,
-  },
+  merchantAbn: "89 654 321 098",
+  merchantAddress: "123 Smith St, Fitzroy VIC 3065",
+  merchantName: "Coles",
+  merchantStoreId: "0342",
+  paymentMethod: "card" as const,
+  receiptNumber: "0342-0087-1234",
   status: "done" as const,
-  totals: {
-    gst: 1,
-    subtotal: 9.9,
-    total: 10.9,
-  },
-  transaction: {
-    datetime: "2026-06-15T14:32:00+10:00",
-    receipt_number: "0342-0087-1234",
-  },
+  subtotal: 9.9,
+  total: 10.9,
+  transactionDateTime: new Date("2026-06-15T14:32:00+10:00"),
 };
 
 const demoItems = [

@@ -89,8 +89,10 @@ vi.mock(import("next/cache"), () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
-vi.mock(import("@/lib/inngest/helper-functions"), () => ({
+vi.mock(import("@/lib/receipt/datetime"), () => ({
+  RECEIPT_TIMEZONE: "Australia/Brisbane" as const,
   receiptDateTimeToDate: mockReceiptDateTimeToDate,
+  receiptDateToLocalString: vi.fn<(date: Date) => string>(),
 }));
 
 const { updateReceipt } = await import("./actions");
@@ -227,12 +229,14 @@ describe(updateReceipt, () => {
     expect(mockUpdate).toHaveBeenCalledOnce();
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchant: validInput.merchant,
+        gst: 1.5,
+        merchantAddress: "1 Main St",
         merchantName: "Coles",
-        payment: validInput.payment,
+        merchantStoreId: "1234",
+        paymentMethod: "card",
         receiptNumber: "R-123",
-        totals: validInput.totals,
-        transaction: validInput.transaction,
+        subtotal: 15.5,
+        total: 15.5,
       })
     );
     expect(mockDeleteWhere).toHaveBeenCalledWith(

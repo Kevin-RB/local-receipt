@@ -11,11 +11,11 @@ import { receiptSelectSchema } from "@/lib/db/schema/receipt";
 const normalizeReceipt = (receipt: ReceiptSelect): ReceiptTable => ({
   hasIntegrityWarning: receipt.hasIntegrityWarning,
   id: receipt.id,
-  merchantName: receipt.merchantName ?? receipt.merchant?.name ?? "Unknown",
-  paymentMethod: receipt.payment?.method ?? "-",
+  merchantName: receipt.merchantName ?? "Unknown",
+  paymentMethod: receipt.paymentMethod ?? "-",
   receiptNumber: receipt.receiptNumber ?? "-",
   status: receipt.status as ReceiptTable["status"],
-  total: receipt.totals?.total ?? 0,
+  total: receipt.total ?? 0,
   transactionDateTime: receipt.transactionDateTime ?? receipt.createdAt,
 });
 

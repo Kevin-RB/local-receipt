@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db, receiptItems, receipts } from "@/lib/db";
-import { receiptDateTimeToDate } from "@/lib/inngest/helper-functions";
+import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
 
 import { updateReceiptSchema } from "./schema";
@@ -17,7 +17,7 @@ export const updateReceipt = async (input: UpdateReceiptInput) => {
     return { error: "Validation failed", success: false as const };
   }
 
-  const { receiptId, merchant, payment, totals, transaction, items } =
+  const { items, merchant, payment, receiptId, totals, transaction } =
     parsed.data;
 
   const existing = await db.query.receipts.findFirst({
@@ -30,23 +30,13 @@ export const updateReceipt = async (input: UpdateReceiptInput) => {
 
   const hasIntegrityWarning = computeIntegrityWarning(items, totals);
 
-  const transactionDateTime = transaction.datetime
-    ? receiptDateTimeToDate(transaction.datetime, "Australia/Brisbane")
-    : null;
-
   try {
     await db.transaction(async (tx) => {
       await tx
         .update(receipts)
         .set({
+          ...receiptToFlat({ merchant, payment, totals, transaction }),
           hasIntegrityWarning,
-          merchant,
-          merchantName: merchant.name,
-          payment,
-          receiptNumber: transaction.receiptNumber ?? null,
-          totals,
-          transaction,
-          transactionDateTime,
         })
         .where(eq(receipts.id, receiptId));
 

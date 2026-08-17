@@ -9,11 +9,11 @@ import {
 } from "@/lib/ai/transcribe-receipt-image";
 import { db, findReceiptById, receiptItems, receipts } from "@/lib/db";
 import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
+import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
-import { receiptDateTimeToDate } from "@/lib/inngest/helper-functions";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
 
@@ -51,8 +51,6 @@ const setReceiptStatus = (id: string, status: ProcessingStatus) =>
 const itemsSchema = receiptItemInsertSchema
   .omit({ id: true, receiptId: true })
   .array();
-
-const MY_TIMEZONE = "Australia/Brisbane";
 
 const formatFailureMessage = (error: Error): string => {
   if (NoObjectGeneratedError.isInstance(error)) {
@@ -194,22 +192,12 @@ export const transcribeReceipt = inngest.createFunction(
     });
 
     await step.run("storing", async () => {
-      const transactionDateTime = extraction.transaction.datetime
-        ? receiptDateTimeToDate(extraction.transaction.datetime, MY_TIMEZONE)
-        : undefined;
-
       await db
         .update(receipts)
         .set({
+          ...receiptToFlat(extraction),
           hasIntegrityWarning: integrityWarning,
-          merchant: extraction.merchant,
-          merchantName: extraction.merchant.name,
-          payment: extraction.payment,
-          receiptNumber: extraction.transaction.receiptNumber,
           status: "done" as const,
-          totals: extraction.totals,
-          transaction: extraction.transaction,
-          transactionDateTime,
         })
         .where(eq(receipts.id, receiptId));
 

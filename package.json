@@ -20,8 +20,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx ./lib/db/seed.ts",
-    "db:backfill": "tsx ./lib/db/backfill-payment-method.ts"
+    "db:seed": "tsx ./lib/db/seed.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.23",
