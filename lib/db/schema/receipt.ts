@@ -48,7 +48,7 @@ export const paymentMethodEnum = z.enum(["cash", "card", "other"]);
 export type PaymentMethod = z.infer<typeof paymentMethodEnum>;
 
 export const Payment = z.strictObject({
-  method: paymentMethodEnum.optional(),
+  method: paymentMethodEnum.default("other"),
 });
 export type Payment = z.infer<typeof Payment>;
 

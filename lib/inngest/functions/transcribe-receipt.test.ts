@@ -99,7 +99,7 @@ describe("transcribeReceipt function", () => {
     const badExtraction: ReceiptInformationExtraction = {
       items: [{ lineTotal: 10, name: "Item 1" }],
       merchant: { name: "Store" },
-      payment: {},
+      payment: { method: "other" },
       totals: { total: 15 },
       transaction: {},
     };
@@ -122,7 +122,7 @@ describe("transcribeReceipt function", () => {
         { lineTotal: 0.01, name: "C" },
       ],
       merchant: { name: "Store" },
-      payment: {},
+      payment: { method: "other" },
       totals: { total: 10.01 },
       transaction: {},
     };

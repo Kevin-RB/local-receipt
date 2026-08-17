@@ -21,11 +21,11 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **totals.total**: The final total amount paid (number, in dollars). Always required.
 - **totals.subtotal**: Pre-tax subtotal if present (number, in dollars).
 - **totals.gst**: GST amount if present (number, in dollars).
-- **payment.method**: Payment method, normalized to one of "cash", "card", or "other":
+- **payment.method**: Always present. Payment method, normalized to one of "cash", "card", or "other":
   - Card-like methods (e.g. VISA, Mastercard, EFTPOS, debit, credit) → "card"
   - Cash → "cash"
   - Anything unrecognized → "other"
-  Omit the field only when no payment method appears on the receipt at all.
+  If no payment method appears on the receipt at all, return "other".
 
 ## Sub-line collapse rules
 

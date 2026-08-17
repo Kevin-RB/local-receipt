@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import type z from "zod";
 
 import { IntegrityBadge } from "@/components/integrity-badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,6 @@ import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
 import { updateReceiptSchema } from "./schema";
-import type { UpdateReceiptInput } from "./schema";
 
 export type ReceiptWithItems = ReceiptSelect & {
   receiptItems: ReceiptItemSelect[];
@@ -46,7 +46,7 @@ interface ReceiptEditFormProps {
   receipt: ReceiptWithItems;
 }
 
-type FormValues = UpdateReceiptInput;
+type FormValues = z.input<typeof updateReceiptSchema>;
 
 const toOptionalNumber = (value: string) =>
   value === "" ? undefined : Number(value);
@@ -97,7 +97,7 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => ({
     storeId: receipt.merchant?.storeId,
   },
   payment: {
-    method: receipt.payment?.method,
+    method: receipt.payment?.method ?? "other",
   },
   receiptId: receipt.id,
   totals: {
@@ -153,6 +153,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
   const onSubmit = async (data: FormValues) => {
     const result = await updateReceipt({
       ...data,
+      payment: { method: data.payment.method ?? "other" },
       transaction: {
         ...data.transaction,
         datetime: normalizeDatetime(data.transaction.datetime),
