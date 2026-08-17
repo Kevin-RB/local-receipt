@@ -204,7 +204,7 @@ export const transcribeReceipt = inngest.createFunction(
           hasIntegrityWarning: integrityWarning,
           merchant: extraction.merchant,
           merchantName: extraction.merchant.name,
-          payment: extraction.payment ?? { method: "other" },
+          payment: extraction.payment,
           receiptNumber: extraction.transaction.receiptNumber,
           status: "done" as const,
           totals: extraction.totals,

@@ -33,10 +33,12 @@ import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import { normalizePaymentMethod } from "@/lib/receipt/payment-method";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
 import { updateReceiptSchema } from "./schema";
+import type { UpdateReceiptInput } from "./schema";
 
 export type ReceiptWithItems = ReceiptSelect & {
   receiptItems: ReceiptItemSelect[];
@@ -97,7 +99,7 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => ({
     storeId: receipt.merchant?.storeId,
   },
   payment: {
-    method: receipt.payment?.method ?? "other",
+    method: normalizePaymentMethod(receipt.payment),
   },
   receiptId: receipt.id,
   totals: {
@@ -121,7 +123,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
-  } = useForm<FormValues>({
+  } = useForm<FormValues, undefined, UpdateReceiptInput>({
     defaultValues: buildDefaultValues(receipt),
     resolver: zodResolver(updateReceiptSchema),
   });
@@ -150,10 +152,9 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     [watchedItems, watchedTotals]
   );
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: UpdateReceiptInput) => {
     const result = await updateReceipt({
       ...data,
-      payment: { method: data.payment.method ?? "other" },
       transaction: {
         ...data.transaction,
         datetime: normalizeDatetime(data.transaction.datetime),
