@@ -1,40 +1,145 @@
-import { randomUUID } from "node:crypto";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { reset, seed } from "drizzle-seed";
+import { Pool } from "pg";
 
-import { db, receiptItems, receipts } from "@/lib/db";
+import { DEFAULT_SEED_DATABASE_URL } from "@/lib/db/constants";
+import { receipts } from "@/lib/db/schema/receipt";
+import { receiptItems } from "@/lib/db/schema/receipt-item";
 
-const demoReceipt = {
-  gst: 1,
-  hasIntegrityWarning: false,
-  id: randomUUID(),
-  merchantAbn: "89 654 321 098",
-  merchantAddress: "123 Smith St, Fitzroy VIC 3065",
-  merchantName: "Coles",
-  merchantStoreId: "0342",
-  paymentMethod: "card" as const,
-  receiptNumber: "0342-0087-1234",
-  status: "done" as const,
-  subtotal: 9.9,
-  total: 10.9,
-  transactionDateTime: new Date("2026-06-15T14:32:00+10:00"),
-};
+const seedDatabaseUrl =
+  process.env.SEED_DATABASE_URL ?? DEFAULT_SEED_DATABASE_URL;
 
-const demoItems = [
-  { lineTotal: 2.9, name: "Milk 2L", quantity: 1, unitPrice: 2.9 },
-  { lineTotal: 3.5, name: "Bread", quantity: 1, unitPrice: 3.5 },
-  { lineTotal: 4.5, name: "Apples 1kg", quantity: 1, unitPrice: 4.5 },
+const seedNumber = 20_260_817;
+
+const seedDb = drizzle({
+  client: new Pool({
+    application_name: "receipt-app-seed",
+    connectionString: seedDatabaseUrl,
+  }),
+});
+
+const merchants = [
+  "Coles",
+  "Woolworths",
+  "Aldi",
+  "IGA",
+  "Bunnings",
+  "7-Eleven",
+  "Kmart",
+  "Chemist Warehouse",
 ];
 
-const inserted = await db
-  .insert(receipts)
-  .values(demoReceipt)
-  .returning({ id: receipts.id });
+const addresses = [
+  "123 Smith St, Fitzroy VIC 3065",
+  "45 Swanston St, Melbourne VIC 3000",
+  "88 Lygon St, Carlton VIC 3053",
+  "15 Boundary Rd, North Melbourne VIC 3051",
+  "2/99 Chapel St, Windsor VIC 3181",
+  "330 Edward St, Brisbane QLD 4000",
+  "71 Gladstone Rd, Highgate Hill QLD 4101",
+  "18 Stanley St, South Brisbane QLD 4101",
+];
 
-const receiptId = inserted[0]?.id;
-if (receiptId) {
-  await db
-    .insert(receiptItems)
-    .values(demoItems.map((item) => ({ ...item, receiptId })));
-}
+const abns = [
+  "93 111 222 333",
+  "61 078 402 371",
+  "81 004 126 018",
+  "43 619 298 123",
+  "74 090 459 029",
+  "21 600 152 084",
+  "80 005 401 523",
+  "52 173 992 002",
+];
 
-process.stdout.write(`Seeded receipt with id ${receiptId}\n`);
-process.exit(0);
+const storeIds = [
+  "0342",
+  "4570",
+  "1108",
+  "2234",
+  "7789",
+  "0612",
+  "3905",
+  "8440",
+];
+
+const receiptNumbers = [
+  "0342-0087-1234",
+  "4570-0122-8765",
+  "1108-0310-5566",
+  "2234-0077-9911",
+  "7789-0150-3322",
+  "0612-0241-7788",
+  "3905-0088-4455",
+  "8440-0112-6677",
+];
+
+const paymentMethods = ["card", "cash", "other"];
+
+const groceryItems = [
+  "Milk 2L",
+  "Bread",
+  "Apples 1kg",
+  "Bananas",
+  "Free-range Eggs 12",
+  "Chicken Breast 500g",
+  "Cheddar 250g",
+  "Pasta 500g",
+  "Basmati Rice 1kg",
+  "Orange Juice 1L",
+  "Coffee Beans 250g",
+  "Cereal 500g",
+  "Greek Yoghurt 1kg",
+  "Tomatoes",
+  "Cucumber",
+  "Potatoes 2kg",
+  "Olive Oil 750ml",
+  "Butter 250g",
+  "Tea Bags 100",
+  "Dish Soap 500ml",
+];
+
+await reset(seedDb, { receiptItems, receipts });
+
+await seed(seedDb, { receiptItems, receipts }, { seed: seedNumber }).refine(
+  (f) => ({
+    receiptItems: {
+      columns: {
+        lineTotal: f.number({ maxValue: 60, minValue: 0.5, precision: 100 }),
+        name: f.valuesFromArray({ values: groceryItems }),
+        quantity: f.int({ maxValue: 4, minValue: 1 }),
+        unitPrice: f.number({ maxValue: 20, minValue: 0.5, precision: 100 }),
+      },
+    },
+    receipts: {
+      columns: {
+        gst: f.number({ maxValue: 8, minValue: 0, precision: 100 }),
+        merchantAbn: f.valuesFromArray({ values: abns }),
+        merchantAddress: f.valuesFromArray({ values: addresses }),
+        merchantName: f.valuesFromArray({ values: merchants }),
+        merchantStoreId: f.valuesFromArray({ values: storeIds }),
+        minioObjectKey: false,
+        paymentMethod: f.valuesFromArray({ values: paymentMethods }),
+        receiptNumber: f.valuesFromArray({ values: receiptNumbers }),
+        status: f.default({ defaultValue: "done" }),
+        subtotal: f.number({ maxValue: 80, minValue: 5, precision: 100 }),
+        total: f.number({ maxValue: 90, minValue: 5, precision: 100 }),
+        transactionDateTime: f.date({
+          maxDate: "2026-08-16",
+          minDate: "2026-01-01",
+        }),
+      },
+      count: 8,
+      with: {
+        receiptItems: [
+          { count: [2, 3], weight: 0.4 },
+          { count: [4, 5], weight: 0.4 },
+          { count: [6, 8], weight: 0.2 },
+        ],
+      },
+    },
+  })
+);
+
+process.stdout.write(`Seeded demo data into ${seedDatabaseUrl}\n`);
+
+await seedDb.$client.end();

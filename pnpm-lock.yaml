@@ -102,6 +102,9 @@ importers:
       drizzle-kit:
         specifier: 1.0.0-rc.4
         version: 1.0.0-rc.4
+      drizzle-seed:
+        specifier: 1.0.0-rc.4
+        version: 1.0.0-rc.4(drizzle-orm@1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.20.4)(pg@8.22.0)(zod@4.4.3))
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -2854,6 +2857,11 @@ packages:
       zod:
         optional: true
 
+  drizzle-seed@1.0.0-rc.4:
+    resolution: {integrity: sha512-WztS8tuuWV9Wqx5rMIhFlFuIfE0DPf7Zher3WtCumhSRgsAo5dASRmzS/w+6h22hEfOF/YJk6f3vKIqltKhUEg==}
+    peerDependencies:
+      drizzle-orm: '>=1.0.0-beta.2'
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -4001,6 +4009,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pure-rand@6.1.0:
+    resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
   qs@6.15.3:
     resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
@@ -7058,6 +7069,11 @@ snapshots:
       pg: 8.22.0
       zod: 4.4.3
 
+  drizzle-seed@1.0.0-rc.4(drizzle-orm@1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.20.4)(pg@8.22.0)(zod@4.4.3)):
+    dependencies:
+      drizzle-orm: 1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.20.4)(pg@8.22.0)(zod@4.4.3)
+      pure-rand: 6.1.0
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -8211,6 +8227,8 @@ snapshots:
       ipaddr.js: 1.9.1
 
   punycode@2.3.1: {}
+
+  pure-rand@6.1.0: {}
 
   qs@6.15.3:
     dependencies:

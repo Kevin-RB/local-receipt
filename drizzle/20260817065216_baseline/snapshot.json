@@ -1,8 +1,8 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c28a88eb-e8c1-44bd-a32a-86971da2bc55",
-  "prevIds": ["1467755d-7446-476d-9b37-4e429e8a71ae"],
+  "id": "d8b8a47d-2274-45e8-a203-60730dd44ea9",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -95,40 +95,27 @@
       "table": "receipt_items"
     },
     {
-      "type": "uuid",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "gen_random_uuid()",
+      "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "id",
+      "name": "created_at",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"
     },
     {
-      "type": "text",
+      "type": "numeric(10,2)",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "minio_object_key",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'pending'",
-      "generated": null,
-      "identity": null,
-      "name": "status",
+      "name": "gst",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"
@@ -147,27 +134,14 @@
       "table": "receipts"
     },
     {
-      "type": "timestamp with time zone",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "now()",
+      "default": "gen_random_uuid()",
       "generated": null,
       "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "merchant_name",
+      "name": "id",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"
@@ -206,7 +180,33 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "merchant_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "merchant_store_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "minio_object_key",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"
@@ -225,14 +225,27 @@
       "table": "receipts"
     },
     {
-      "type": "numeric(10,2)",
+      "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "total",
+      "name": "receipt_number",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"
@@ -258,20 +271,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "gst",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "receipt_number",
+      "name": "total",
       "entityType": "columns",
       "schema": "public",
       "table": "receipts"

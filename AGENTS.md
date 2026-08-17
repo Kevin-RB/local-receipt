@@ -136,7 +136,13 @@ Local env defaults are in `.env.local` (which is gitignored). Key variables:
 - Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`. Relations: `lib/db/relations.ts`.
 - Migrations live in `drizzle/` and are generated with `pnpm db:generate`.
 - For local dev you can either run `pnpm db:migrate` after generating or use `pnpm db:push`.
-- `pnpm db:seed` runs `lib/db/seed.ts` via `tsx` and requires a running Postgres.
+- `pnpm db:seed` writes demo data through the `drizzle-seed` library (reset + seed) to a dedicated `receipts_seed` database — never the app's `receipts` database. Point it elsewhere with `SEED_DATABASE_URL`. One-time setup per dev machine: create the database and migrate it, then run the app against it to view the data:
+  ```
+  docker exec receipt-app-postgres-1 createdb -U postgres receipts_seed
+  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm db:migrate
+  pnpm db:seed
+  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm dev
+  ```
 
 ---
 
