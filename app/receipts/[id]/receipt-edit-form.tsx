@@ -29,11 +29,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/components/ui/toast";
+import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
-import { normalizePaymentMethod } from "@/lib/receipt/payment-method";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -85,34 +85,23 @@ const normalizeDatetime = (value: string | undefined) => {
   return value.length === 16 ? `${value}:00` : value;
 };
 
-const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => ({
-  items: receipt.receiptItems.map((item) => ({
-    lineTotal: item.lineTotal,
-    name: item.name,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-  })),
-  merchant: {
-    abn: receipt.merchant?.abn,
-    address: receipt.merchant?.address,
-    name: receipt.merchant?.name ?? receipt.merchantName ?? "",
-    storeId: receipt.merchant?.storeId,
-  },
-  payment: {
-    method: normalizePaymentMethod(receipt.payment),
-  },
-  receiptId: receipt.id,
-  totals: {
-    gst: receipt.totals?.gst,
-    subtotal: receipt.totals?.subtotal,
-    total: receipt.totals?.total ?? 0,
-  },
-  transaction: {
-    datetime: receipt.transaction?.datetime?.slice(0, 16),
-    receiptNumber:
-      receipt.transaction?.receiptNumber ?? receipt.receiptNumber ?? undefined,
-  },
-});
+const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
+  const nested = receiptToNested(receipt);
+
+  return {
+    items: receipt.receiptItems.map((item) => ({
+      lineTotal: item.lineTotal,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })),
+    merchant: nested.merchant,
+    payment: nested.payment,
+    receiptId: receipt.id,
+    totals: nested.totals,
+    transaction: nested.transaction,
+  };
+};
 
 const FormFieldError = ({ error }: { error?: { message?: string } }) =>
   error?.message ? <FieldError errors={[{ message: error.message }]} /> : null;

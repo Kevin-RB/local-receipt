@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
-  jsonb,
+  index,
+  numeric,
   snakeCase,
   text,
   timestamp,
@@ -52,53 +54,54 @@ export const Payment = z.strictObject({
 });
 export type Payment = z.infer<typeof Payment>;
 
-export const receipts = snakeCase.table("receipts", {
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  hasIntegrityWarning: boolean("has_integrity_warning")
-    .notNull()
-    .default(false),
-  id: uuid("id").primaryKey().defaultRandom(),
-  merchant: jsonb("merchant").$type<Merchant>(),
-  merchantName: text("merchant_name"),
-  minioObjectKey: text("minio_object_key"),
-  payment: jsonb("payment").$type<Payment>(),
-  receiptNumber: text("receipt_number"),
-  status: text("status").$type<ProcessingStatus>().notNull().default("pending"),
-  totals: jsonb("totals").$type<Totals>(),
-  transaction: jsonb("transaction").$type<Transaction>(),
-  transactionDateTime: timestamp("transaction_datetime", {
-    mode: "date",
-    withTimezone: true,
-  }),
-});
+export const receipts = snakeCase.table(
+  "receipts",
+  {
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    gst: numeric({ mode: "number", precision: 10, scale: 2 }),
+    hasIntegrityWarning: boolean().notNull().default(false),
+    id: uuid().primaryKey().defaultRandom(),
+    merchantAbn: text(),
+    merchantAddress: text(),
+    merchantName: text(),
+    merchantStoreId: text(),
+    minioObjectKey: text(),
+    paymentMethod: text().$type<PaymentMethod>(),
+    receiptNumber: text(),
+    status: text().$type<ProcessingStatus>().notNull().default("pending"),
+    subtotal: numeric({ mode: "number", precision: 10, scale: 2 }),
+    total: numeric({ mode: "number", precision: 10, scale: 2 }),
+    transactionDateTime: timestamp("transaction_datetime", {
+      mode: "date",
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    index("receipts_merchant_name_lower_idx").using(
+      "btree",
+      sql`lower(${table.merchantName})`
+    ),
+    index("receipts_transaction_datetime_index").on(table.transactionDateTime),
+    index("receipts_created_at_index").on(table.createdAt),
+    index("receipts_payment_method_index").on(table.paymentMethod),
+  ]
+);
 
-export const receiptSelectSchema = createSelectSchema(receipts, {
-  merchant: Merchant.nullable(),
-  payment: Payment.nullable(),
-  totals: Totals.nullable(),
-  transaction: Transaction.nullable(),
+export const receiptSelectSchema = createSelectSchema(receipts);
+export const receiptInsertSchema = createInsertSchema(receipts, {
+  paymentMethod: paymentMethodEnum.nullable().optional(),
+  status: processingStatusEnum.optional(),
 });
-export const receiptInsertSchema = createInsertSchema(receipts);
 export const receiptUpdateSchema = createUpdateSchema(receipts);
 
 export type ReceiptSelect = z.infer<typeof receiptSelectSchema>;
+export type ReceiptInsert = z.infer<typeof receiptInsertSchema>;
+export type ReceiptUpdate = z.infer<typeof receiptUpdateSchema>;
 
-export const receiptExtractionInsertSchema = receiptInsertSchema
-  .pick({
-    merchant: true,
-    payment: true,
-    totals: true,
-    transaction: true,
-  })
-  .extend({
-    merchant: Merchant,
-    payment: Payment,
-    totals: Totals,
-    transaction: Transaction,
-  });
-
-export type ReceiptExtractionInsert = z.infer<
-  typeof receiptExtractionInsertSchema
->;
+export const receiptNestedSchema = z.object({
+  merchant: Merchant,
+  payment: Payment,
+  totals: Totals,
+  transaction: Transaction,
+});
+export type ReceiptNested = z.infer<typeof receiptNestedSchema>;
