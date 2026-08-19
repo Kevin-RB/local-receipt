@@ -24,8 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sumSpending } from "@/lib/overview";
-import type { SpendingInput, SpendingPeriod } from "@/lib/overview";
+import { sumDailySpending, windowDays } from "@/lib/overview";
+import type { SpendingInput } from "@/lib/overview";
 
 type RangeKey = "30-days" | "2-months" | "3-months";
 
@@ -35,10 +35,10 @@ const RANGE_LABELS: Record<RangeKey, string> = {
   "30-days": "30 days",
 };
 
-const RANGE_PERIODS: Record<RangeKey, SpendingPeriod> = {
-  "2-months": { count: 2, granularity: "month" },
-  "3-months": { count: 3, granularity: "month" },
-  "30-days": { count: 30, granularity: "day" },
+const RANGE_MONTHS: Record<RangeKey, number | null> = {
+  "2-months": 2,
+  "3-months": 3,
+  "30-days": null,
 };
 
 const RANGE_ITEMS = Object.entries(RANGE_LABELS).map(([value, label]) => ({
@@ -64,11 +64,6 @@ const formatDayTick = (value: unknown) =>
     month: "short",
   });
 
-const formatMonthTick = (value: unknown) =>
-  Temporal.PlainYearMonth.from(String(value))
-    .toPlainDate({ day: 1 })
-    .toLocaleString("en-AU", { month: "short" });
-
 const formatDayTooltipLabel = (value: unknown) =>
   Temporal.PlainDate.from(String(value)).toLocaleString("en-AU", {
     day: "numeric",
@@ -76,19 +71,16 @@ const formatDayTooltipLabel = (value: unknown) =>
     weekday: "short",
   });
 
-const formatMonthTooltipLabel = (value: unknown) =>
-  Temporal.PlainYearMonth.from(String(value))
-    .toPlainDate({ day: 1 })
-    .toLocaleString("en-AU", { month: "long", year: "numeric" });
-
 export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
   const [range, setRange] = useState<RangeKey>("30-days");
 
-  const data = useMemo(
-    () => sumSpending(receipts, RANGE_PERIODS[range]),
-    [receipts, range]
-  );
-  const { granularity } = RANGE_PERIODS[range];
+  const today = useMemo(() => Temporal.Now.plainDateISO(), []);
+
+  const data = useMemo(() => {
+    const months = RANGE_MONTHS[range];
+    const days = months === null ? 30 : windowDays(today, months);
+    return sumDailySpending(receipts, days, today);
+  }, [receipts, range, today]);
 
   return (
     <Card className="w-full">
@@ -136,11 +128,7 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
               axisLine={false}
               dataKey="label"
               minTickGap={32}
-              tickFormatter={(value) =>
-                granularity === "day"
-                  ? formatDayTick(value)
-                  : formatMonthTick(value)
-              }
+              tickFormatter={formatDayTick}
               tickLine={false}
               tickMargin={8}
             />
@@ -154,11 +142,7 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
               content={
                 <ChartTooltipContent
                   formatter={(value) => currencyFormatter.format(Number(value))}
-                  labelFormatter={(value) =>
-                    granularity === "day"
-                      ? formatDayTooltipLabel(value)
-                      : formatMonthTooltipLabel(value)
-                  }
+                  labelFormatter={formatDayTooltipLabel}
                 />
               }
             />
