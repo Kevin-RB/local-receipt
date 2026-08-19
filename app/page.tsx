@@ -1,8 +1,10 @@
+import Link from "next/link";
 import z from "zod";
 
 import { receiptColumns } from "@/components/receipts/columns";
 import type { ReceiptTable } from "@/components/receipts/columns";
 import { DataTable } from "@/components/receipts/table";
+import { buttonVariants } from "@/components/ui/button";
 import { UploadFlow } from "@/components/upload-flow";
 import { listReceipts } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -34,7 +36,15 @@ export default async function Home() {
 
   return (
     <main className="container mx-auto flex min-h-svh flex-col gap-6 p-6">
-      <h1 className="text-2xl font-bold">Possum Receipts</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Possum Receipts</h1>
+        <Link
+          href="/overview"
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+        >
+          Overview
+        </Link>
+      </div>
       <div className="flex justify-center">
         <UploadFlow />
       </div>
