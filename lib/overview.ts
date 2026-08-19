@@ -5,42 +5,72 @@ export type SpendingInput = Pick<
   "total" | "transactionDateTime"
 >;
 
-export interface DailySpending {
+export interface SpendingBucket {
   label: string;
   total: number;
 }
 
+export type SpendingGranularity = "day" | "month";
+
+export interface SpendingPeriod {
+  granularity: SpendingGranularity;
+  count: number;
+}
+
 const roundToCents = (value: number): number => Math.round(value * 100) / 100;
 
-export const sumDailySpending = (
+const spendingRange = (
+  period: SpendingPeriod,
+  today: Temporal.PlainDate
+): string[] => {
+  const range: string[] = [];
+  if (period.granularity === "day") {
+    const start = today.subtract({ days: period.count - 1 });
+    for (
+      let day = start;
+      Temporal.PlainDate.compare(day, today) <= 0;
+      day = day.add({ days: 1 })
+    ) {
+      range.push(day.toString());
+    }
+  } else {
+    const end = today.toPlainYearMonth();
+    const start = end.subtract({ months: period.count - 1 });
+    for (
+      let month = start;
+      Temporal.PlainYearMonth.compare(month, end) <= 0;
+      month = month.add({ months: 1 })
+    ) {
+      range.push(month.toString());
+    }
+  }
+  return range;
+};
+
+export const sumSpending = (
   receipts: SpendingInput[],
-  today = Temporal.Now.plainDateISO(),
-  days = 30
-): DailySpending[] => {
+  period: SpendingPeriod,
+  today = Temporal.Now.plainDateISO()
+): SpendingBucket[] => {
   const timeZoneId = Temporal.Now.timeZoneId();
-  const start = today.subtract({ days: days - 1 });
   const totals = new Map<string, number>();
 
   for (const receipt of receipts) {
     if (receipt.total === null || receipt.transactionDateTime === null) {
       continue;
     }
-    const key = receipt.transactionDateTime
+    const zoned = receipt.transactionDateTime
       .toTemporalInstant()
-      .toZonedDateTimeISO(timeZoneId)
-      .toPlainDate()
-      .toString();
+      .toZonedDateTimeISO(timeZoneId);
+    const plainDate = zoned.toPlainDate();
+    const key =
+      period.granularity === "day"
+        ? plainDate.toString()
+        : plainDate.toPlainYearMonth().toString();
     totals.set(key, (totals.get(key) ?? 0) + receipt.total);
   }
 
-  const range: string[] = [];
-  for (
-    let day = start;
-    Temporal.PlainDate.compare(day, today) <= 0;
-    day = day.add({ days: 1 })
-  ) {
-    range.push(day.toString());
-  }
+  const range = spendingRange(period, today);
 
   return range.map((key) => ({
     label: key,

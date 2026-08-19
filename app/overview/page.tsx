@@ -1,25 +1,29 @@
 import z from "zod";
 
-import { DailySpendingChart } from "@/components/overview/daily-spending-chart";
+import { SpendingChart } from "@/components/overview/spending-chart";
 import { listDoneReceipts } from "@/lib/db";
 import { receiptSelectSchema } from "@/lib/db/schema/receipt";
-import { sumDailySpending } from "@/lib/overview";
+import type { SpendingInput } from "@/lib/overview";
 
-const getSpendingData = async () => {
+const getReceipts = async (): Promise<SpendingInput[]> => {
   const receipts = await listDoneReceipts();
   const parsed = receiptSelectSchema.array().safeParse(receipts);
   if (!parsed.success) {
     throw new Error(z.prettifyError(parsed.error));
   }
-  return sumDailySpending(parsed.data);
+  return parsed.data.map(({ total, transactionDateTime }) => ({
+    total,
+    transactionDateTime,
+  }));
 };
 
 export default async function OverviewPage() {
-  const spending = await getSpendingData();
+  const receipts = await getReceipts();
+
   return (
     <main className="container mx-auto flex min-h-svh flex-col gap-6 p-6">
       <h1 className="text-2xl font-bold">Overview</h1>
-      <DailySpendingChart data={spending} />
+      <SpendingChart receipts={receipts} />
     </main>
   );
 }
