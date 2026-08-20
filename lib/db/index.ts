@@ -49,4 +49,10 @@ export const listReceipts = () =>
     },
   });
 
+export const listDoneReceipts = () =>
+  db.query.receipts.findMany({
+    orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
+    where: { status: "done" },
+  });
+
 export { drizzle } from "drizzle-orm/node-postgres";
