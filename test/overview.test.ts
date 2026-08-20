@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { sumDailySpending, windowDays } from "@/lib/overview";
-import type { SpendingInput } from "@/lib/overview";
+import {
+  sumDailySpending,
+  sumSpendingByMerchant,
+  windowDays,
+} from "@/lib/overview";
+import type { MerchantSpendingInput, SpendingInput } from "@/lib/overview";
 
 const TODAY = Temporal.PlainDate.from("2026-08-19");
 
 const receipt = (overrides: Partial<SpendingInput> = {}): SpendingInput => ({
+  total: 10,
+  transactionDateTime: new Date(2026, 7, 1),
+  ...overrides,
+});
+
+const merchantReceipt = (
+  overrides: Partial<MerchantSpendingInput> = {}
+): MerchantSpendingInput => ({
+  merchantName: "Woolworths",
   total: 10,
   transactionDateTime: new Date(2026, 7, 1),
   ...overrides,
@@ -101,5 +114,38 @@ describe(sumDailySpending, () => {
     );
 
     expect(totalFor(result, dayKey(new Date(2026, 7, 1)))).toBe(0.3);
+  });
+});
+
+describe(sumSpendingByMerchant, () => {
+  it("sums totals per merchant and sorts descending", () => {
+    const result = sumSpendingByMerchant([
+      merchantReceipt({ merchantName: "Coles", total: 5 }),
+      merchantReceipt({ merchantName: "Woolworths" }),
+      merchantReceipt({ merchantName: "Coles", total: 30 }),
+    ]);
+
+    expect(result).toStrictEqual([
+      { label: "Coles", total: 35 },
+      { label: "Woolworths", total: 10 },
+    ]);
+  });
+
+  it("skips receipts without a total or merchant name", () => {
+    const result = sumSpendingByMerchant([
+      merchantReceipt({ total: null }),
+      merchantReceipt({ merchantName: null }),
+    ]);
+
+    expect(result).toStrictEqual([]);
+  });
+
+  it("rounds totals to cents", () => {
+    const result = sumSpendingByMerchant([
+      merchantReceipt({ merchantName: "Coles", total: 0.1 }),
+      merchantReceipt({ merchantName: "Coles", total: 0.2 }),
+    ]);
+
+    expect(result).toStrictEqual([{ label: "Coles", total: 0.3 }]);
   });
 });

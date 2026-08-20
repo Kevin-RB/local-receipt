@@ -1,20 +1,18 @@
 import z from "zod";
 
+import { MerchantSpendingChart } from "@/components/overview/merchant-spending-chart";
 import { SpendingChart } from "@/components/overview/spending-chart";
 import { listDoneReceipts } from "@/lib/db";
 import { receiptSelectSchema } from "@/lib/db/schema/receipt";
-import type { SpendingInput } from "@/lib/overview";
+import type { ReceiptSelect } from "@/lib/db/schema/receipt";
 
-const getReceipts = async (): Promise<SpendingInput[]> => {
+const getReceipts = async (): Promise<ReceiptSelect[]> => {
   const receipts = await listDoneReceipts();
   const parsed = receiptSelectSchema.array().safeParse(receipts);
   if (!parsed.success) {
     throw new Error(z.prettifyError(parsed.error));
   }
-  return parsed.data.map(({ total, transactionDateTime }) => ({
-    total,
-    transactionDateTime,
-  }));
+  return parsed.data;
 };
 
 export default async function OverviewPage() {
@@ -23,7 +21,21 @@ export default async function OverviewPage() {
   return (
     <main className="container mx-auto flex min-h-svh flex-col gap-6 p-6">
       <h1 className="text-2xl font-bold">Overview</h1>
-      <SpendingChart receipts={receipts} />
+      <SpendingChart
+        receipts={receipts.map(({ total, transactionDateTime }) => ({
+          total,
+          transactionDateTime,
+        }))}
+      />
+      <MerchantSpendingChart
+        receipts={receipts.map(
+          ({ total, transactionDateTime, merchantName }) => ({
+            merchantName,
+            total,
+            transactionDateTime,
+          })
+        )}
+      />
     </main>
   );
 }

@@ -5,6 +5,11 @@ export type SpendingInput = Pick<
   "total" | "transactionDateTime"
 >;
 
+export type MerchantSpendingInput = Pick<
+  ReceiptSelect,
+  "total" | "transactionDateTime" | "merchantName"
+>;
+
 export interface SpendingBucket {
   label: string;
   total: number;
@@ -49,4 +54,24 @@ export const sumDailySpending = (
     label: key,
     total: roundToCents(totals.get(key) ?? 0),
   }));
+};
+
+export const sumSpendingByMerchant = (
+  receipts: MerchantSpendingInput[]
+): SpendingBucket[] => {
+  const totals = new Map<string, number>();
+
+  for (const receipt of receipts) {
+    if (receipt.total === null || receipt.merchantName === null) {
+      continue;
+    }
+    totals.set(
+      receipt.merchantName,
+      (totals.get(receipt.merchantName) ?? 0) + receipt.total
+    );
+  }
+
+  return [...totals.entries()]
+    .map(([label, total]) => ({ label, total: roundToCents(total) }))
+    .toSorted((a, b) => b.total - a.total);
 };
