@@ -10,18 +10,28 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { z } from "zod/v4";
 
 import { deleteReceipt } from "@/app/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/toast";
 
 export const receiptTableSchema = z.object({
   hasIntegrityWarning: z.boolean(),
@@ -54,34 +64,91 @@ const dateFormatter = new Intl.DateTimeFormat("en-AU", {
 
 const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
 
-const RowActions = ({ id }: { id: string }) => {
+const RowActions = ({
+  id,
+  merchantName,
+}: {
+  id: string;
+  merchantName: string;
+}) => {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      const result = await deleteReceipt(id);
+      if (result.success) {
+        setConfirmOpen(false);
+        toast.add({ title: "Receipt deleted", type: "success" });
+        router.refresh();
+      } else {
+        toast.add({
+          description: result.error,
+          title: "Delete failed",
+          type: "error",
+        });
+      }
+    } catch {
+      toast.add({
+        description: "Something went wrong deleting the receipt",
+        title: "Delete failed",
+        type: "error",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Open row actions"
-        className={buttonVariants({ size: "icon", variant: "ghost" })}
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem render={<Link href={`/receipts/${id}`} />}>
-          <Eye data-icon="inline-start" />
-          View
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={async () => {
-            await deleteReceipt(id);
-            router.refresh();
-          }}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Open row actions"
+          className={buttonVariants({ size: "icon", variant: "ghost" })}
         >
-          <Trash2 data-icon="inline-start" />
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <MoreHorizontal />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem render={<Link href={`/receipts/${id}`} />}>
+            <Eye data-icon="inline-start" />
+            View
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 data-icon="inline-start" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete receipt?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the receipt
+              {merchantName ? ` from ${merchantName}` : ""} and its image. This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setConfirmOpen(false)} variant="outline">
+              Cancel
+            </Button>
+            <Button
+              disabled={deleting}
+              onClick={handleDelete}
+              variant="destructive"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
@@ -145,7 +212,12 @@ export const receiptColumns = columnHelper.columns([
     header: "Integrity",
   }),
   columnHelper.display({
-    cell: ({ row }) => <RowActions id={row.original.id} />,
+    cell: ({ row }) => (
+      <RowActions
+        id={row.original.id}
+        merchantName={row.original.merchantName}
+      />
+    ),
     header: "",
     id: "actions",
   }),

@@ -15,11 +15,15 @@ export const deleteReceipt = async (receiptId: string) => {
     return { error: "Receipt not found", success: false as const };
   }
 
-  if (existing.minioObjectKey) {
-    await deleteObject({ bucket: BUCKET, key: existing.minioObjectKey });
-  }
+  try {
+    if (existing.minioObjectKey) {
+      await deleteObject({ bucket: BUCKET, key: existing.minioObjectKey });
+    }
 
-  await db.delete(receipts).where(eq(receipts.id, receiptId));
+    await db.delete(receipts).where(eq(receipts.id, receiptId));
+  } catch {
+    return { error: "Failed to delete receipt", success: false as const };
+  }
 
   revalidatePath("/");
 
