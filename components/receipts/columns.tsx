@@ -1,13 +1,27 @@
 "use client";
 
 import { createColumnHelper } from "@tanstack/react-table";
-import { BadgeAlert, Eye, FileCheck } from "lucide-react";
+import {
+  BadgeAlert,
+  Eye,
+  FileCheck,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { z } from "zod/v4";
 
+import { deleteReceipt } from "@/app/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const receiptTableSchema = z.object({
   hasIntegrityWarning: z.boolean(),
@@ -39,6 +53,37 @@ const dateFormatter = new Intl.DateTimeFormat("en-AU", {
 });
 
 const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
+
+const RowActions = ({ id }: { id: string }) => {
+  const router = useRouter();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Open row actions"
+        className={buttonVariants({ size: "icon", variant: "ghost" })}
+      >
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem render={<Link href={`/receipts/${id}`} />}>
+          <Eye data-icon="inline-start" />
+          View
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={async () => {
+            await deleteReceipt(id);
+            router.refresh();
+          }}
+        >
+          <Trash2 data-icon="inline-start" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 export const receiptColumns = columnHelper.columns([
   columnHelper.accessor("status", {
@@ -100,19 +145,8 @@ export const receiptColumns = columnHelper.columns([
     header: "Integrity",
   }),
   columnHelper.display({
-    cell: ({ row }) => {
-      const { id } = row.original;
-      return (
-        <Link
-          className={buttonVariants({ size: "sm", variant: "outline" })}
-          href={`/receipts/${id}`}
-        >
-          <Eye data-icon="inline-start" />
-          View
-        </Link>
-      );
-    },
-    header: "Actions",
+    cell: ({ row }) => <RowActions id={row.original.id} />,
+    header: "",
     id: "actions",
   }),
 ]);
