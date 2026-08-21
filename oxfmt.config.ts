@@ -7,5 +7,6 @@ export default defineConfig({
     ...(ultracite.ignorePatterns ?? []),
     "README.md",
     "components/ui/**",
+    "hooks/use-mobile.ts",
   ],
 });
