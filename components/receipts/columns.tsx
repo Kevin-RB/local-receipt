@@ -15,6 +15,7 @@ import { z } from "zod/v4";
 
 import { deleteReceipt } from "@/app/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
+import { dateRangeFilterFn } from "@/components/receipts/filters";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -56,7 +57,7 @@ const statusBadgeVariant: Record<ReceiptTable["status"], badgeVariant> = {
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-AU", {
-  dateStyle: "short",
+  dateStyle: "full",
   timeStyle: "short",
   timeZone: "Australia/Brisbane",
 });
@@ -166,13 +167,14 @@ export const receiptColumns = columnHelper.columns([
       const instant = transactionDateTime.toTemporalInstant();
       return <div className="text-right">{dateFormatter.format(instant)}</div>;
     },
+    filterFn: dateRangeFilterFn,
     header: "Date",
     sortFn: "datetime",
   }),
   columnHelper.accessor("merchantName", {
-    filterFn: "fuzzy",
+    filterFn: "includesString",
     header: "Merchant",
-    sortFn: "fuzzy",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor("total", {
     cell: ({ row }) => {

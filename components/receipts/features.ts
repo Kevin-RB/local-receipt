@@ -2,7 +2,7 @@ import {
   columnFilteringFeature,
   createFilteredRowModel,
   createSortedRowModel,
-  metaHelper,
+  filterFn_includesString,
   rowSelectionFeature,
   rowSortingFeature,
   sortFn_alphanumeric,
@@ -10,20 +10,15 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 
-import type { FuzzyFilterMeta } from "@/lib/fuzzy-filter";
-import { fuzzyFilter, fuzzySort } from "@/lib/fuzzy-filter";
-
 export const features = tableFeatures({
   columnFilteringFeature,
-  filterFns: { fuzzy: fuzzyFilter },
-  filterMeta: metaHelper<FuzzyFilterMeta>(),
+  filterFns: { includesString: filterFn_includesString },
   filteredRowModel: createFilteredRowModel(),
   rowSelectionFeature,
   rowSortingFeature,
   sortFns: {
     alphanumeric: sortFn_alphanumeric,
     datetime: sortFn_datetime,
-    fuzzy: fuzzySort,
   },
   sortedRowModel: createSortedRowModel(),
 });
