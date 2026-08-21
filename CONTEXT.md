@@ -1,4 +1,4 @@
-# Receipt AI Analyser
+# possum
 
 A local-first web app that turns photos of paper receipts into structured, persisted data. The user uploads an image, a durable workflow extracts the text and parses it into a fixed contract, and the result is stored alongside the original image.
 

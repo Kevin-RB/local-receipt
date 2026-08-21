@@ -10,5 +10,6 @@ export default defineConfig({
     ...(core.ignorePatterns ?? []),
     "README.md",
     "components/ui/**",
+    "hooks/use-mobile.ts",
   ],
 });

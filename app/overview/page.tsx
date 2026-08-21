@@ -20,7 +20,7 @@ export default async function OverviewPage() {
   const receipts = await getReceipts();
 
   return (
-    <main className="container mx-auto flex min-h-svh flex-col gap-6 p-6">
+    <main className="container mx-auto flex flex-col gap-6 p-6">
       <h1 className="text-2xl font-bold">Overview</h1>
       <SpendingChart
         receipts={receipts.map(({ total, transactionDateTime }) => ({

@@ -2,23 +2,34 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 import { Geist } from "next/font/google";
+import { cookies } from "next/headers";
 
+import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   description: "Local MVP for receipt analysis",
-  title: "Receipt AI Analyser",
+  title: "possum",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
     <html
       lang="en"
@@ -32,7 +43,17 @@ export default function RootLayout({
           defaultTheme="system"
           disableTransitionOnChange
         >
-          {children}
+          <TooltipProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="flex h-12 shrink-0 items-center gap-2 px-4">
+                  <SidebarTrigger />
+                </header>
+                {children}
+              </SidebarInset>
+            </SidebarProvider>
+          </TooltipProvider>
           <Toaster />
         </ThemeProvider>
       </body>
