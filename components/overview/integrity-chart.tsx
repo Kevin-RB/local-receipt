@@ -88,7 +88,7 @@ export const IntegrityChart = ({
               radialLines={false}
               stroke="none"
               className={
-                warnings === 0
+                total > 0 && warnings === 0
                   ? "first:fill-chart-1 last:fill-background"
                   : "first:fill-muted last:fill-background"
               }
