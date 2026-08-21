@@ -10,6 +10,8 @@ export type MerchantSpendingInput = Pick<
   "total" | "transactionDateTime" | "merchantName"
 >;
 
+export type IntegrityInput = Pick<ReceiptSelect, "hasIntegrityWarning">;
+
 export interface SpendingBucket {
   label: string;
   total: number;

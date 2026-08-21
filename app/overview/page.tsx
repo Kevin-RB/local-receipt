@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { IntegrityChart } from "@/components/overview/integrity-chart";
 import { MerchantSpendingChart } from "@/components/overview/merchant-spending-chart";
 import { SpendingChart } from "@/components/overview/spending-chart";
 import { listDoneReceipts } from "@/lib/db";
@@ -27,15 +28,22 @@ export default async function OverviewPage() {
           transactionDateTime,
         }))}
       />
-      <MerchantSpendingChart
-        receipts={receipts.map(
-          ({ total, transactionDateTime, merchantName }) => ({
-            merchantName,
-            total,
-            transactionDateTime,
-          })
-        )}
-      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <MerchantSpendingChart
+          receipts={receipts.map(
+            ({ total, transactionDateTime, merchantName }) => ({
+              merchantName,
+              total,
+              transactionDateTime,
+            })
+          )}
+        />
+        <IntegrityChart
+          receipts={receipts.map(({ hasIntegrityWarning }) => ({
+            hasIntegrityWarning,
+          }))}
+        />
+      </div>
     </main>
   );
 }
