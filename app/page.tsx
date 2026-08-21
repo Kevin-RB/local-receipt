@@ -34,6 +34,10 @@ export default async function Home() {
 
   return (
     <main className="container mx-auto flex flex-col gap-6 p-6">
+      <h1 className="sr-only">Possum Receipts</h1>
+      <p className="text-center text-lg font-medium text-muted-foreground">
+        Welcome, possum
+      </p>
       <div className="flex justify-center">
         <UploadFlow />
       </div>

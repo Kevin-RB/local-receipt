@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 import { Geist } from "next/font/google";
+import { cookies } from "next/headers";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -21,11 +22,14 @@ export const metadata: Metadata = {
   title: "possum",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
   return (
     <html
       lang="en"
@@ -40,7 +44,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <SidebarProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
               <AppSidebar />
               <SidebarInset>
                 <header className="flex h-12 shrink-0 items-center gap-2 px-4">
