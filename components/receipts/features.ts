@@ -1,9 +1,8 @@
 import {
   columnFilteringFeature,
-  constructFilterFn,
   createFilteredRowModel,
   createSortedRowModel,
-  globalFilteringFeature,
+  metaHelper,
   rowSelectionFeature,
   rowSortingFeature,
   sortFn_alphanumeric,
@@ -11,35 +10,21 @@ import {
   tableFeatures,
 } from "@tanstack/react-table";
 
-const normalize = (value: unknown) => String(value ?? "").toLowerCase();
-
-export const filterFn_fuzzy = constructFilterFn({
-  autoRemove: (filterValue) => !filterValue,
-  filter: (dataValue, filterValue) => {
-    const haystack = normalize(dataValue);
-    const needle = normalize(filterValue);
-    let index = 0;
-    for (const char of needle) {
-      index = haystack.indexOf(char, index);
-      if (index === -1) {
-        return false;
-      }
-      index += 1;
-    }
-    return true;
-  },
-  resolveDataValue: normalize,
-  resolveFilterValue: normalize,
-});
+import type { FuzzyFilterMeta } from "@/lib/fuzzy-filter";
+import { fuzzyFilter, fuzzySort } from "@/lib/fuzzy-filter";
 
 export const features = tableFeatures({
   columnFilteringFeature,
-  filterFns: { fuzzy: filterFn_fuzzy },
+  filterFns: { fuzzy: fuzzyFilter },
+  filterMeta: metaHelper<FuzzyFilterMeta>(),
   filteredRowModel: createFilteredRowModel(),
-  globalFilteringFeature,
   rowSelectionFeature,
   rowSortingFeature,
-  sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime },
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    datetime: sortFn_datetime,
+    fuzzy: fuzzySort,
+  },
   sortedRowModel: createSortedRowModel(),
 });
 

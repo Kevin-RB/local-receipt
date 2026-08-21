@@ -170,8 +170,9 @@ export const receiptColumns = columnHelper.columns([
     sortFn: "datetime",
   }),
   columnHelper.accessor("merchantName", {
+    filterFn: "fuzzy",
     header: "Merchant",
-    sortFn: "alphanumeric",
+    sortFn: "fuzzy",
   }),
   columnHelper.accessor("total", {
     cell: ({ row }) => {

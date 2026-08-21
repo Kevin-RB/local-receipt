@@ -2,7 +2,7 @@
 
 import { useTable } from "@tanstack/react-table";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import { features } from "@/components/receipts/features";
 import type { DataTableFeatures } from "@/components/receipts/features";
@@ -36,6 +36,21 @@ const SortIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
   );
 };
 
+const sortActionLabel = (sorted: false | "asc" | "desc") => {
+  if (sorted === "asc") {
+    return "Sort descending";
+  }
+  if (sorted === "desc") {
+    return "Clear sorting";
+  }
+  return "Sort ascending";
+};
+
+const ARIA_SORT: Record<"asc" | "desc", "ascending" | "descending"> = {
+  asc: "ascending",
+  desc: "descending",
+};
+
 export const DataTable = <TData extends RowData>({
   columns,
   data,
@@ -44,22 +59,20 @@ export const DataTable = <TData extends RowData>({
     columns,
     data,
     features,
-    getColumnCanGlobalFilter: (column) => column.id !== "actions",
-    globalFilterFn: "fuzzy",
   });
+  const merchantColumn = table.getColumn("merchantName");
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative">
-        <Search
-          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2"
-          aria-hidden="true"
-        />
+      <div>
         <Input
-          className="pl-8"
-          onChange={(event) => table.setGlobalFilter(event.target.value)}
-          placeholder="Search receipts…"
-          value={(table.state.globalFilter as string | undefined) ?? ""}
+          aria-label="Filter by merchant"
+          className="max-w-xs"
+          onChange={(event) =>
+            merchantColumn?.setFilterValue(event.target.value)
+          }
+          placeholder="Filter merchants…"
+          value={(merchantColumn?.getFilterValue() as string | undefined) ?? ""}
         />
       </div>
       <div className="overflow-hidden rounded-md border">
@@ -68,6 +81,7 @@ export const DataTable = <TData extends RowData>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted();
                   let content = <table.FlexRender header={header} />;
                   if (!header.isPlaceholder && header.column.getCanSort()) {
                     content = (
@@ -77,12 +91,18 @@ export const DataTable = <TData extends RowData>({
                         type="button"
                       >
                         {content}
-                        <SortIcon sorted={header.column.getIsSorted()} />
+                        <SortIcon sorted={sorted} />
+                        <span className="sr-only">
+                          {sortActionLabel(sorted)}
+                        </span>
                       </button>
                     );
                   }
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      aria-sort={sorted ? ARIA_SORT[sorted] : undefined}
+                      key={header.id}
+                    >
                       {header.isPlaceholder ? null : content}
                     </TableHead>
                   );

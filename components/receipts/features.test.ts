@@ -1,30 +1,45 @@
 import { describe, expect, it } from "vitest";
 
-import { filterFn_fuzzy } from "@/components/receipts/features";
+import { fuzzyFilter, fuzzySort } from "@/lib/fuzzy-filter";
 
-const makeRow = (value: unknown) => ({ getValue: () => value }) as never;
+const makeRow = (value: unknown) =>
+  ({
+    columnFiltersMeta: {},
+    getValue: () => value,
+  }) as never;
 
-describe(filterFn_fuzzy, () => {
+describe(fuzzyFilter, () => {
   it("matches case-insensitive substrings", () => {
     expect(
-      filterFn_fuzzy(makeRow("Coles Supermarket"), "merchantName", "coles")
+      fuzzyFilter(makeRow("Coles Supermarket"), "merchantName", "coles")
     ).toBeTruthy();
   });
 
-  it("matches subsequence characters in order", () => {
-    expect(
-      filterFn_fuzzy(makeRow("Woolworths"), "merchantName", "wools")
-    ).toBeTruthy();
+  it("stores ranking info via addMeta", () => {
+    let meta: { itemRank?: { passed?: boolean; rank?: number } } | undefined;
+    const passed = fuzzyFilter(
+      makeRow("Woolworths"),
+      "merchantName",
+      "wools",
+      (m) => {
+        meta = m;
+      }
+    );
+    expect(passed).toBeTruthy();
+    expect(meta?.itemRank?.passed).toBeTruthy();
   });
 
-  it("rejects characters out of order", () => {
+  it("rejects non-matches", () => {
     expect(
-      filterFn_fuzzy(makeRow("Woolworths"), "merchantName", "sw")
+      fuzzyFilter(makeRow("Woolworths"), "merchantName", "xyzzy")
     ).toBeFalsy();
   });
+});
 
-  it("auto-removes empty filter values", () => {
-    expect(filterFn_fuzzy.autoRemove?.("")).toBeTruthy();
-    expect(filterFn_fuzzy.autoRemove?.("a")).toBeFalsy();
+describe(fuzzySort, () => {
+  it("falls back to alphanumeric when no rank info exists", () => {
+    const a = makeRow("ALDI");
+    const b = makeRow("Coles");
+    expect(fuzzySort(a, b, "merchantName")).toBeLessThanOrEqual(0);
   });
 });
