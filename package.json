@@ -34,7 +34,6 @@
     "ai": "^7.0.52",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^4.4.0",
     "drizzle-orm": "1.0.0-rc.4",
     "inngest": "^4.15.0",
     "lucide-react": "^1.28.0",

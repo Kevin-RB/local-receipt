@@ -65,12 +65,12 @@ const rangeDateFormatter = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
 });
 
-const today = new Date(Temporal.Now.instant().epochMilliseconds);
+const getToday = () => new Date(Temporal.Now.instant().epochMilliseconds);
 
-const startOfPreviousMonth = (() => {
+const getStartOfPreviousMonth = () => {
   const previousMonth = Temporal.Now.plainDateISO().subtract({ months: 1 });
   return new Date(previousMonth.year, previousMonth.month - 1, 1);
-})();
+};
 
 export const DataTable = <TData extends RowData>({
   columns,
@@ -85,6 +85,8 @@ export const DataTable = <TData extends RowData>({
   const dateColumn = table.getColumn("transactionDateTime");
   const dateRange =
     (dateColumn?.getFilterValue() as DateRange | undefined) ?? undefined;
+  const today = getToday();
+  const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
 
   const rangeLabel = (() => {
     if (!dateRange?.from) {
@@ -110,7 +112,7 @@ export const DataTable = <TData extends RowData>({
         />
         <Popover>
           <PopoverTrigger
-            aria-label="Filter by date range"
+            aria-label={`Filter by date range: ${rangeLabel}`}
             render={
               <Button
                 className="justify-start px-2.5 font-normal"
@@ -124,7 +126,7 @@ export const DataTable = <TData extends RowData>({
           />
           <PopoverContent align="start" className="w-auto p-0">
             <Calendar
-              defaultMonth={dateRange?.from ?? startOfPreviousMonth}
+              defaultMonth={defaultMonth}
               disabled={{ after: today }}
               mode="range"
               numberOfMonths={2}
