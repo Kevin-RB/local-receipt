@@ -28,3 +28,13 @@ export const receiptDateToLocalString = (
     .toZonedDateTimeISO(timezone);
   return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
 };
+
+export const receiptDateToISODateString = (
+  date: Date,
+  timezone = RECEIPT_TIMEZONE
+): string => {
+  const { day, month, year } = date
+    .toTemporalInstant()
+    .toZonedDateTimeISO(timezone);
+  return `${year}-${pad(month)}-${pad(day)}`;
+};

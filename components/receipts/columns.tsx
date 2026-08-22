@@ -15,6 +15,7 @@ import { z } from "zod/v4";
 
 import { deleteReceipt } from "@/app/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
+import { dateRangeFilterFn } from "@/components/receipts/filters";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -38,7 +39,6 @@ export const receiptTableSchema = z.object({
   id: z.string(),
   merchantName: z.string(),
   paymentMethod: z.string(),
-  receiptNumber: z.string(),
   status: z.enum(["uploading", "pending", "processing", "done", "error"]),
   total: z.number(),
   transactionDateTime: z.date(),
@@ -57,7 +57,7 @@ const statusBadgeVariant: Record<ReceiptTable["status"], badgeVariant> = {
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-AU", {
-  dateStyle: "short",
+  dateStyle: "full",
   timeStyle: "short",
   timeZone: "Australia/Brisbane",
 });
@@ -159,6 +159,7 @@ export const receiptColumns = columnHelper.columns([
       return <Badge variant={statusBadgeVariant[status]}>{status}</Badge>;
     },
     header: "Status",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor("transactionDateTime", {
     cell: ({ row }) => {
@@ -166,13 +167,14 @@ export const receiptColumns = columnHelper.columns([
       const instant = transactionDateTime.toTemporalInstant();
       return <div className="text-right">{dateFormatter.format(instant)}</div>;
     },
+    filterFn: dateRangeFilterFn,
     header: "Date",
+    sortFn: "datetime",
   }),
   columnHelper.accessor("merchantName", {
+    filterFn: "includesString",
     header: "Merchant",
-  }),
-  columnHelper.accessor("receiptNumber", {
-    header: "Receipt #",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor("total", {
     cell: ({ row }) => {
@@ -188,6 +190,7 @@ export const receiptColumns = columnHelper.columns([
   }),
   columnHelper.accessor("paymentMethod", {
     header: "Payment",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor("hasIntegrityWarning", {
     cell: ({ row }) => {

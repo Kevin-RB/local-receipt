@@ -13,7 +13,6 @@ const normalizeReceipt = (receipt: ReceiptSelect): ReceiptTable => ({
   id: receipt.id,
   merchantName: receipt.merchantName ?? "Unknown",
   paymentMethod: receipt.paymentMethod ?? "-",
-  receiptNumber: receipt.receiptNumber ?? "-",
   status: receipt.status as ReceiptTable["status"],
   total: receipt.total ?? 0,
   transactionDateTime: receipt.transactionDateTime ?? receipt.createdAt,

@@ -2,9 +2,19 @@
 
 import { useTable } from "@tanstack/react-table";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, CalendarIcon, ChevronsUpDown } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 
 import { features } from "@/components/receipts/features";
 import type { DataTableFeatures } from "@/components/receipts/features";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -19,6 +29,49 @@ interface DataTableProps<TData extends RowData> {
   data: TData[];
 }
 
+const SortIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
+  if (sorted === "asc") {
+    return <ArrowUp aria-hidden="true" className="size-3.5" />;
+  }
+  if (sorted === "desc") {
+    return <ArrowDown aria-hidden="true" className="size-3.5" />;
+  }
+  return (
+    <ChevronsUpDown
+      aria-hidden="true"
+      className="text-muted-foreground size-3.5"
+    />
+  );
+};
+
+const sortActionLabel = (sorted: false | "asc" | "desc") => {
+  if (sorted === "asc") {
+    return "Sort descending";
+  }
+  if (sorted === "desc") {
+    return "Clear sorting";
+  }
+  return "Sort ascending";
+};
+
+const ARIA_SORT: Record<"asc" | "desc", "ascending" | "descending"> = {
+  asc: "ascending",
+  desc: "descending",
+};
+
+const rangeDateFormatter = new Intl.DateTimeFormat("en-AU", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const getToday = () => new Date(Temporal.Now.instant().epochMilliseconds);
+
+const getStartOfPreviousMonth = () => {
+  const previousMonth = Temporal.Now.plainDateISO().subtract({ months: 1 });
+  return new Date(previousMonth.year, previousMonth.month - 1, 1);
+};
+
 export const DataTable = <TData extends RowData>({
   columns,
   data,
@@ -28,46 +81,132 @@ export const DataTable = <TData extends RowData>({
     data,
     features,
   });
+  const merchantColumn = table.getColumn("merchantName");
+  const dateColumn = table.getColumn("transactionDateTime");
+  const dateRange =
+    (dateColumn?.getFilterValue() as DateRange | undefined) ?? undefined;
+  const today = getToday();
+  const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
+
+  const rangeLabel = (() => {
+    if (!dateRange?.from) {
+      return "Any date";
+    }
+    if (dateRange.to) {
+      return `${rangeDateFormatter.format(dateRange.from)} - ${rangeDateFormatter.format(dateRange.to)}`;
+    }
+    return rangeDateFormatter.format(dateRange.from);
+  })();
 
   return (
-    <div className="overflow-hidden rounded-md border">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder ? null : (
-                    <table.FlexRender header={header} />
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label="Filter by merchant"
+          className="max-w-xs"
+          onChange={(event) =>
+            merchantColumn?.setFilterValue(event.target.value)
+          }
+          placeholder="Filter merchants…"
+          value={(merchantColumn?.getFilterValue() as string | undefined) ?? ""}
+        />
+        <Popover>
+          <PopoverTrigger
+            aria-label={`Filter by date range: ${rangeLabel}`}
+            render={
+              <Button
+                className="justify-start px-2.5 font-normal"
+                id="date-range-filter"
+                variant="outline"
               >
-                {row.getAllCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    <table.FlexRender cell={cell} />
-                  </TableCell>
-                ))}
+                <CalendarIcon data-icon="inline-start" />
+                {rangeLabel}
+              </Button>
+            }
+          />
+          <PopoverContent align="start" className="w-auto p-0">
+            <Calendar
+              defaultMonth={defaultMonth}
+              disabled={{ after: today }}
+              mode="range"
+              numberOfMonths={2}
+              onSelect={(next) => dateColumn?.setFilterValue(next ?? {})}
+              selected={dateRange}
+            />
+            <div className="border-t p-1">
+              <Button
+                onClick={() => dateColumn?.setFilterValue(undefined)}
+                size="sm"
+                variant="ghost"
+              >
+                Clear dates
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="overflow-hidden rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted();
+                  let content = <table.FlexRender header={header} />;
+                  if (!header.isPlaceholder && header.column.getCanSort()) {
+                    content = (
+                      <button
+                        className="hover:text-foreground flex items-center gap-1"
+                        onClick={header.column.getToggleSortingHandler()}
+                        type="button"
+                      >
+                        {content}
+                        <SortIcon sorted={sorted} />
+                        <span className="sr-only">
+                          {sortActionLabel(sorted)}
+                        </span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <TableHead
+                      aria-sort={sorted ? ARIA_SORT[sorted] : undefined}
+                      key={header.id}
+                    >
+                      {header.isPlaceholder ? null : content}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                >
+                  {row.getAllCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
