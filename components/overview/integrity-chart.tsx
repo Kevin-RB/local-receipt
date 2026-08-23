@@ -107,6 +107,7 @@ export const IntegrityChart = ({
               type="number"
               domain={[0, Math.max(total, 1)]}
               tick={false}
+              tickLine={false}
               axisLine={false}
             />
             <ChartTooltip
