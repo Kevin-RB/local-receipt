@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod/v4";
 
-import { deleteReceipt } from "@/app/receipts/actions";
+import { deleteReceipt } from "@/app/(app)/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { dateRangeFilterFn } from "@/components/receipts/filters";
 import { Badge } from "@/components/ui/badge";
