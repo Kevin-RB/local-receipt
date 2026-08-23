@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { Label, PolarAngleAxis, RadialBar, RadialBarChart } from "recharts";
+import {
+  Label,
+  PolarAngleAxis,
+  PolarGrid,
+  RadialBar,
+  RadialBarChart,
+} from "recharts";
 
 import {
   Card,
@@ -63,6 +69,7 @@ export const IntegrityChart = ({
     [receipts]
   );
   const total = receipts.length;
+  const clean = total > 0 && warnings === 0;
 
   const data = [{ name: "warnings", warnings }];
 
@@ -75,7 +82,7 @@ export const IntegrityChart = ({
       <CardContent className="flex-1 pb-0">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto aspect-square max-h-70"
         >
           <RadialBarChart
             data={data}
@@ -84,15 +91,23 @@ export const IntegrityChart = ({
             outerRadius={90}
             innerRadius={75}
           >
-            <RadialBar
-              background
-              dataKey="warnings"
-              fill="var(--color-warnings)"
+            <PolarGrid
+              gridType="circle"
+              radialLines={false}
+              stroke="none"
+              className={
+                clean
+                  ? "first:fill-chart-1 last:fill-background"
+                  : "first:fill-muted last:fill-background"
+              }
+              polarRadius={[90, 75]}
             />
+            <RadialBar dataKey="warnings" fill="var(--color-warnings)" />
             <PolarAngleAxis
               type="number"
               domain={[0, Math.max(total, 1)]}
               tick={false}
+              axisLine={false}
             />
             <ChartTooltip
               cursor={false}
