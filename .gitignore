@@ -8,6 +8,7 @@ dist/
 prototype/
 Receipts/
 !app/receipts/
+!app/(app)/receipts/
 !app/api/receipts/
 !components/receipts/
 .agents/

@@ -9,7 +9,7 @@ describe("app smoke test", () => {
   });
 
   it("page component exports a default function", async () => {
-    const page = await import("../app/page.js");
+    const page = await import("../app/(app)/page.js");
     expect(page.default).toBeTypeOf("function");
   });
 });
