@@ -1,9 +1,11 @@
 import { ArrowLeft } from "lucide-react";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/lib/auth";
 import { findReceiptByIdWithItems } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
 import { cn } from "@/lib/utils";
@@ -54,8 +56,14 @@ const ReceiptImage = ({
 export default async function ReceiptDetailPage({
   params,
 }: ReceiptDetailPageProps) {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    redirect("/sign-in");
+  }
+
   const { id } = await params;
-  const receipt = await findReceiptByIdWithItems(id);
+  const receipt = await findReceiptByIdWithItems(id, session.user.id);
 
   if (!receipt) {
     notFound();
