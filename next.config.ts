@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      new URL("https://cdn.mos.cms.futurecdn.net/**"),
-      new URL("https://encrypted-tbn0.gstatic.com/**"),
+      { hostname: "cdn.mos.cms.futurecdn.net", pathname: "/**" },
+      { hostname: "encrypted-tbn0.gstatic.com", pathname: "/**" },
     ],
   },
 };

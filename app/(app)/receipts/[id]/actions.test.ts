@@ -6,6 +6,7 @@ const {
   mockDelete,
   mockDeleteWhere,
   mockFindFirst,
+  mockGetSession,
   mockInsert,
   mockInsertValues,
   mockRevalidatePath,
@@ -59,11 +60,15 @@ const {
   const receiptDateTimeToDate = vi
     .fn<(datetime: string) => Date>()
     .mockReturnValue(new Date("2026-01-01T00:00:00.000Z"));
+  const getSession = vi
+    .fn<() => Promise<{ user: { id: string } } | null>>()
+    .mockResolvedValue({ user: { id: "user-1" } });
 
   return {
     mockDelete: deleteTable,
     mockDeleteWhere: deleteWhere,
     mockFindFirst: findFirst,
+    mockGetSession: getSession,
     mockInsert: insertTable,
     mockInsertValues: insertValues,
     mockReceiptDateTimeToDate: receiptDateTimeToDate,
@@ -75,7 +80,7 @@ const {
   };
 });
 
-// @ts-expect-error mock types don't need to match Drizzle internals
+// @ts-expect-error mock types don't match Drizzle internals
 vi.mock(import("@/lib/db"), () => ({
   db: {
     query: { receipts: { findFirst: mockFindFirst } },
@@ -83,6 +88,15 @@ vi.mock(import("@/lib/db"), () => ({
   },
   receiptItems: {},
   receipts: {},
+}));
+
+// @ts-expect-error mock types don't match Better Auth internals
+vi.mock(import("@/lib/auth"), () => ({
+  auth: { api: { getSession: mockGetSession } },
+}));
+
+vi.mock(import("next/headers"), () => ({
+  headers: () => Promise.resolve(new Headers()),
 }));
 
 vi.mock(import("next/cache"), () => ({
@@ -130,6 +144,8 @@ const validInput: UpdateReceiptInput = {
 
 describe(updateReceipt, () => {
   beforeEach(() => {
+    mockGetSession.mockClear();
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockFindFirst.mockClear();
     mockFindFirst.mockResolvedValue({ status: "done" });
     mockSetWhere.mockClear();
@@ -343,6 +359,40 @@ describe(updateReceipt, () => {
       success: false,
     });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthenticated requests without looking up or mutating", async () => {
+    mockGetSession.mockResolvedValueOnce(null);
+
+    const result = await updateReceipt(validInput);
+
+    expect(result).toStrictEqual({
+      error: "Receipt is not editable",
+      success: false,
+    });
+    expect(mockFindFirst).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found semantics for another user's receipt without mutating", async () => {
+    mockFindFirst.mockResolvedValueOnce(null);
+
+    const result = await updateReceipt(validInput);
+
+    expect(result).toStrictEqual({
+      error: "Receipt is not editable",
+      success: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockSetWhere).not.toHaveBeenCalled();
+  });
+
+  it("scopes the ownership lookup to the session user", async () => {
+    await updateReceipt(validInput);
+
+    expect(mockFindFirst).toHaveBeenCalledExactlyOnceWith({
+      where: { id: receiptId, userId: "user-1" },
+    });
   });
 
   it("revalidates the receipt path after a successful save", async () => {
