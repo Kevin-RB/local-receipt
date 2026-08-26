@@ -2,7 +2,9 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { auth } from "@/lib/auth";
 import { db, receiptItems, receipts } from "@/lib/db";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
@@ -11,6 +13,12 @@ import { updateReceiptSchema } from "./schema";
 import type { UpdateReceiptInput } from "./schema";
 
 export const updateReceipt = async (input: UpdateReceiptInput) => {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    return { error: "Receipt is not editable", success: false as const };
+  }
+
   const parsed = updateReceiptSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -21,7 +29,7 @@ export const updateReceipt = async (input: UpdateReceiptInput) => {
     parsed.data;
 
   const existing = await db.query.receipts.findFirst({
-    where: { id: receiptId },
+    where: { id: receiptId, userId: session.user.id },
   });
 
   if (!existing || existing.status !== "done") {
