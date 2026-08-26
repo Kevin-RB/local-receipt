@@ -22,6 +22,7 @@ const flatReceipt: ReceiptSelect = {
   subtotal: 9.9,
   total: 10.9,
   transactionDateTime: dtypeReceipt,
+  userId: "user-1",
 };
 
 const nestedReceipt: ReceiptNested = {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockReturning = vi
   .fn<() => Promise<{ receiptId: string }[]>>()
@@ -14,6 +14,13 @@ const mockInsert = vi
 vi.mock(import("@/lib/db"), () => ({
   db: { insert: mockInsert },
   receipts: {},
+}));
+
+const mockGetSession = vi.fn<() => Promise<{ user: { id: string } } | null>>();
+
+// @ts-expect-error mock types don't need to match Better Auth internals
+vi.mock(import("@/lib/auth"), () => ({
+  auth: { api: { getSession: mockGetSession } },
 }));
 
 vi.mock(import("@/lib/minio/client"), () => ({
@@ -39,6 +46,47 @@ vi.mock(import("node:crypto"), () => ({
 const { POST } = await import("./route");
 
 describe("POST /api/upload", () => {
+  beforeEach(() => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
+  });
+
+  it("rejects unauthenticated requests", async () => {
+    mockGetSession.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/upload", {
+        body: JSON.stringify({
+          contentType: "image/jpeg",
+          fileSize: 1000,
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("stamps the receipt with the session user's id", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
+
+    const res = await POST(
+      new Request("http://localhost/api/upload", {
+        body: JSON.stringify({
+          contentType: "image/jpeg",
+          fileSize: 100_000,
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1" })
+    );
+  });
+
   it("rejects non-JPEG/PNG content types", async () => {
     const res = await POST(
       new Request("http://localhost/api/upload", {

@@ -15,6 +15,8 @@ import {
 } from "drizzle-orm/zod";
 import { z } from "zod";
 
+import { user } from "@/lib/db/schema/auth";
+
 export const processingStatusEnum = z.enum([
   "uploading",
   "pending",
@@ -75,6 +77,9 @@ export const receipts = snakeCase.table(
       mode: "date",
       withTimezone: true,
     }),
+    userId: text()
+      .notNull()
+      .references(() => user.id),
   },
   (table) => [
     index("receipts_merchant_name_lower_idx").using(
@@ -84,6 +89,7 @@ export const receipts = snakeCase.table(
     index("receipts_transaction_datetime_index").on(table.transactionDateTime),
     index("receipts_created_at_index").on(table.createdAt),
     index("receipts_payment_method_index").on(table.paymentMethod),
+    index("receipts_user_id_index").on(table.userId),
   ]
 );
 
