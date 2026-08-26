@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { reset, seed } from "drizzle-seed";
 import { Pool } from "pg";
@@ -114,47 +115,51 @@ const [owner] = await seedDb
   })
   .returning();
 
-await seed(seedDb, { receiptItems, receipts }, { seed: seedNumber }).refine(
-  (f) => ({
-    receiptItems: {
-      columns: {
-        lineTotal: f.number({ maxValue: 60, minValue: 0.5, precision: 100 }),
-        name: f.valuesFromArray({ values: groceryItems }),
-        quantity: f.int({ maxValue: 4, minValue: 1 }),
-        unitPrice: f.number({ maxValue: 20, minValue: 0.5, precision: 100 }),
-      },
+await seed(
+  seedDb,
+  { receiptItems, receipts, user },
+  { seed: seedNumber }
+).refine((f) => ({
+  receiptItems: {
+    columns: {
+      lineTotal: f.number({ maxValue: 60, minValue: 0.5, precision: 100 }),
+      name: f.valuesFromArray({ values: groceryItems }),
+      quantity: f.int({ maxValue: 4, minValue: 1 }),
+      unitPrice: f.number({ maxValue: 20, minValue: 0.5, precision: 100 }),
     },
-    receipts: {
-      columns: {
-        gst: f.number({ maxValue: 8, minValue: 0, precision: 100 }),
-        merchantAbn: f.valuesFromArray({ values: abns }),
-        merchantAddress: f.valuesFromArray({ values: addresses }),
-        merchantName: f.valuesFromArray({ values: merchants }),
-        merchantStoreId: f.valuesFromArray({ values: storeIds }),
-        minioObjectKey: false,
-        paymentMethod: f.valuesFromArray({ values: paymentMethods }),
-        receiptNumber: f.valuesFromArray({ values: receiptNumbers }),
-        status: f.default({ defaultValue: "done" }),
-        subtotal: f.number({ maxValue: 80, minValue: 5, precision: 100 }),
-        total: f.number({ maxValue: 90, minValue: 5, precision: 100 }),
-        transactionDateTime: f.date({
-          maxDate: "2026-08-16",
-          minDate: "2026-01-01",
-        }),
-      },
-      count: 8,
-      with: {
-        receiptItems: [
-          { count: [2, 3], weight: 0.4 },
-          { count: [4, 5], weight: 0.4 },
-          { count: [6, 8], weight: 0.2 },
-        ],
-      },
+  },
+  receipts: {
+    columns: {
+      gst: f.number({ maxValue: 8, minValue: 0, precision: 100 }),
+      merchantAbn: f.valuesFromArray({ values: abns }),
+      merchantAddress: f.valuesFromArray({ values: addresses }),
+      merchantName: f.valuesFromArray({ values: merchants }),
+      merchantStoreId: f.valuesFromArray({ values: storeIds }),
+      minioObjectKey: false,
+      paymentMethod: f.valuesFromArray({ values: paymentMethods }),
+      receiptNumber: f.valuesFromArray({ values: receiptNumbers }),
+      status: f.default({ defaultValue: "done" }),
+      subtotal: f.number({ maxValue: 80, minValue: 5, precision: 100 }),
+      total: f.number({ maxValue: 90, minValue: 5, precision: 100 }),
+      transactionDateTime: f.date({
+        maxDate: "2026-08-16",
+        minDate: "2026-01-01",
+      }),
     },
-  })
-);
+    count: 8,
+    with: {
+      receiptItems: [
+        { count: [2, 3], weight: 0.4 },
+        { count: [4, 5], weight: 0.4 },
+        { count: [6, 8], weight: 0.2 },
+      ],
+    },
+  },
+}));
 
 await seedDb.update(receipts).set({ userId: owner.id });
+
+await seedDb.delete(user).where(ne(user.id, owner.id));
 
 process.stdout.write(`Seeded demo data into ${seedDatabaseUrl}\n`);
 
