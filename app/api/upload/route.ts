@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 
+import { auth } from "@/lib/auth";
 import { db, receipts } from "@/lib/db";
 import {
   BUCKET,
@@ -26,6 +27,12 @@ const UploadRequest = z.object({
 });
 
 export const POST = async (request: Request) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -56,6 +63,7 @@ export const POST = async (request: Request) => {
     .values({
       minioObjectKey: objectKey,
       status: "uploading",
+      userId: session.user.id,
     })
     .returning({ receiptId: receipts.id });
 

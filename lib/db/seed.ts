@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
+
 import { drizzle } from "drizzle-orm/node-postgres";
 import { reset, seed } from "drizzle-seed";
 import { Pool } from "pg";
 
 import { DEFAULT_SEED_DATABASE_URL } from "@/lib/db/constants";
+import { user } from "@/lib/db/schema/auth";
 import { receipts } from "@/lib/db/schema/receipt";
 import { receiptItems } from "@/lib/db/schema/receipt-item";
 
@@ -98,7 +101,18 @@ const groceryItems = [
   "Dish Soap 500ml",
 ];
 
-await reset(seedDb, { receiptItems, receipts });
+const OWNER_EMAIL = "kr38996@gmail.com";
+
+await reset(seedDb, { receiptItems, receipts, user });
+
+const [owner] = await seedDb
+  .insert(user)
+  .values({
+    email: OWNER_EMAIL,
+    id: randomUUID(),
+    name: "Kevin",
+  })
+  .returning();
 
 await seed(seedDb, { receiptItems, receipts }, { seed: seedNumber }).refine(
   (f) => ({
@@ -139,6 +153,8 @@ await seed(seedDb, { receiptItems, receipts }, { seed: seedNumber }).refine(
     },
   })
 );
+
+await seedDb.update(receipts).set({ userId: owner.id });
 
 process.stdout.write(`Seeded demo data into ${seedDatabaseUrl}\n`);
 
