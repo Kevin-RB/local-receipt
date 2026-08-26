@@ -32,27 +32,28 @@ if (process.env.NODE_ENV !== "production") {
 export const findReceiptById = (id: string) =>
   db.query.receipts.findFirst({ where: { id } });
 
-export const findReceiptByIdWithItems = (id: string) =>
+export const findReceiptByIdWithItems = (id: string, ownerId: string) =>
   db.query.receipts.findFirst({
-    where: { id },
+    where: { id, userId: ownerId },
     with: { receiptItems: true },
   });
 
 export const findReceiptByObjectKey = (minioObjectKey: string) =>
   db.query.receipts.findFirst({ where: { minioObjectKey } });
 
-export const listReceipts = () =>
+export const listReceipts = (ownerId: string) =>
   db.query.receipts.findMany({
     orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
+    where: { userId: ownerId },
     with: {
       receiptItems: true,
     },
   });
 
-export const listDoneReceipts = () =>
+export const listDoneReceipts = (ownerId: string) =>
   db.query.receipts.findMany({
     orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
-    where: { status: "done" },
+    where: { status: "done", userId: ownerId },
   });
 
 export { drizzle } from "drizzle-orm/node-postgres";
