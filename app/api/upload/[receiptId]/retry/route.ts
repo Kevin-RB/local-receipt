@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 
 import { auth } from "@/lib/auth";
 import { findReceiptByIdForOwner } from "@/lib/db";
@@ -10,6 +11,10 @@ import {
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
+const paramsSchema = z.object({
+  receiptId: z.string().uuid(),
+});
+
 export const POST = async (
   request: Request,
   { params }: { params: Promise<{ receiptId: string }> }
@@ -20,7 +25,7 @@ export const POST = async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { receiptId } = await params;
+  const { receiptId } = paramsSchema.parse(await params);
 
   const receipt = await findReceiptByIdForOwner(receiptId, session.user.id);
   if (!receipt) {
