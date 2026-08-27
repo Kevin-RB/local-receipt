@@ -44,6 +44,7 @@ const ReceiptImage = ({
         fill
         sizes="(max-width: 1024px) 100vw, 50vw"
         src={`/api/receipts/${receiptId}/image`}
+        unoptimized
       />
     ) : (
       <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">

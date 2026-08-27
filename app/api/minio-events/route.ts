@@ -57,7 +57,8 @@ export const POST = async (request: Request) => {
     .where(eq(receipts.id, receipt.id));
 
   await inngest.send({
-    data: { receiptId: receipt.id },
+    data: { receiptId: receipt.id, userId: receipt.userId },
+    id: `receipt-uploaded-${receipt.id}`,
     name: "receipt/uploaded",
   });
 

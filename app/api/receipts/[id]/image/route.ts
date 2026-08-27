@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 
-import { findReceiptById } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { findReceiptByIdForOwner } from "@/lib/db";
 import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
 
 const paramsSchema = z.object({
@@ -9,11 +10,17 @@ const paramsSchema = z.object({
 });
 
 export const GET = async (
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = paramsSchema.parse(await params);
-  const receipt = await findReceiptById(id);
+  const receipt = await findReceiptByIdForOwner(id, session.user.id);
 
   if (!receipt?.minioObjectKey) {
     return NextResponse.json(

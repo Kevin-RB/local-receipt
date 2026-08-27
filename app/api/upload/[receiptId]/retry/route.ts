@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod/v4";
 
-import { findReceiptById } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { findReceiptByIdForOwner } from "@/lib/db";
 import {
   BUCKET,
   contentTypeFromKey,
@@ -9,13 +11,23 @@ import {
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
+const paramsSchema = z.object({
+  receiptId: z.string().uuid(),
+});
+
 export const POST = async (
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ receiptId: string }> }
 ) => {
-  const { receiptId } = await params;
+  const session = await auth.api.getSession({ headers: request.headers });
 
-  const receipt = await findReceiptById(receiptId);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { receiptId } = paramsSchema.parse(await params);
+
+  const receipt = await findReceiptByIdForOwner(receiptId, session.user.id);
   if (!receipt) {
     return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
   }
