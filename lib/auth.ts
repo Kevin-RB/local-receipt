@@ -1,11 +1,12 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@/lib/db";
 import { account, session, user, verification } from "@/lib/db/schema/auth";
 
-import { inviteCodeGate } from "./auth/invite-code";
+import { assertInviteCode } from "./auth/invite-code";
 
 export const auth = betterAuth({
   advanced: {
@@ -21,7 +22,16 @@ export const auth = betterAuth({
     enabled: true,
   },
   hooks: {
-    before: inviteCodeGate,
+    // The middleware contract requires an async handler even though the
+    // gate itself only reads the request body.
+    // eslint-disable-next-line require-await
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email") {
+        return;
+      }
+      const raw = ctx.body?.inviteCode;
+      assertInviteCode(typeof raw === "string" ? raw : null);
+    }),
   },
   plugins: [nextCookies()],
   rateLimit: {
