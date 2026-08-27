@@ -211,6 +211,7 @@ export const ImageUploadCard = ({
                 )}
                 <input
                   ref={inputRef}
+                  id="receipt-input"
                   name={field.name}
                   onBlur={handleBlur}
                   type="file"

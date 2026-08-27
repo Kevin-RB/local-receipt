@@ -61,7 +61,13 @@ export const SignupForm = ({
               </div>
               <Field>
                 <FieldLabel htmlFor="name">Name</FieldLabel>
-                <Input id="name" name="name" type="text" required />
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -70,6 +76,7 @@ export const SignupForm = ({
                   name="email"
                   type="email"
                   placeholder="m@example.com"
+                  autoComplete="email"
                   required
                 />
               </Field>
@@ -92,6 +99,7 @@ export const SignupForm = ({
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="new-password"
                   minLength={8}
                   required
                 />
@@ -114,6 +122,7 @@ export const SignupForm = ({
               src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrBAQ9rhaFUdFFVz9V18_2iKB4de9JAYysLg0J8C6XXZZlAshHiMH9iWQ&s=10"
               alt="Possum receipt app"
               fill
+              sizes="(max-width: 767px) 0px, 50vw"
               className="object-cover"
             />
           </div>
