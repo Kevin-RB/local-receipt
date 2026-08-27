@@ -73,6 +73,11 @@ export const transcribeReceipt = inngest.createFunction(
         key: "event.data.userId",
         limit: 2,
       },
+      {
+        key: "transcribe",
+        limit: 2,
+        scope: "account",
+      },
     ],
     id: "transcribe-receipt",
     onFailure: async ({ event, step }) => {
