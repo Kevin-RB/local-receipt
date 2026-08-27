@@ -63,11 +63,17 @@ const formatFailureMessage = (error: Error): string => {
 };
 
 export const receiptUploadedEvent = eventType("receipt/uploaded", {
-  schema: z.object({ receiptId: z.string() }),
+  schema: z.object({ receiptId: z.string(), userId: z.string() }),
 });
 
 export const transcribeReceipt = inngest.createFunction(
   {
+    concurrency: [
+      {
+        key: "event.data.userId",
+        limit: 2,
+      },
+    ],
     id: "transcribe-receipt",
     onFailure: async ({ event, step }) => {
       const { receiptId } = event.data.event.data;

@@ -57,6 +57,7 @@ const createEngine = (overrides?: Partial<(typeof baseSteps)[number]>) =>
       {
         data: {
           receiptId: "00000000-0000-0000-0000-000000000001",
+          userId: "user-1",
         },
         name: "receipt/uploaded",
       },
