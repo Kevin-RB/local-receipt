@@ -39,6 +39,7 @@ export const SignupForm = ({
               setError(null);
               const { error: result } = await signUp.email({
                 email: String(formData.get("email")),
+                inviteCode: String(formData.get("inviteCode") ?? ""),
                 name: String(formData.get("name")),
                 password: String(formData.get("password")),
               });
@@ -73,6 +74,19 @@ export const SignupForm = ({
                 />
               </Field>
               <Field>
+                <FieldLabel htmlFor="inviteCode">Invite code</FieldLabel>
+                <Input
+                  id="inviteCode"
+                  name="inviteCode"
+                  type="password"
+                  autoComplete="off"
+                  required
+                />
+                <FieldDescription>
+                  Enter the invite code you were given to create an account
+                </FieldDescription>
+              </Field>
+              <Field>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Input
                   id="password"
@@ -81,6 +95,8 @@ export const SignupForm = ({
                   minLength={8}
                   required
                 />
+              </Field>
+              <Field>
                 <FieldError>{error}</FieldError>
               </Field>
               <Field>

@@ -13,6 +13,7 @@ export const user = snakeCase.table("user", {
   emailVerified: boolean().notNull().default(false),
   id: text().primaryKey(),
   image: text(),
+  inviteCode: text(),
   name: text().notNull(),
   updatedAt: timestamp({ withTimezone: true })
     .notNull()
