@@ -24,6 +24,12 @@ describe("auth wiring", () => {
     expect(auth.options.rateLimit?.enabled).toBeTruthy();
   });
 
+  it("limits sign-up attempts per IP", () => {
+    expect(
+      auth.options.rateLimit?.customRules?.["/sign-up/email"]
+    ).toMatchObject({ max: 5, window: 60 });
+  });
+
   it("resolves the client IP from the Cloudflare proxy header", () => {
     expect(auth.options.advanced?.ipAddress?.ipAddressHeaders).toContain(
       "cf-connecting-ip"
