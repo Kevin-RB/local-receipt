@@ -39,6 +39,7 @@ export const SignupForm = ({
               setError(null);
               const { error: result } = await signUp.email({
                 email: String(formData.get("email")),
+                inviteCode: String(formData.get("inviteCode") ?? ""),
                 name: String(formData.get("name")),
                 password: String(formData.get("password")),
               });
@@ -60,7 +61,13 @@ export const SignupForm = ({
               </div>
               <Field>
                 <FieldLabel htmlFor="name">Name</FieldLabel>
-                <Input id="name" name="name" type="text" required />
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -69,8 +76,22 @@ export const SignupForm = ({
                   name="email"
                   type="email"
                   placeholder="m@example.com"
+                  autoComplete="email"
                   required
                 />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="inviteCode">Invite code</FieldLabel>
+                <Input
+                  id="inviteCode"
+                  name="inviteCode"
+                  type="password"
+                  autoComplete="off"
+                  required
+                />
+                <FieldDescription>
+                  Enter the invite code you were given to create an account
+                </FieldDescription>
               </Field>
               <Field>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -78,9 +99,12 @@ export const SignupForm = ({
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="new-password"
                   minLength={8}
                   required
                 />
+              </Field>
+              <Field>
                 <FieldError>{error}</FieldError>
               </Field>
               <Field>
@@ -98,6 +122,7 @@ export const SignupForm = ({
               src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrBAQ9rhaFUdFFVz9V18_2iKB4de9JAYysLg0J8C6XXZZlAshHiMH9iWQ&s=10"
               alt="Possum receipt app"
               fill
+              sizes="(max-width: 767px) 0px, 50vw"
               className="object-cover"
             />
           </div>

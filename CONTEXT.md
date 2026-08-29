@@ -35,3 +35,5 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Line item**: A single product or service line on a receipt, with a name, quantity, unit price, and line total. A discount is a line item with a negative line total. _Avoid_: Item, entry, row.
 
 **Owner**: The user whose account uploaded a receipt. Only the owner may view, edit, delete, or subscribe to a receipt's processing stream. _Avoid_: Creator, author, uploader.
+
+**Invite code**: The single shared secret a prospective user enters at sign-up to create an account, controlled by the app owner to gate registration. _Avoid_: Registration code, access code, beta key.

@@ -92,6 +92,7 @@ Local env defaults are in `.env.local` (which is gitignored). Key variables:
 - `DATABASE_URL`, `MINIO_ENDPOINT`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_WEBHOOK_SECRET`
 - `INNGEST_DEV=1`, `INNGEST_BASE_URL=http://localhost:8288`
 - `LM_STUDIO_URL`, `ORC_MODEL`, `PARSE_MODEL`
+- `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INVITE_CODE` (required to register)
 
 ---
 
