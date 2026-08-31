@@ -5,7 +5,7 @@
 #   migrator- full toolchain for `pnpm db:migrate` (one-shot deploy step)
 # Built once, used by docker-compose.coolify.yml.
 
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -29,7 +29,7 @@ COPY . .
 RUN pnpm build
 
 # runner: the standalone server + static assets only, running as non-root.
-FROM node:24-slim AS runner
+FROM node:26-slim AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
