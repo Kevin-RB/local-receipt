@@ -184,7 +184,7 @@ Key properties:
 
 ## Gotchas
 
-- The `Dockerfile` and CI (`deploy.yml`) use `pnpm@11.20.0`; align these with the lockfile if you change any of them.
+- pnpm is pinned to `pnpm@11.20.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`deploy.yml`), and this field in sync.
 - The pre-commit hook will auto-format and re-stage files. If it fails, inspect the hook output rather than manually re-running `git add`.
 - The dev server binds to `0.0.0.0` so the Docker-hosted services can reach it via `host.docker.internal`.
 - MinIO webhook auth must match `MINIO_WEBHOOK_SECRET` (the bucket notification uses `Authorization: Bearer <secret>`).
