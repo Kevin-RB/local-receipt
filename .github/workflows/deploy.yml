@@ -1,0 +1,35 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v1
+        with:
+          version: 11.20.0
+          runtime: node@24
+          install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  deploy:
+    name: Trigger Coolify redeploy
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      # Full Coolify deploy webhook URL (plus &token=... if the webhook has a
+      # secret enabled) goes in the COOLIFY_DEPLOY_WEBHOOK repo secret.
+      - name: Hit Coolify deploy webhook
+        env:
+          COOLIFY_DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK }}
+        run: curl -fsS -X GET "$COOLIFY_DEPLOY_WEBHOOK"

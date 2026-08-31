@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       { hostname: "encrypted-tbn0.gstatic.com", pathname: "/**" },
     ],
   },
+  output: "standalone",
 };
 
 export default nextConfig;
