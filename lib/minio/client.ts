@@ -17,6 +17,12 @@ const MINIO_PUBLIC_ENDPOINT =
 const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER ?? "minioadmin";
 const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD ?? "minioadmin";
 
+// Endpoints may be scheme-less (dev: `localhost:9000`, internal: `minio:9000`)
+// or full URLs (prod public: `https://uploads.tribi.dev`). Normalize so the
+// S3 client always gets a usable URL and presigned URLs carry the right scheme.
+const withScheme = (endpoint: string): string =>
+  /^https?:\/\//iu.test(endpoint) ? endpoint : `http://${endpoint}`;
+
 export const BUCKET = process.env.MINIO_BUCKET ?? "receipts";
 
 const MIME_TO_EXT = {
@@ -44,7 +50,7 @@ export const s3Client = new S3Client({
     accessKeyId: MINIO_ROOT_USER,
     secretAccessKey: MINIO_ROOT_PASSWORD,
   },
-  endpoint: `http://${MINIO_ENDPOINT}`,
+  endpoint: withScheme(MINIO_ENDPOINT),
   forcePathStyle: true,
   region: "us-east-1",
 });
@@ -54,7 +60,7 @@ const s3PublicClient = new S3Client({
     accessKeyId: MINIO_ROOT_USER,
     secretAccessKey: MINIO_ROOT_PASSWORD,
   },
-  endpoint: `http://${MINIO_PUBLIC_ENDPOINT}`,
+  endpoint: withScheme(MINIO_PUBLIC_ENDPOINT),
   forcePathStyle: true,
   region: "us-east-1",
 });

@@ -94,6 +94,24 @@ Local env defaults are in `.env.local` (which is gitignored). Key variables:
 - `LM_STUDIO_URL`, `ORC_MODEL`, `PARSE_MODEL`
 - `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INVITE_CODE` (required to register)
 
+## Production deployment (Coolify / `docker-compose.coolify.yml`)
+
+The production stack (ADR-0005) lives in `docker-compose.coolify.yml` and deploys as one Coolify **Compose** resource on the Colima VM. To validate locally on a Docker-capable host:
+
+```
+docker compose -f docker-compose.coolify.yml config
+```
+
+Key properties:
+
+- **Secrets only in Coolify per-resource env vars** — the compose file interpolates `${VAR:?...}` and the repo holds no credentials. Required: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_WEBHOOK_SECRET`, `MINIO_PUBLIC_ENDPOINT`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INVITE_CODE`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`. Optional: `LM_STUDIO_URL`, `ORC_MODEL`, `PARSE_MODEL`, `MINIO_CORS_ORIGIN`, `BACKUP_TIME`, `BACKUP_RETENTION_DAYS`.
+- **Images build from the repo Dockerfile** with two targets: `runner` (the app, standalone non-root Next.js server) and `migrator`. The one-shot `migrate` service runs `pnpm db:migrate`; the app starts only after it completes successfully.
+- **Data**: `postgres-data`, `minio-data`, and `backups-data` named volumes. No host ports for app/postgres/minio — the Cloudflare tunnel is the only ingress (`receipts.tribi.dev` → `app:3000`, `uploads.tribi.dev` → `minio:9000`).
+- **Backups** (T12): the `backup` container sleeps until `BACKUP_TIME` (UTC) and `pg_dump`s Postgres + `mc mirror`s the MinIO bucket into `/backups/<stamp>/`, keeping `BACKUP_RETENTION_DAYS` (default 14) copies. One-off run: `docker compose -f docker-compose.coolify.yml run --rm backup run`.
+- **Migrations**: never at app startup. Warm `DATABASE_URL` against a throwaway DB and run `pnpm db:generate` locally; apply with the `migrate` service at deploy.
+
+**Redeploys**: push to `main` → `.github/workflows/deploy.yml` gates on typecheck/lint/test, then triggers the Coolify deploy webhook stored in the `COOLIFY_DEPLOY_WEBHOOK` repo secret.
+
 ---
 
 ## App architecture
@@ -166,7 +184,7 @@ Local env defaults are in `.env.local` (which is gitignored). Key variables:
 
 ## Gotchas
 
-- `Dockerfile` installs `pnpm@11.12.0` but `package.json` pins `pnpm@11.19.0`. Align these if you change either.
+- pnpm is pinned to `pnpm@11.20.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`deploy.yml`), and this field in sync.
 - The pre-commit hook will auto-format and re-stage files. If it fails, inspect the hook output rather than manually re-running `git add`.
 - The dev server binds to `0.0.0.0` so the Docker-hosted services can reach it via `host.docker.internal`.
 - MinIO webhook auth must match `MINIO_WEBHOOK_SECRET` (the bucket notification uses `Authorization: Bearer <secret>`).
