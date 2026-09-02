@@ -7,10 +7,10 @@
 
 FROM node:26-slim AS base
 
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
+# Node 25+ no longer bundles Corepack (removed from the runtime), so install
+# pnpm directly. Pinned to the same version as the repo's packageManager.
+RUN npm install --global pnpm@11.20.0
 
 WORKDIR /app
 
