@@ -43,6 +43,10 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# scripts are committed mode 0644 (core.filemode is unreliable across
+# machines); make them executable here so start-production.sh can run
+# check-lmstudio.sh without relying on the git mode bit.
+RUN chmod +x scripts/*.sh
 
 USER nextjs
 EXPOSE 3000
