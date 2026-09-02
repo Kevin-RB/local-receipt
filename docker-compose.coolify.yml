@@ -21,7 +21,10 @@
 #   backup   - nightly same-box backups (see T12): pg_dump + mc mirror.
 #
 # No host ports are published for app/minio/postgres — the Cloudflare tunnel
-# is the only ingress, routing to service names on the compose network.
+# is the only ingress: one wildcard route (*.tribi.dev → http://localhost:80)
+# forwards everything to the Coolify Traefik proxy (T15), which routes by
+# domain to services on the compose network. Domains are set per service on
+# the Coolify resource, not in this file.
 
 name: receipt-app
 
