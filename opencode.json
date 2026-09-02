@@ -7,29 +7,27 @@
     }
   },
   "mcp": {
-    "servers": {
-      "chrome-devtools": {
-        "type": "local",
-        "command": [
-          "npx",
-          "-y",
-          "chrome-devtools-mcp@latest",
-          "--browserUrl",
-          "http://localhost:9223"
-        ]
-      },
-      "better-auth": {
-        "type": "remote",
-        "url": "https://mcp.better-auth.com/mcp",
-        "oauth": false
-      },
-      "coolify": {
-        "type": "remote",
-        "url": "http://192.168.1.203:8000/mcp",
-        "oauth": false,
-        "headers": {
-          "Authorization": "Bearer {env:COOLIFY_API_KEY}"
-        }
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--browserUrl",
+        "http://localhost:9223"
+      ]
+    },
+    "better-auth": {
+      "type": "remote",
+      "url": "https://mcp.better-auth.com/mcp",
+      "oauth": false
+    },
+    "coolify": {
+      "type": "remote",
+      "url": "http://192.168.1.203:8000/mcp",
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:COOLIFY_API_KEY}"
       }
     }
   }
