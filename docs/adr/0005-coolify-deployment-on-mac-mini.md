@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-We deploy the app publicly on a Mac mini 2024 (M4, 16GB) running macOS. Coolify runs inside a Colima Linux VM per Coolify's own macOS guide, hosts a single Docker Compose stack (Next.js, Postgres, MinIO, backup job), and the stack is exposed through one Cloudflare Tunnel with two public hostnames: `receipts.tribi.dev` → Next.js and `uploads.tribi.dev` → MinIO's object API. Everything else (Postgres, MinIO console, Coolify admin, LM Studio) stays private. Extraction runs on local models loaded in LM Studio on the macOS host, reached by containers via `host.docker.internal`; a bring-your-own-key cloud LLM is the documented fallback if memory or performance fails.
+We deploy the app publicly on a Mac mini 2024 (M4, 16GB) running macOS. Coolify runs inside a Colima Linux VM per Coolify's own macOS guide, hosts a single Docker Compose stack (Next.js, Postgres, MinIO, backup job), and the stack is exposed through one Cloudflare Tunnel with a single wildcard route `*.tribi.dev → http://localhost:80` into the Coolify Traefik proxy, which routes per-domain to the Next.js app (`receipts.tribi.dev`) and MinIO's object API (`uploads.tribi.dev`) (T15; see the update below for the pre-T15 topology). Everything else (Postgres, MinIO console, LM Studio) stays private; the Coolify admin becomes reachable at `coolify.tribi.dev` through the same proxy in T16. Extraction runs on local models loaded in LM Studio on the macOS host, reached by containers via `host.docker.internal`; a bring-your-own-key cloud LLM is the documented fallback if memory or performance fails.
 
 Two facts drive the choices below and are easy to misremember:
 
@@ -26,9 +26,13 @@ Two facts drive the choices below and are easy to misremember:
 ## Consequences
 
 - A CORS rule on the `receipts` bucket must permit PUT from `https://receipts.tribi.dev`, or production uploads fail (they work locally before this is configured).
-- Postgres, MinIO console, Coolify admin, and LM Studio are not exposed through the tunnel.
+- Postgres, MinIO console, and LM Studio are not exposed through the tunnel — the Traefik proxy routes only hostnames configured on resources, so anything unpinned on `*.tribi.dev` gets a proxy 404, not a tunnel 404. The Coolify admin is exposed at `coolify.tribi.dev` via the proxy once T16 sets the dashboard domain (optionally gated by Cloudflare Access).
 - Same-box backups share a failure domain with the app until off-site storage ships; that risk is accepted while the pipeline is unproven.
 - Production holds no plaintext credentials on disk: secrets live only in Coolify env vars, so the `.env.local` dev values are inapplicable to the deployed stack.
+
+## Update (T15, 2026-09-02): single wildcard tunnel route to Traefik
+
+The tunnel originally had per-hostname routes straight to compose service names (`receipts.tribi.dev → app:3000`, `uploads.tribi.dev → minio:9000`). T15 replaced them with one route — `*.tribi.dev → http://localhost:80` (Coolify "Access All Resources via Cloudflare Tunnel" guide) — so **all** `*.tribi.dev` traffic lands on the Coolify Traefik proxy and per-domain routing happens through Traefik labels configured in Coolify, not through per-hostname tunnel rules. Cloudflare zone TLS is **Full (Strict)** with **Always Use HTTPS**; the tunnel leg is encrypted by cloudflared regardless, so the proxy sees plain HTTP on port 80 and Traefik/Cloudflare terminate TLS the way the Coolify guides describe. New apps and domains need zero tunnel changes, and the Coolify admin becomes reachable for T16/T18. Origin certificates and a `https://localhost:443` route (Coolify's Full TLS HTTPS variant) remain the documented path if an app ever needs origin-side HTTPS for JWT or callback URLs.
 
 ## Related
 

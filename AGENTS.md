@@ -106,7 +106,7 @@ Key properties:
 
 - **Secrets only in Coolify per-resource env vars** — the compose file interpolates `${VAR:?...}` and the repo holds no credentials. Required: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_WEBHOOK_SECRET`, `MINIO_PUBLIC_ENDPOINT`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `INVITE_CODE`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`. Optional: `LM_STUDIO_URL`, `ORC_MODEL`, `PARSE_MODEL`, `MINIO_CORS_ORIGIN`, `BACKUP_TIME`, `BACKUP_RETENTION_DAYS`.
 - **Images build from the repo Dockerfile** with two targets: `runner` (the app, standalone non-root Next.js server) and `migrator`. The one-shot `migrate` service runs `pnpm db:migrate`; the app starts only after it completes successfully.
-- **Data**: `postgres-data`, `minio-data`, and `backups-data` named volumes. No host ports for app/postgres/minio — the Cloudflare tunnel is the only ingress (`receipts.tribi.dev` → `app:3000`, `uploads.tribi.dev` → `minio:9000`).
+- **Data**: `postgres-data`, `minio-data`, and `backups-data` named volumes. No host ports for app/postgres/minio — the Cloudflare tunnel is the only ingress: one wildcard route `*.tribi.dev → http://localhost:80` hits the Coolify Traefik proxy (T15), which routes by domain to the app/minio services.
 - **Backups** (T12): the `backup` container sleeps until `BACKUP_TIME` (UTC) and `pg_dump`s Postgres + `mc mirror`s the MinIO bucket into `/backups/<stamp>/`, keeping `BACKUP_RETENTION_DAYS` (default 14) copies. One-off run: `docker compose -f docker-compose.coolify.yml run --rm backup run`.
 - **Migrations**: never at app startup. Warm `DATABASE_URL` against a throwaway DB and run `pnpm db:generate` locally; apply with the `migrate` service at deploy.
 
