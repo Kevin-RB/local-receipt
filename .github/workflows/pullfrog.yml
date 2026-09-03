@@ -10,9 +10,6 @@ on:
       name:
         type: string
         description: Run name
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
