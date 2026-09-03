@@ -1,10 +1,13 @@
 # Production stack for Coolify (ADR-0005).
 #
-# Deployed as a single Coolify "Compose" resource on the Colima VM. Every
-# secret is interpolated from Coolify per-resource environment variables —
-# nothing is committed. Missing required variables fail `docker compose
-# config` with the "<VAR> required" message, so a misconfigured deploy stops
-# early instead of shipping with empty credentials.
+# Deployed as a single Coolify "Compose" resource on the Colima VM.
+# Credentials use Coolify magic variables (SERVICE_USER_* / SERVICE_PASSWORD_64_*),
+# so Coolify generates a secure random value per environment — nothing is
+# committed. Non-credential variables (URLs, Inngest keys, model names, ...)
+# come from Coolify per-resource environment variables; required variables are
+# marked ${VAR:?} (bare, per Coolify docs — a :?text suffix would be treated
+# as a default value and litter the env UI), so a misconfigured deploy fails
+# `docker compose config` instead of shipping with empty values.
 #
 # Layout:
 #   app      - minimal Next.js standalone server (Dockerfile `runner` target),
@@ -38,21 +41,21 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/${POSTGRES_DB:-receipts}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:-receipts}
       MINIO_ENDPOINT: minio:9000
-      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:?MINIO_PUBLIC_ENDPOINT required}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
-      MINIO_WEBHOOK_SECRET: ${MINIO_WEBHOOK_SECRET:?MINIO_WEBHOOK_SECRET required}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:?}
+      MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
+      MINIO_WEBHOOK_SECRET: ${SERVICE_PASSWORD_64_MINIOWEBHOOK:?}
       MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL required}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET required}
-      INVITE_CODE: ${INVITE_CODE:?INVITE_CODE required}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?}
+      BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_BETTERAUTH:?}
+      INVITE_CODE: ${INVITE_CODE:?}
       LM_STUDIO_URL: ${LM_STUDIO_URL:-http://host.docker.internal:1234/v1}
       ORC_MODEL: ${ORC_MODEL:-glm-ocr}
       PARSE_MODEL: ${PARSE_MODEL:-google/gemma-4-e4b}
-      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:?INNGEST_EVENT_KEY required}
-      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:?INNGEST_SIGNING_KEY required}
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:?}
+      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:?}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
@@ -77,15 +80,15 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/${POSTGRES_DB:-receipts}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:-receipts}
     exclude_from_hc: true
     restart: "no"
 
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
       POSTGRES_DB: ${POSTGRES_DB:-receipts}
     volumes:
       # postgres:18 moved PGDATA into a versioned dir under /var/lib/postgresql
@@ -97,17 +100,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
+      MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
       MINIO_NOTIFY_WEBHOOK_ENABLE_primary: "on"
       MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://app:3000/api/minio-events
-      MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: ${MINIO_WEBHOOK_SECRET:?MINIO_WEBHOOK_SECRET required}
+      MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: ${SERVICE_PASSWORD_64_MINIOWEBHOOK:?}
     volumes:
       - minio-data:/data
     healthcheck:
@@ -123,9 +127,9 @@ services:
       minio:
         condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
-      MINIO_WEBHOOK_SECRET: ${MINIO_WEBHOOK_SECRET:?MINIO_WEBHOOK_SECRET required}
+      MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
+      MINIO_WEBHOOK_SECRET: ${SERVICE_PASSWORD_64_MINIOWEBHOOK:?}
       MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
       RECEIPTS_ORIGIN: ${MINIO_CORS_ORIGIN:-https://receipts.tribi.dev}
     entrypoint: /bin/sh
@@ -149,12 +153,12 @@ services:
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
       POSTGRES_DB: ${POSTGRES_DB:-receipts}
       MINIO_ENDPOINT: minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD required}
+      MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
       MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
     volumes:
       - backups-data:/backups
