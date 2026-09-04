@@ -41,13 +41,13 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:-receipts}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:?}
       MINIO_ENDPOINT: minio:9000
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:?}
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
       MINIO_WEBHOOK_SECRET: ${SERVICE_PASSWORD_64_MINIOWEBHOOK:?}
-      MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
+      MINIO_BUCKET: ${MINIO_BUCKET:?}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?}
       BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_64_BETTERAUTH:?}
       INVITE_CODE: ${INVITE_CODE:?}
@@ -80,7 +80,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:-receipts}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:?}
     exclude_from_hc: true
     restart: "no"
 
@@ -89,7 +89,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
-      POSTGRES_DB: ${POSTGRES_DB:-receipts}
+      POSTGRES_DB: ${POSTGRES_DB:?}
     volumes:
       # postgres:18 moved PGDATA into a versioned dir under /var/lib/postgresql
       # and its declared VOLUME to /var/lib/postgresql; mounting that root
@@ -130,7 +130,7 @@ services:
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
       MINIO_WEBHOOK_SECRET: ${SERVICE_PASSWORD_64_MINIOWEBHOOK:?}
-      MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
+      MINIO_BUCKET: ${MINIO_BUCKET:?}
       RECEIPTS_ORIGIN: ${MINIO_CORS_ORIGIN:-https://receipts.tribi.dev}
     entrypoint: /bin/sh
     command:
@@ -155,11 +155,11 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
-      POSTGRES_DB: ${POSTGRES_DB:-receipts}
+      POSTGRES_DB: ${POSTGRES_DB:?}
       MINIO_ENDPOINT: minio:9000
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
-      MINIO_BUCKET: ${MINIO_BUCKET:-receipts}
+      MINIO_BUCKET: ${MINIO_BUCKET:?}
     volumes:
       - backups-data:/backups
     depends_on:
