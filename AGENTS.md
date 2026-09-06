@@ -177,7 +177,8 @@ Key properties:
 ## AI / local models
 
 - The AI provider is in `lib/ai/provider.ts` and uses `@ai-sdk/openai-compatible` pointing at LM Studio.
-- Default models are `glm-ocr@q8_0` (OCR) and `google/gemma-4-e4b` (parsing), configurable via `ORC_MODEL` and `PARSE_MODEL`.
+- Default models are `glm-ocr` (OCR) and `google/gemma-4-e4b` (parsing), configurable via `ORC_MODEL` and `PARSE_MODEL`; use exactly the id LM Studio serves (from `GET /v1/models`) — it strips quant suffixes (e.g. `glm-ocr`, not `glm-ocr@q8_0`).
+- Production runs LM Studio headless on the Mac mini host (`llmster`), bound to loopback only: no API auth (nothing is LAN-exposed), reached by containers via `LM_STUDIO_URL=http://host.docker.internal:1234/v1`. It does **not** auto-start on reboot — after a mini reboot run: `lms daemon up && lms load glm-ocr && lms load google/gemma-4-e4b --context-length 8192 && lms server start --port 1234` (models pinned, no idle TTL).
 - The extraction contract is `lib/db/contract.ts` (`ReceiptInformationExtractionSchema`).
 
 ---
