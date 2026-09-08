@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { dateRangeFilterFn } from "@/components/receipts/filters";
 import type { DateRangeFilterValue } from "@/components/receipts/filters";
+import { simulateBrowserWithPolyfilledTemporal } from "@/test/polyfilled-temporal";
 
 const filter = (value: unknown, range: DateRangeFilterValue) =>
   dateRangeFilterFn({ getValue: () => value }, "transactionDateTime", range);
@@ -31,5 +32,15 @@ describe(dateRangeFilterFn, () => {
 
   it("rejects non-date values", () => {
     expect(filter("not a date", { from: new Date("2026-01-01") })).toBeFalsy();
+  });
+});
+
+describe("without the Temporal global (older browsers)", () => {
+  simulateBrowserWithPolyfilledTemporal();
+
+  it("still filters by date range", () => {
+    const row = new Date("2026-07-31T14:30:00Z");
+    expect(filter(row, { from: new Date("2026-08-01") })).toBeTruthy();
+    expect(filter(row, { from: new Date("2026-08-02") })).toBeFalsy();
   });
 });
