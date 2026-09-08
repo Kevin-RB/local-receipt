@@ -65,9 +65,10 @@ const rangeDateFormatter = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
 });
 
-const getToday = () => new Date(Temporal.Now.instant().epochMilliseconds);
+export const getToday = () =>
+  new Date(Temporal.Now.instant().epochMilliseconds);
 
-const getStartOfPreviousMonth = () => {
+export const getStartOfPreviousMonth = () => {
   const previousMonth = Temporal.Now.plainDateISO().subtract({ months: 1 });
   return new Date(previousMonth.year, previousMonth.month - 1, 1);
 };

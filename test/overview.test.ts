@@ -6,6 +6,7 @@ import {
   windowDays,
 } from "@/lib/overview";
 import type { MerchantSpendingInput, SpendingInput } from "@/lib/overview";
+import { simulateBrowserWithPolyfilledTemporal } from "@/test/polyfilled-temporal";
 
 const TODAY = Temporal.PlainDate.from("2026-08-19");
 
@@ -147,5 +148,21 @@ describe(sumSpendingByMerchant, () => {
     ]);
 
     expect(result).toStrictEqual([{ label: "Coles", total: 0.3 }]);
+  });
+});
+
+describe("with only the polyfill installed (older browsers)", () => {
+  simulateBrowserWithPolyfilledTemporal();
+
+  it("computes spending windows and buckets", () => {
+    expect(windowDays(TODAY, 2)).toBe(62);
+
+    const result = sumDailySpending(
+      [receipt({ total: 12.34, transactionDateTime: new Date(2026, 7, 3) })],
+      30,
+      TODAY
+    );
+
+    expect(totalFor(result, dayKey(new Date(2026, 7, 3)))).toBe(12.34);
   });
 });
