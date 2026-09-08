@@ -21,7 +21,6 @@
 #   minio    - object storage; webhook sent to the app over the compose
 #              network (service name `app`, not host.docker.internal).
 #   minio-init - one-shot job: bucket + bucket-notification event + CORS.
-#   backup   - nightly same-box backups (see T12): pg_dump + mc mirror.
 #
 # No host ports are published for app/minio/postgres — the Cloudflare tunnel
 # is the only ingress: one wildcard route (*.tribi.dev → http://localhost:80)
@@ -147,31 +146,6 @@ services:
     exclude_from_hc: true
     restart: "no"
 
-  backup:
-    build:
-      context: ./scripts/backup
-    environment:
-      BACKUP_TIME: ${BACKUP_TIME:-02:00}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-      POSTGRES_USER: ${POSTGRES_USER:?}
-      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
-      POSTGRES_DB: ${POSTGRES_DB:?}
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
-      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
-      MINIO_BUCKET: ${MINIO_BUCKET:?}
-    volumes:
-      - backups-data:/backups
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    restart: unless-stopped
-
 volumes:
   postgres-data:
   minio-data:
-  backups-data:
