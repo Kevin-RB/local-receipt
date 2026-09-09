@@ -26,7 +26,7 @@ Two facts drive the choices below and are easy to misremember:
 ## Consequences
 
 - A CORS rule on the `receipts` bucket must permit PUT from `https://receipts.tribi.dev`, or production uploads fail (they work locally before this is configured).
-- Postgres, MinIO console, and LM Studio are not exposed through the tunnel — the Traefik proxy routes only hostnames configured on resources, so anything unpinned on `*.tribi.dev` gets a proxy 404, not a tunnel 404. The Coolify admin is exposed at `coolbox.tribi.dev` via the proxy once T16 sets the dashboard domain, gated by Cloudflare Access.
+- Postgres, MinIO console, and LM Studio are not exposed through the tunnel — the Traefik proxy routes only hostnames configured on resources, so anything unpinned on `*.tribi.dev` is caught by the Cloudflare Access gate and answers with a login redirect, not a proxy 404 (see T16). The Coolify admin is exposed at `coolbox.tribi.dev` via the proxy once T16 sets the dashboard domain, gated by Cloudflare Access.
 - Same-box backups share a failure domain with the app until off-site storage ships; that risk is accepted while the pipeline is unproven. (Superseded — the backup container was removed; see the 2026-09-08 update below.)
 - Production holds no plaintext credentials on disk: secrets live only in Coolify env vars, so the `.env.local` dev values are inapplicable to the deployed stack.
 
