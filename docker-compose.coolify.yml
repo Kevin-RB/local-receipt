@@ -22,11 +22,15 @@
 #              network (service name `app`, not host.docker.internal).
 #   minio-init - one-shot job: bucket + bucket-notification event + CORS.
 #
-# No host ports are published for app/minio/postgres — the Cloudflare tunnel
-# is the only ingress: one wildcard route (*.tribi.dev → http://localhost:80)
-# forwards everything to the Coolify Traefik proxy (T15), which routes by
-# domain to services on the compose network. Domains are set per service on
-# the Coolify resource, not in this file.
+# Host ports exist on postgres/minio solely for private admin (LAN and
+# Tailscale tailnet): Postgres on 55432, MinIO S3 API on 55400, MinIO console
+# UI on 59001. They are bound to all mini interfaces on purpose — reachable
+# via LAN IP and tailnet IP, never from the internet: the router forwards
+# nothing inbound and the Cloudflare tunnel is still the only public ingress
+# (one wildcard route *.tribi.dev → http://localhost:80 into the Coolify
+# Traefik proxy, T15, which routes by domain to services on the compose
+# network). Domains are set per service on the Coolify resource, not here.
+# Credentials remain the fence (DB password, MinIO root, Gateway MASTERPASS).
 
 name: receipt-app
 
@@ -89,6 +93,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
       POSTGRES_DB: ${POSTGRES_DB:?}
+    ports:
+      # Private admin only (LAN + tailnet); see file header. Deliberately
+      # bound to all interfaces so tailnet IPs route here; not internet
+      # reachable (no inbound router forwards, tunnel routes tribi.dev only).
+      - "55432:5432"
     volumes:
       # postgres:18 moved PGDATA into a versioned dir under /var/lib/postgresql
       # and its declared VOLUME to /var/lib/postgresql; mounting that root
@@ -107,6 +116,11 @@ services:
     command: server /data --console-address ":9001"
     expose:
       - "9000"
+    ports:
+      # Private admin only (LAN + tailnet); see file header. S3 API on 55400,
+      # console UI on 59001.
+      - "55400:9000"
+      - "59001:9001"
     environment:
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
