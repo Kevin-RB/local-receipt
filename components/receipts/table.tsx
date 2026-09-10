@@ -1,5 +1,6 @@
 "use client";
 
+import "temporal-polyfill/global";
 import { useTable } from "@tanstack/react-table";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, CalendarIcon, ChevronsUpDown } from "lucide-react";

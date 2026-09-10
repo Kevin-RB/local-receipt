@@ -1,5 +1,6 @@
 "use client";
 
+import "temporal-polyfill/global";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
