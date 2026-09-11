@@ -23,8 +23,12 @@
 #   minio-init - one-shot job: bucket + bucket-notification event + CORS.
 #
 # Host ports exist on postgres/minio solely for private admin (LAN and
-# Tailscale tailnet): Postgres on 55432, MinIO S3 API on 55400, MinIO console
-# UI on 59001. They are bound to all mini interfaces on purpose — reachable
+# Tailscale tailnet): Postgres on ${POSTGRES_HOST_PORT:-55432}, MinIO S3 API
+# on ${MINIO_API_HOST_PORT:-55400}, MinIO console UI on
+# ${MINIO_CONSOLE_HOST_PORT:-59001}. The host side is parameterized because
+# prod and staging run on the same Docker host and must not collide — set
+# 55433/55401/59002 (or similar) on the staging resource; prod keeps the
+# defaults. Ports are bound to all mini interfaces on purpose — reachable
 # via LAN IP and tailnet IP, never from the internet: the router forwards
 # nothing inbound and the Cloudflare tunnel is still the only public ingress
 # (one wildcard route *.tribi.dev → http://localhost:80 into the Coolify
@@ -97,7 +101,10 @@ services:
       # Private admin only (LAN + tailnet); see file header. Deliberately
       # bound to all interfaces so tailnet IPs route here; not internet
       # reachable (no inbound router forwards, tunnel routes tribi.dev only).
-      - "55432:5432"
+      # Host port is per-environment (prod and staging share one Docker
+      # host, so they must not collide): override POSTGRES_HOST_PORT in the
+      # staging resource's env vars (e.g. 55433); prod keeps the default.
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
     volumes:
       # postgres:18 moved PGDATA into a versioned dir under /var/lib/postgresql
       # and its declared VOLUME to /var/lib/postgresql; mounting that root
@@ -117,10 +124,11 @@ services:
     expose:
       - "9000"
     ports:
-      # Private admin only (LAN + tailnet); see file header. S3 API on 55400,
-      # console UI on 59001.
-      - "55400:9000"
-      - "59001:9001"
+      # Private admin only (LAN + tailnet); see file header. S3 API and
+      # console UI host ports are per-environment like POSTGRES_HOST_PORT
+      # above (staging e.g. 55401/59002); prod keeps these defaults.
+      - "${MINIO_API_HOST_PORT:-55400}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-59001}:9001"
     environment:
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
       MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_MINIO:?}
