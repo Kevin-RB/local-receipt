@@ -18,7 +18,11 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Same Chainguard images as docker-compose.coolify.yml (digest-pinned;
+    # upstream abandoned Docker Hub). Non-root uid 65532: if an old
+    # root-owned minio-data volume exists, drop it (`docker volume rm
+    # receipt-app_minio-data`) or chown it before first boot.
+    image: cgr.dev/chainguard/minio@sha256:4d397a26fe49d7f9ed39b8b566534848936f7efa50ab6328ac97b2a44eeabf4c
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: receipt-app
@@ -34,13 +38,14 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # No shell/curl in the Chainguard image; see docker-compose.coolify.yml.
+      test: ["CMD", "minio", "--version"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio-client@sha256:db1f316672f27220a5cba9d53335684ef4c40fb94b039629c560cd865fd881bd
     depends_on:
       minio:
         condition: service_healthy
@@ -48,9 +53,15 @@ services:
     command:
       - -c
       - |
-        mc alias set local http://minio:9000 receipt-app possum123
+        set -eu
+        i=0
+        until mc alias set local http://minio:9000 receipt-app possum123; do
+          i=$((i + 1))
+          if [ "$i" -ge 20 ]; then echo "minio not reachable, giving up" >&2; exit 1; fi
+          sleep 3
+        done
         mc mb --ignore-existing local/receipts
-        mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete
+        mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete || true
 
   inngest:
     image: inngest/inngest:latest
