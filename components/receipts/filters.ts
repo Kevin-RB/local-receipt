@@ -1,4 +1,5 @@
 import type { DateRange } from "react-day-picker";
+import "temporal-polyfill/global";
 
 import { receiptDateToISODateString } from "@/lib/receipt/datetime";
 

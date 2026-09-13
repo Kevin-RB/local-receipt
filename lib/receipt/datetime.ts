@@ -1,3 +1,5 @@
+import "temporal-polyfill/global";
+
 export const RECEIPT_TIMEZONE = "Australia/Brisbane";
 
 export const receiptDateTimeToDate = (

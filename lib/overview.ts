@@ -1,4 +1,5 @@
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
+import "temporal-polyfill/global";
 
 export type SpendingInput = Pick<
   ReceiptSelect,
