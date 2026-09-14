@@ -23,12 +23,14 @@
 #   minio-init - one-shot job: bucket + bucket-notification event + CORS.
 #
 # Host ports exist on postgres/minio solely for private admin (LAN and
-# Tailscale tailnet): Postgres on ${POSTGRES_HOST_PORT:-55432}, MinIO S3 API
-# on ${MINIO_API_HOST_PORT:-55400}, MinIO console UI on
-# ${MINIO_CONSOLE_HOST_PORT:-59001}. The host side is parameterized because
-# prod and staging run on the same Docker host and must not collide — set
-# 55433/55401/59002 (or similar) on the staging resource; prod keeps the
-# defaults. Ports are bound to all mini interfaces on purpose — reachable
+# Tailscale tailnet): Postgres on ${POSTGRES_HOST_PORT:-55432} (psql/Studio
+# tunnels) and MinIO console UI on ${MINIO_CONSOLE_HOST_PORT:-59001}. The S3
+# API (9000) is deliberately NOT published: the app and minio-init reach it
+# over the compose network and presigned traffic goes through Traefik, so a
+# host-mapped API port would be surface without a consumer. The host side is
+# parameterized because prod and staging run on the same Docker host and must
+# not collide — set 55433/59002 (or similar) on the staging resource; prod
+# keeps the defaults. Ports are bound to all mini interfaces on purpose — reachable
 # via LAN IP and tailnet IP, never from the internet: the router forwards
 # nothing inbound and the Cloudflare tunnel is still the only public ingress
 # (one wildcard route *.tribi.dev → http://localhost:80 into the Coolify
@@ -135,10 +137,9 @@ services:
     expose:
       - "9000"
     ports:
-      # Private admin only (LAN + tailnet); see file header. S3 API and
-      # console UI host ports are per-environment like POSTGRES_HOST_PORT
-      # above (staging e.g. 55401/59002); prod keeps these defaults.
-      - "${MINIO_API_HOST_PORT:-55400}:9000"
+      # Console UI host port is per-environment like POSTGRES_HOST_PORT
+      # above (staging e.g. 59002); prod keeps the default. No S3 API
+      # mapping (see file header).
       - "${MINIO_CONSOLE_HOST_PORT:-59001}:9001"
     environment:
       MINIO_ROOT_USER: ${SERVICE_USER_MINIO:?}
