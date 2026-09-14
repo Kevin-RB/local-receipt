@@ -46,6 +46,12 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      # Bucket + bucket-notification must exist before serving uploads.
+      # minio-init is the real readiness gate here: the server's
+      # `--version` healthcheck only proves the binary is alive, so a
+      # broken cutover surfaces as a failed deploy, not silent 500s.
+      minio-init:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:?}
@@ -176,7 +182,13 @@ services:
           sleep 3
         done
         mc mb --ignore-existing "local/$$MINIO_BUCKET"
-        mc event add "local/$$MINIO_BUCKET" arn:minio:sqs::primary:webhook --event put,delete || true
+        # Idempotent without masking real failures: only skip when this
+        # exact notification is already registered; anything else fails
+        # the job loudly (unlike `|| true`, which would hide a broken
+        # webhook behind exit 0 and leave receipts stuck `uploading`).
+        if ! mc event list "local/$$MINIO_BUCKET" 2>/dev/null | grep -q "arn:minio:sqs::primary:webhook"; then
+          mc event add "local/$$MINIO_BUCKET" arn:minio:sqs::primary:webhook --event put,delete
+        fi
         printf '[\n  {\n    "AllowedOrigins": ["%s"],\n    "AllowedMethods": ["PUT", "POST", "GET"],\n    "AllowedHeaders": ["*"]\n  }\n]\n' "$$RECEIPTS_ORIGIN" > /tmp/cors.json
         mc cors set "local/$$MINIO_BUCKET" /tmp/cors.json
     exclude_from_hc: true

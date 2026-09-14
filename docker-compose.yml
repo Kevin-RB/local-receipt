@@ -61,7 +61,9 @@ services:
           sleep 3
         done
         mc mb --ignore-existing local/receipts
-        mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete || true
+        if ! mc event list local/receipts 2>/dev/null | grep -q "arn:minio:sqs::primary:webhook"; then
+          mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete
+        fi
 
   inngest:
     image: inngest/inngest:latest
