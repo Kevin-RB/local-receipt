@@ -46,6 +46,12 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      # Bucket + bucket-notification must exist before serving uploads.
+      # minio-init is the real readiness gate here: the server's
+      # `--version` healthcheck only proves the binary is alive, so a
+      # broken cutover surfaces as a failed deploy, not silent 500s.
+      minio-init:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:?}
@@ -119,7 +125,12 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Chainguard-maintained MinIO, digest-pinned for reproducible deploys
+    # (upstream abandoned Docker Hub; minio/minio no longer pulls).
+    # Runs as non-root uid 65532 — the data volume must be writable by it
+    # (fresh volumes are fine; pre-existing root-owned volumes need a
+    # one-time chown -R 65532:65532 before cutover).
+    image: cgr.dev/chainguard/minio@sha256:4d397a26fe49d7f9ed39b8b566534848936f7efa50ab6328ac97b2a44eeabf4c
     command: server /data --console-address ":9001"
     expose:
       - "9000"
@@ -138,14 +149,18 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # The Chainguard image ships no shell/curl, so a `--version` alive
+      # check is the strongest signal available here. minio-init retries
+      # its first connection to cover a cold server.
+      test: ["CMD", "minio", "--version"]
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
   minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    # -dev variant (has /bin/sh); digest-pinned like the server above.
+    image: cgr.dev/chainguard/minio-client@sha256:db1f316672f27220a5cba9d53335684ef4c40fb94b039629c560cd865fd881bd
     depends_on:
       minio:
         condition: service_healthy
@@ -160,9 +175,20 @@ services:
       - -c
       - |
         set -eu
-        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        i=0
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          i=$$(($$i + 1))
+          if [ "$$i" -ge 20 ]; then echo "minio not reachable, giving up" >&2; exit 1; fi
+          sleep 3
+        done
         mc mb --ignore-existing "local/$$MINIO_BUCKET"
-        mc event add "local/$$MINIO_BUCKET" arn:minio:sqs::primary:webhook --event put,delete
+        # Idempotent without masking real failures: only skip when this
+        # exact notification is already registered; anything else fails
+        # the job loudly (unlike `|| true`, which would hide a broken
+        # webhook behind exit 0 and leave receipts stuck `uploading`).
+        if ! mc event list "local/$$MINIO_BUCKET" 2>/dev/null | grep -q "arn:minio:sqs::primary:webhook"; then
+          mc event add "local/$$MINIO_BUCKET" arn:minio:sqs::primary:webhook --event put,delete
+        fi
         printf '[\n  {\n    "AllowedOrigins": ["%s"],\n    "AllowedMethods": ["PUT", "POST", "GET"],\n    "AllowedHeaders": ["*"]\n  }\n]\n' "$$RECEIPTS_ORIGIN" > /tmp/cors.json
         mc cors set "local/$$MINIO_BUCKET" /tmp/cors.json
     exclude_from_hc: true
