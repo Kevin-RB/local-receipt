@@ -3,14 +3,14 @@ import { NextResponse } from "next/server";
 
 import { db, findReceiptByObjectKey, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
-import { MinioEvent } from "@/lib/minio/event";
+import { StorageEvent } from "@/lib/storage/event";
 
-const { MINIO_WEBHOOK_SECRET } = process.env;
+const { STORAGE_WEBHOOK_SECRET } = process.env;
 
 export const POST = async (request: Request) => {
   const auth = request.headers.get("authorization");
-  const expectedToken = MINIO_WEBHOOK_SECRET
-    ? `Bearer ${MINIO_WEBHOOK_SECRET}`
+  const expectedToken = STORAGE_WEBHOOK_SECRET
+    ? `Bearer ${STORAGE_WEBHOOK_SECRET}`
     : undefined;
 
   if (expectedToken && auth !== expectedToken) {
@@ -25,11 +25,11 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const parsed = MinioEvent.safeParse(body);
-  console.log("minio-events parsed body:", JSON.stringify(parsed, null, 2));
+  const parsed = StorageEvent.safeParse(body);
+  console.log("storage-events parsed body:", JSON.stringify(parsed, null, 2));
 
   if (!parsed.success) {
-    console.error("minio-events: failed to parse event:", parsed.error);
+    console.error("storage-events: failed to parse event:", parsed.error);
     return NextResponse.json(
       { error: "Invalid event format" },
       { status: 400 }
@@ -46,7 +46,7 @@ export const POST = async (request: Request) => {
   }
 
   const receipt = await findReceiptByObjectKey(key);
-  console.log("minio-events: key=%s receipt=%o", key, receipt);
+  console.log("storage-events: key=%s receipt=%o", key, receipt);
   if (!receipt || receipt.status !== "uploading") {
     return NextResponse.json({ received: true });
   }

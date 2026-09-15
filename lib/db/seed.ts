@@ -135,7 +135,7 @@ await seed(
       merchantAddress: f.valuesFromArray({ values: addresses }),
       merchantName: f.valuesFromArray({ values: merchants }),
       merchantStoreId: f.valuesFromArray({ values: storeIds }),
-      minioObjectKey: false,
+      objectKey: false,
       paymentMethod: f.valuesFromArray({ values: paymentMethods }),
       receiptNumber: f.valuesFromArray({ values: receiptNumbers }),
       status: f.default({ defaultValue: "done" }),

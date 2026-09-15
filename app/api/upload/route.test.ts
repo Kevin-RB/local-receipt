@@ -23,12 +23,12 @@ vi.mock(import("@/lib/auth"), () => ({
   auth: { api: { getSession: mockGetSession } },
 }));
 
-vi.mock(import("@/lib/minio/client"), () => ({
+vi.mock(import("@/lib/storage/client"), () => ({
   ACCEPTED_MIME_TYPES: ["image/jpeg", "image/png"] as const,
   BUCKET: "receipts",
   createPresignedUrl: vi
     .fn<() => Promise<string>>()
-    .mockResolvedValue("http://minio:9000/receipts/abc.jpg?signature=xyz"),
+    .mockResolvedValue("http://rustfs:9000/receipts/abc.jpg?signature=xyz"),
   extensionForMime: vi
     .fn<(mime: string) => string>()
     .mockImplementation((mime: string) =>
@@ -84,6 +84,26 @@ describe("POST /api/upload", () => {
     expect(res.status).toBe(200);
     expect(mockInsertValues).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "user-1" })
+    );
+  });
+
+  it("namespaces the object key under the owner's prefix", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
+
+    await POST(
+      new Request("http://localhost/api/upload", {
+        body: JSON.stringify({
+          contentType: "image/jpeg",
+          fileSize: 100_000,
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        objectKey: "users/user-1/00000000-0000-0000-0000-000000000001.jpg",
+      })
     );
   });
 

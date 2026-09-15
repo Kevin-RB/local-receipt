@@ -9,8 +9,8 @@ import {
   BUCKET,
   createPresignedUrl,
   extensionForMime,
-} from "@/lib/minio/client";
-import { ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
+} from "@/lib/storage/client";
+import { ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
@@ -54,14 +54,19 @@ export const POST = async (request: Request) => {
 
   const { contentType } = parsed.data;
 
+  // Object keys are namespaced by owner: `users/<userId>/<uuid>.<ext>`. The
+  // bucket is shared and private and the app enforces ownership on read, so
+  // this is defence in depth: it makes ownership obvious at the storage layer
+  // and turns per-user bulk operations (export, erasure, lifecycle) into a
+  // prefix operation. Existing unprefixed keys remain valid.
   const objectId = randomUUID();
   const ext = extensionForMime(contentType);
-  const objectKey = `${objectId}.${ext}`;
+  const objectKey = `users/${session.user.id}/${objectId}.${ext}`;
 
   const [{ receiptId }] = await db
     .insert(receipts)
     .values({
-      minioObjectKey: objectKey,
+      objectKey,
       status: "uploading",
       userId: session.user.id,
     })

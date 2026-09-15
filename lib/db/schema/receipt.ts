@@ -67,7 +67,7 @@ export const receipts = snakeCase.table(
     merchantAddress: text(),
     merchantName: text(),
     merchantStoreId: text(),
-    minioObjectKey: text(),
+    objectKey: text(),
     paymentMethod: text().$type<PaymentMethod>(),
     receiptNumber: text(),
     status: text().$type<ProcessingStatus>().notNull().default("pending"),
