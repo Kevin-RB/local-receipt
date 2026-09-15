@@ -9,21 +9,20 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { AcceptedMimeType } from "./constants";
 
-const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT ?? "localhost:9000";
-const MINIO_PUBLIC_ENDPOINT =
-  process.env.MINIO_PUBLIC_ENDPOINT ?? MINIO_ENDPOINT;
-// MinIO's root user/password double as the S3 access key / secret key for the
-// SDK client. Same credentials, dual role by MinIO convention.
-const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER ?? "minioadmin";
-const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD ?? "minioadmin";
+const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT ?? "localhost:9000";
+const STORAGE_PUBLIC_ENDPOINT =
+  process.env.STORAGE_PUBLIC_ENDPOINT ?? STORAGE_ENDPOINT;
+// RustFS's access key and secret key are the S3 credentials for the SDK client.
+const STORAGE_ACCESS_KEY = process.env.STORAGE_ACCESS_KEY ?? "rustfsadmin";
+const STORAGE_SECRET_KEY = process.env.STORAGE_SECRET_KEY ?? "rustfsadmin";
 
-// Endpoints may be scheme-less (dev: `localhost:9000`, internal: `minio:9000`)
+// Endpoints may be scheme-less (dev: `localhost:9000`, internal: `rustfs:9000`)
 // or full URLs (prod public: `https://uploads.tribi.dev`). Normalize so the
 // S3 client always gets a usable URL and presigned URLs carry the right scheme.
 const withScheme = (endpoint: string): string =>
   /^https?:\/\//iu.test(endpoint) ? endpoint : `http://${endpoint}`;
 
-export const BUCKET = process.env.MINIO_BUCKET ?? "receipts";
+export const BUCKET = process.env.STORAGE_BUCKET ?? "receipts";
 
 const MIME_TO_EXT = {
   "image/jpeg": "jpg",
@@ -47,20 +46,20 @@ export const contentTypeFromKey = (key: string): string => {
 
 export const s3Client = new S3Client({
   credentials: {
-    accessKeyId: MINIO_ROOT_USER,
-    secretAccessKey: MINIO_ROOT_PASSWORD,
+    accessKeyId: STORAGE_ACCESS_KEY,
+    secretAccessKey: STORAGE_SECRET_KEY,
   },
-  endpoint: withScheme(MINIO_ENDPOINT),
+  endpoint: withScheme(STORAGE_ENDPOINT),
   forcePathStyle: true,
   region: "us-east-1",
 });
 
 const s3PublicClient = new S3Client({
   credentials: {
-    accessKeyId: MINIO_ROOT_USER,
-    secretAccessKey: MINIO_ROOT_PASSWORD,
+    accessKeyId: STORAGE_ACCESS_KEY,
+    secretAccessKey: STORAGE_SECRET_KEY,
   },
-  endpoint: withScheme(MINIO_PUBLIC_ENDPOINT),
+  endpoint: withScheme(STORAGE_PUBLIC_ENDPOINT),
   forcePathStyle: true,
   region: "us-east-1",
 });

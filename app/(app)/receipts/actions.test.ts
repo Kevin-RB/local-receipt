@@ -16,11 +16,11 @@ const {
   const findFirst = vi
     .fn<
       () => Promise<{
-        minioObjectKey: string | null;
+        objectKey: string | null;
         status: string;
       } | null>
     >()
-    .mockResolvedValue({ minioObjectKey: "abc.jpg", status: "done" });
+    .mockResolvedValue({ objectKey: "abc.jpg", status: "done" });
 
   return {
     mockDelete: deleteTable,
@@ -52,7 +52,7 @@ vi.mock(import("next/headers"), () => ({
   headers: () => Promise.resolve(new Headers()),
 }));
 
-vi.mock(import("@/lib/minio/client"), () => ({
+vi.mock(import("@/lib/storage/client"), () => ({
   BUCKET: "receipts",
   deleteObject: mockDeleteObject,
 }));
@@ -71,7 +71,7 @@ describe(deleteReceipt, () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockFindFirst.mockClear();
     mockFindFirst.mockResolvedValue({
-      minioObjectKey: "abc.jpg",
+      objectKey: "abc.jpg",
       status: "done",
     });
     mockDeleteObject.mockClear();
@@ -116,7 +116,7 @@ describe(deleteReceipt, () => {
     });
   });
 
-  it("deletes the MinIO object and the row for the owner", async () => {
+  it("deletes the storage object and the row for the owner", async () => {
     const result = await deleteReceipt(receiptId);
 
     expect(result).toStrictEqual({ success: true });
@@ -132,9 +132,9 @@ describe(deleteReceipt, () => {
     expect(mockRevalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
-  it("deletes the row without MinIO when there is no object key", async () => {
+  it("deletes the row without storage when there is no object key", async () => {
     mockFindFirst.mockResolvedValueOnce({
-      minioObjectKey: null,
+      objectKey: null,
       status: "uploading",
     });
 

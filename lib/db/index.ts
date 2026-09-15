@@ -41,8 +41,8 @@ export const findReceiptByIdWithItems = (id: string, ownerId: string) =>
     with: { receiptItems: true },
   });
 
-export const findReceiptByObjectKey = (minioObjectKey: string) =>
-  db.query.receipts.findFirst({ where: { minioObjectKey } });
+export const findReceiptByObjectKey = (objectKey: string) =>
+  db.query.receipts.findFirst({ where: { objectKey } });
 
 export const listReceipts = (ownerId: string) =>
   db.query.receipts.findMany({

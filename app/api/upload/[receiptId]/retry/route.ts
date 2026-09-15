@@ -7,7 +7,7 @@ import {
   BUCKET,
   contentTypeFromKey,
   createPresignedUrl,
-} from "@/lib/minio/client";
+} from "@/lib/storage/client";
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
@@ -39,7 +39,7 @@ export const POST = async (
     );
   }
 
-  if (!receipt.minioObjectKey) {
+  if (!receipt.objectKey) {
     return NextResponse.json(
       { error: "Receipt has no object key" },
       { status: 400 }
@@ -48,9 +48,9 @@ export const POST = async (
 
   const uploadUrl = await createPresignedUrl({
     bucket: BUCKET,
-    contentType: contentTypeFromKey(receipt.minioObjectKey),
+    contentType: contentTypeFromKey(receipt.objectKey),
     expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
-    key: receipt.minioObjectKey,
+    key: receipt.objectKey,
   });
 
   return NextResponse.json({ receiptId, uploadUrl });

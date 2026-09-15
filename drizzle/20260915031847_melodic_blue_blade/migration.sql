@@ -1,0 +1,1 @@
+ALTER TABLE "receipts" RENAME COLUMN "minio_object_key" TO "object_key";

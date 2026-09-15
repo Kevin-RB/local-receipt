@@ -7,17 +7,17 @@ const mockFindReceiptByIdForOwner = vi
     (
       id: string,
       ownerId: string
-    ) => Promise<{ id: string; minioObjectKey: string; status: string } | null>
+    ) => Promise<{ id: string; objectKey: string; status: string } | null>
   >()
   .mockResolvedValue({
     id: receiptId,
-    minioObjectKey: `${receiptId}.jpg`,
+    objectKey: `${receiptId}.jpg`,
     status: "uploading",
   });
 
 const mockCreatePresignedUrl = vi
   .fn<() => Promise<string>>()
-  .mockResolvedValue("http://minio:9000/receipts/abc.jpg?signature=xyz");
+  .mockResolvedValue("http://rustfs:9000/receipts/abc.jpg?signature=xyz");
 
 // @ts-expect-error mock types don't need to match Drizzle internals
 vi.mock(import("@/lib/db"), () => ({
@@ -31,7 +31,7 @@ vi.mock(import("@/lib/auth"), () => ({
   auth: { api: { getSession: mockGetSession } },
 }));
 
-vi.mock(import("@/lib/minio/client"), () => ({
+vi.mock(import("@/lib/storage/client"), () => ({
   BUCKET: "receipts",
   contentTypeFromKey: vi
     .fn<(key: string) => string>()
@@ -48,7 +48,7 @@ describe("POST /api/upload/:id/retry", () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockFindReceiptByIdForOwner.mockResolvedValue({
       id: receiptId,
-      minioObjectKey: `${receiptId}.jpg`,
+      objectKey: `${receiptId}.jpg`,
       status: "uploading",
     });
   });
@@ -89,14 +89,14 @@ describe("POST /api/upload/:id/retry", () => {
     const body = await res.json();
     expect(body).toStrictEqual({
       receiptId,
-      uploadUrl: "http://minio:9000/receipts/abc.jpg?signature=xyz",
+      uploadUrl: "http://rustfs:9000/receipts/abc.jpg?signature=xyz",
     });
   });
 
   it("rejects uploads that are not in the uploading state", async () => {
     mockFindReceiptByIdForOwner.mockResolvedValue({
       id: receiptId,
-      minioObjectKey: `${receiptId}.jpg`,
+      objectKey: `${receiptId}.jpg`,
       status: "done",
     });
 
