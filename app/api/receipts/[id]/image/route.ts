@@ -3,7 +3,11 @@ import { z } from "zod/v4";
 
 import { auth } from "@/lib/auth";
 import { findReceiptByIdForOwner } from "@/lib/db";
-import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
+import {
+  BUCKET,
+  contentTypeFromKey,
+  downloadObject,
+} from "@/lib/storage/client";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -22,7 +26,7 @@ export const GET = async (
   const { id } = paramsSchema.parse(await params);
   const receipt = await findReceiptByIdForOwner(id, session.user.id);
 
-  if (!receipt?.minioObjectKey) {
+  if (!receipt?.objectKey) {
     return NextResponse.json(
       { error: "Receipt image not found" },
       { status: 404 }
@@ -31,7 +35,7 @@ export const GET = async (
 
   const body = await downloadObject({
     bucket: BUCKET,
-    key: receipt.minioObjectKey,
+    key: receipt.objectKey,
   });
 
   if (!body) {
@@ -43,13 +47,13 @@ export const GET = async (
 
   const bytes = await body.transformToByteArray();
   const imageBlob = new Blob([Buffer.from(bytes)], {
-    type: contentTypeFromKey(receipt.minioObjectKey),
+    type: contentTypeFromKey(receipt.objectKey),
   });
 
   return new Response(imageBlob, {
     headers: {
       "Cache-Control": "private, max-age=300",
-      "Content-Type": contentTypeFromKey(receipt.minioObjectKey),
+      "Content-Type": contentTypeFromKey(receipt.objectKey),
     },
   });
 };

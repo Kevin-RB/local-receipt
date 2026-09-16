@@ -28,7 +28,7 @@ const baseSteps = [
   {
     handler: () => ({
       id: "00000000-0000-0000-0000-000000000001",
-      minioObjectKey: "receipts/test.jpg",
+      objectKey: "receipts/test.jpg",
       status: "pending" as const,
     }),
     id: "lookup-receipt",

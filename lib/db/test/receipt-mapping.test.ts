@@ -15,7 +15,7 @@ const flatReceipt: ReceiptSelect = {
   merchantAddress: "123 Smith St, Fitzroy VIC 3065",
   merchantName: "Coles",
   merchantStoreId: "0342",
-  minioObjectKey: "abc.jpg",
+  objectKey: "abc.jpg",
   paymentMethod: "card",
   receiptNumber: "0342-0087-1234",
   status: "done",

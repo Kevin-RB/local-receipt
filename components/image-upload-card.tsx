@@ -14,7 +14,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { ACCEPTED_LABEL, ACCEPTED_MIME_TYPES } from "@/lib/minio/constants";
+import { ACCEPTED_LABEL, ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
 import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -25,7 +25,7 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-type UploadStage = "requesting-url" | "uploading-to-minio";
+type UploadStage = "requesting-url" | "uploading-to-storage";
 
 const UploadResponse = z.object({
   receiptId: z.string(),
@@ -93,7 +93,7 @@ export const ImageUploadCard = ({
 
       const { receiptId, uploadUrl } = parsed.data;
 
-      onUploadStateChange?.("uploading-to-minio");
+      onUploadStateChange?.("uploading-to-storage");
 
       const putRes = await fetch(uploadUrl, {
         body: file,
@@ -103,7 +103,7 @@ export const ImageUploadCard = ({
 
       if (!putRes.ok) {
         throw new UploadError(
-          "uploading-to-minio",
+          "uploading-to-storage",
           "Failed to upload image to storage"
         );
       }

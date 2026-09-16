@@ -14,8 +14,12 @@ import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
-import { BUCKET, contentTypeFromKey, downloadObject } from "@/lib/minio/client";
 import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import {
+  BUCKET,
+  contentTypeFromKey,
+  downloadObject,
+} from "@/lib/storage/client";
 
 const isApiUnreachable = (error: unknown): boolean => {
   if (!APICallError.isInstance(error)) {
@@ -114,9 +118,9 @@ export const transcribeReceipt = inngest.createFunction(
       return found;
     });
 
-    const key = receipt.minioObjectKey;
+    const key = receipt.objectKey;
     if (!key) {
-      throw new NonRetriableError(`Receipt ${receiptId} has no minioObjectKey`);
+      throw new NonRetriableError(`Receipt ${receiptId} has no objectKey`);
     }
 
     await step.run("mark-processing", async () => {

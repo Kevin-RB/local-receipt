@@ -17,53 +17,91 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    # Same Chainguard images as docker-compose.coolify.yml (digest-pinned;
-    # upstream abandoned Docker Hub). Non-root uid 65532: if an old
-    # root-owned minio-data volume exists, drop it (`docker volume rm
-    # receipt-app_minio-data`) or chown it before first boot.
-    image: cgr.dev/chainguard/minio@sha256:4d397a26fe49d7f9ed39b8b566534848936f7efa50ab6328ac97b2a44eeabf4c
-    command: server /data --console-address ":9001"
+  rustfs:
+    # Pinned by digest (see docs/adr/0006). Runs as non-root uid 10001: if an
+    # old root- or MinIO-owned volume exists, `chown -R 10001:10001` it first.
+    # Find it with `docker volume ls | grep rustfs-data` — the dev volume name
+    # is prefixed by this checkout directory, so it isn't a fixed string.
+    image: rustfs/rustfs@sha256:97171b3d72cd47dc81000f92ea84de25608bfc35a94c965501afaeb5d99f6035
     environment:
-      MINIO_ROOT_USER: receipt-app
-      MINIO_ROOT_PASSWORD: possum123
-      MINIO_NOTIFY_WEBHOOK_ENABLE_primary: "on"
-      MINIO_NOTIFY_WEBHOOK_ENDPOINT_primary: http://host.docker.internal:3000/api/minio-events
-      MINIO_NOTIFY_WEBHOOK_AUTH_TOKEN_primary: local-webhook-secret
+      RUSTFS_ACCESS_KEY: receipt-app
+      RUSTFS_SECRET_KEY: possum123
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      # Server-level browser-upload CORS (comma-separated): the app origin, and
+      # the console origin — the console calls the admin API cross-origin, so
+      # it must be allowed too.
+      RUSTFS_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:9001
+      # Console-listener CORS, pinned to the console origin (default is `*`).
+      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: http://localhost:9001
+      RUSTFS_NOTIFY_ENABLE: "true"
+      RUSTFS_NOTIFY_WEBHOOK_ENABLE_PRIMARY: "on"
+      RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: http://host.docker.internal:3000/api/storage-events
+      RUSTFS_NOTIFY_WEBHOOK_AUTH_TOKEN_PRIMARY: local-webhook-secret
+      # The queue dir must live OUTSIDE the data volume: RustFS treats every
+      # top-level directory under /data as a bucket, so a queue dir there
+      # shows up as a phantom bucket in the console and S3 listings.
+      RUSTFS_NOTIFY_WEBHOOK_QUEUE_DIR_PRIMARY: /logs/notify-primary
+      RUSTFS_OUTBOUND_ALLOW_ORIGINS: http://host.docker.internal:3000
+      # Observability: log to a host-mounted dir (see volumes below) and only log errors.
+      # RUSTFS_OBS_LOGGER_LEVEL: error
+      # RUSTFS_OBS_LOG_DIRECTORY: "/var/log/rustfs/"
     volumes:
-      - minio-data:/data
+      - rustfs-data:/data
+      - rustfs-logs:/logs
     ports:
       - "9000:9000"
       - "9001:9001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      # No shell/curl in the Chainguard image; see docker-compose.coolify.yml.
-      test: ["CMD", "minio", "--version"]
+      # Readiness: 200 once storage, IAM, and lock are ready, 503 before. This
+      # is stronger than probing `/` (which answers 403 but proves only that
+      # something is listening).
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  minio-init:
-    image: cgr.dev/chainguard/minio-client@sha256:db1f316672f27220a5cba9d53335684ef4c40fb94b039629c560cd865fd881bd
+  rustfs-init:
+    image: rustfs/rc@sha256:adb45b56539006120f1d790bcc17ee5f9b4d93c1d7e71ed0a24f10267f9d6914
     depends_on:
-      minio:
+      rustfs:
         condition: service_healthy
+    environment:
+      # Root credentials: used only here and by the console, never by the app.
+      RUSTFS_ACCESS_KEY: receipt-app
+      RUSTFS_SECRET_KEY: possum123
+      # The app's own least-privilege identity (must match .env.local).
+      STORAGE_ACCESS_KEY: receipts-app
+      STORAGE_SECRET_KEY: receipts-app-dev-secret
+      STORAGE_BUCKET: receipts
     entrypoint: /bin/sh
     command:
       - -c
       - |
         set -eu
         i=0
-        until mc alias set local http://minio:9000 receipt-app possum123; do
+        until rc alias set local http://rustfs:9000 "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY"; do
           i=$$(($$i + 1))
-          if [ "$$i" -ge 20 ]; then echo "minio not reachable, giving up" >&2; exit 1; fi
+          if [ "$$i" -ge 20 ]; then echo "rustfs not reachable, giving up" >&2; exit 1; fi
           sleep 3
         done
-        mc mb --ignore-existing local/receipts
-        if ! mc event list local/receipts 2>/dev/null | grep -q "arn:minio:sqs::primary:webhook"; then
-          mc event add local/receipts arn:minio:sqs::primary:webhook --event put,delete
-        fi
+        rc bucket create --ignore-existing "local/$$STORAGE_BUCKET"
+        # `event add` replaces the rule for this ARN, so this is idempotent and
+        # picks up a changed event set. `put` expands to s3:ObjectCreated:*.
+        rc bucket event add "local/$$STORAGE_BUCKET" arn:rustfs:sqs:us-east-1:primary:webhook --event put
+        # Least-privilege identity for the app: root bypasses IAM, so the app
+        # must not run as root. policy/user/attach are all create-or-replace,
+        # so this is safe to run on every deploy. Grants exactly the object
+        # actions the app uses, on this bucket only.
+        cat > /tmp/app-policy.json <<JSON
+        {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::$$STORAGE_BUCKET/*"]}]}
+        JSON
+        rc admin policy create local receipts-app-objects /tmp/app-policy.json
+        rc admin user add local "$$STORAGE_ACCESS_KEY" "$$STORAGE_SECRET_KEY"
+        rc admin policy attach local receipts-app-objects --user "$$STORAGE_ACCESS_KEY"
 
   inngest:
     image: inngest/inngest:latest
@@ -89,4 +127,5 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
+  rustfs-data:
+  rustfs-logs:
