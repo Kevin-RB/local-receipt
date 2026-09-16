@@ -7,6 +7,8 @@ import { StorageEvent } from "@/lib/storage/event";
 
 const { STORAGE_WEBHOOK_SECRET } = process.env;
 
+const BODY_PREVIEW_LENGTH = 200;
+
 export const POST = async (request: Request) => {
   const auth = request.headers.get("authorization");
   const expectedToken = STORAGE_WEBHOOK_SECRET
@@ -14,6 +16,7 @@ export const POST = async (request: Request) => {
     : undefined;
 
   if (expectedToken && auth !== expectedToken) {
+    console.warn("storage-events: rejected — unauthorized");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -22,14 +25,18 @@ export const POST = async (request: Request) => {
   try {
     body = await request.json();
   } catch {
+    console.warn("storage-events: rejected — invalid JSON body");
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
   const parsed = StorageEvent.safeParse(body);
-  console.log("storage-events parsed body:", JSON.stringify(parsed, null, 2));
 
   if (!parsed.success) {
-    console.error("storage-events: failed to parse event:", parsed.error);
+    console.error(
+      "storage-events: parse failed — %s | body: %s",
+      JSON.stringify(parsed.error.issues),
+      JSON.stringify(body).slice(0, BODY_PREVIEW_LENGTH)
+    );
     return NextResponse.json(
       { error: "Invalid event format" },
       { status: 400 }
@@ -39,15 +46,23 @@ export const POST = async (request: Request) => {
   const { key } = parsed.data.Records[0].s3.object;
 
   if (!key) {
-    return NextResponse.json(
-      { error: "Could not extract object key from event" },
-      { status: 400 }
-    );
+    console.warn("storage-events: event has an empty object key — ignored");
+    return NextResponse.json({ received: true });
   }
 
   const receipt = await findReceiptByObjectKey(key);
-  console.log("storage-events: key=%s receipt=%o", key, receipt);
-  if (!receipt || receipt.status !== "uploading") {
+
+  if (!receipt) {
+    console.warn("storage-events: no receipt for key %s — ignored", key);
+    return NextResponse.json({ received: true });
+  }
+
+  if (receipt.status !== "uploading") {
+    console.warn(
+      "storage-events: receipt %s is %s, not uploading — ignored",
+      receipt.id,
+      receipt.status
+    );
     return NextResponse.json({ received: true });
   }
 
@@ -61,6 +76,8 @@ export const POST = async (request: Request) => {
     id: `receipt-uploaded-${receipt.id}`,
     name: "receipt/uploaded",
   });
+
+  console.log("storage-events: receipt %s uploading → pending", receipt.id);
 
   return NextResponse.json({ received: true });
 };
