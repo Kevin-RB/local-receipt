@@ -57,27 +57,53 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ received: true });
   }
 
-  if (receipt.status !== "uploading") {
+  // Redelivery is expected: RustFS retries until it gets a 2xx, and a previous
+  // attempt may have promoted the row but failed to enqueue. `uploading` (first
+  // delivery) and `pending` (retry before the workflow starts) are actionable;
+  // anything further along (processing/done/error) is ignored.
+  const promoted = receipt.status === "uploading";
+
+  if (promoted) {
+    await db
+      .update(receipts)
+      .set({ status: "pending" })
+      .where(eq(receipts.id, receipt.id));
+  } else if (receipt.status !== "pending") {
     console.warn(
-      "storage-events: receipt %s is %s, not uploading — ignored",
+      "storage-events: receipt %s is %s — ignored",
       receipt.id,
       receipt.status
     );
     return NextResponse.json({ received: true });
   }
 
-  await db
-    .update(receipts)
-    .set({ status: "pending" })
-    .where(eq(receipts.id, receipt.id));
+  try {
+    // The event `id` is deterministic, so re-sending after a failed attempt is
+    // deduped by Inngest instead of starting a second run.
+    await inngest.send({
+      data: { receiptId: receipt.id, userId: receipt.userId },
+      id: `receipt-uploaded-${receipt.id}`,
+      name: "receipt/uploaded",
+    });
+  } catch (error) {
+    // Non-2xx makes RustFS redeliver; the retry takes the `pending` path above
+    // and re-sends rather than silently losing the extraction.
+    console.error(
+      "storage-events: inngest.send failed for receipt %s — will retry",
+      receipt.id,
+      error
+    );
+    return NextResponse.json(
+      { error: "Failed to enqueue extraction" },
+      { status: 500 }
+    );
+  }
 
-  await inngest.send({
-    data: { receiptId: receipt.id, userId: receipt.userId },
-    id: `receipt-uploaded-${receipt.id}`,
-    name: "receipt/uploaded",
-  });
-
-  console.log("storage-events: receipt %s uploading → pending", receipt.id);
+  console.log(
+    "storage-events: receipt %s %s",
+    receipt.id,
+    promoted ? "promoted uploading → pending" : "re-enqueued"
+  );
 
   return NextResponse.json({ received: true });
 };
