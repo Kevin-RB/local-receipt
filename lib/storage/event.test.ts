@@ -2,11 +2,18 @@ import { describe, it, expect } from "vitest";
 
 import { StorageEvent } from "./event";
 
+// Captured from staging: RustFS percent-encodes the object key in the payload
+// (slashes become %2F), so the schema must decode it back before lookup.
+const encodedKey =
+  "users%2FscOggddDQHY3HYGOJSYtPAEsjzD5Lkft%2Feed199a9-f8c8-41bc-aff6-2d544eda88f5.png";
+const decodedKey =
+  "users/scOggddDQHY3HYGOJSYtPAEsjzD5Lkft/eed199a9-f8c8-41bc-aff6-2d544eda88f5.png";
+
 // Captured verbatim from RustFS 1.0.0-rc.6
 // (sha256:97171b3d…f6035) delivering a PutObject event to a webhook.
 const rustFsBody = {
   EventName: "s3:ObjectCreated:Put",
-  Key: "receipts/abc.jpg",
+  Key: `receipts/${encodedKey}`,
   Records: [
     {
       awsRegion: "",
@@ -42,7 +49,7 @@ const rustFsBody = {
         object: {
           contentType: "image/jpeg",
           eTag: "86de41916cffa4d8fbab89629cef063f",
-          key: "abc.jpg",
+          key: encodedKey,
           sequencer: "18D55F252B06B1FA",
           size: 6,
           userMetadata: { "content-type": "image/jpeg" },
@@ -56,13 +63,13 @@ const rustFsBody = {
 };
 
 describe("RustFS event schema", () => {
-  it("parses a captured RustFS webhook body and extracts the object key", () => {
+  it("decodes the percent-encoded object key from a captured RustFS body", () => {
     const result = StorageEvent.safeParse(rustFsBody);
     expect(result.success).toBeTruthy();
-    expect(result.data?.Records[0].s3.object.key).toBe("abc.jpg");
+    expect(result.data?.Records[0].s3.object.key).toBe(decodedKey);
   });
 
-  it("accepts a minimal body and does not require MinIO-only fields", () => {
+  it("leaves an unencoded key unchanged and ignores MinIO-only fields", () => {
     const result = StorageEvent.safeParse({
       Records: [
         {
