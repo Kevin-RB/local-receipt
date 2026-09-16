@@ -172,6 +172,7 @@ Key properties:
 - Run the whole suite: `pnpm test`.
 - Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
 - Current tests are mostly unit tests with mocked DB / AI / storage; they do not require Postgres, RustFS, or LM Studio.
+- **Storage smoke check (post-deploy).** After any change to storage, the webhook, or the upload flow, upload a file in the app and confirm the receipt moves `uploading → pending` and a run appears in Inngest. A webhook that silently drops events (e.g. an object-key mismatch) produces no error and no run — this is the check that catches it.
 
 ---
 
