@@ -150,17 +150,23 @@ services:
       RUSTFS_ADDRESS: ":9000"
       RUSTFS_CONSOLE_ADDRESS: ":9001"
       RUSTFS_CONSOLE_ENABLE: "true"
+      # The console is reached over the tailnet at http://<host>:<port>. The
+      # origin is derived from those two values so the port is defined only once
+      # (it also drives the published port) and can't drift; override
+      # STORAGE_CONSOLE_ORIGIN for e.g. HTTPS via `tailscale serve`.
+      STORAGE_CONSOLE_HOST: ${STORAGE_CONSOLE_HOST:?}
+      STORAGE_CONSOLE_HOST_PORT: ${STORAGE_CONSOLE_HOST_PORT:-59001}
+      STORAGE_CONSOLE_ORIGIN: ${STORAGE_CONSOLE_ORIGIN:-http://${STORAGE_CONSOLE_HOST}:${STORAGE_CONSOLE_HOST_PORT}}
       # Browser-upload CORS, server-side, plus the console origin: the console
       # page and the admin API are different origins, so the console's own
-      # origin must be allowed for its API calls to succeed. Both are required
-      # (no prod default): a missing value must fail `docker compose config`,
-      # not silently break uploads or the console in one environment.
-      RUSTFS_CORS_ALLOWED_ORIGINS: ${STORAGE_CORS_ORIGIN:?},${STORAGE_CONSOLE_ORIGIN:?}
+      # origin must be allowed for its API calls to succeed. STORAGE_CORS_ORIGIN
+      # (the app) is required; a missing value must fail `docker compose config`.
+      RUSTFS_CORS_ALLOWED_ORIGINS: ${STORAGE_CORS_ORIGIN:?},${STORAGE_CONSOLE_ORIGIN}
       # Console-listener CORS. Direct browser access to the console is
       # same-origin and never needs this; pinning it to the console origin
       # (rather than the default `*`) just removes a blanket cross-origin
       # allowance on the LAN/tailnet.
-      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: ${STORAGE_CONSOLE_ORIGIN:?}
+      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: ${STORAGE_CONSOLE_ORIGIN}
       RUSTFS_NOTIFY_ENABLE: "true"
       RUSTFS_NOTIFY_WEBHOOK_ENABLE_PRIMARY: "on"
       RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: http://app:3000/api/storage-events
@@ -173,10 +179,9 @@ services:
       # allowlist must contain the webhook origin (the app service).
       RUSTFS_OUTBOUND_ALLOW_ORIGINS: http://app:3000
       # Declared here as well as in `ports:` because Coolify only scans a
-      # service's `environment:` section for variables; port-only variables are
+      # service's `environment:` section for variables; a port-only variable is
       # not created, so the `ports:` interpolation silently falls back to its
       # `:-` default (which collides across prod/staging). Harmless to RustFS.
-      STORAGE_CONSOLE_HOST_PORT: ${STORAGE_CONSOLE_HOST_PORT:-59001}
       STORAGE_API_HOST_PORT: ${STORAGE_API_HOST_PORT:-59000}
     volumes:
       - rustfs-data:/data
