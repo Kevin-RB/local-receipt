@@ -112,6 +112,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES:?}
       POSTGRES_DB: ${POSTGRES_DB:?}
+      # Declared here as well as in `ports:` because Coolify only scans a
+      # service's `environment:` section for variables; a port-only variable is
+      # not created, so the `ports:` interpolation silently falls back to its
+      # `:-` default. Harmless to the container; makes the variable real.
+      POSTGRES_HOST_PORT: ${POSTGRES_HOST_PORT:-55432}
     ports:
       # Private admin only (LAN + tailnet); see file header. Deliberately
       # bound to all interfaces so tailnet IPs route here; not internet
@@ -167,6 +172,12 @@ services:
       # RustFS HEAD-probes the endpoint origin root before delivering; this
       # allowlist must contain the webhook origin (the app service).
       RUSTFS_OUTBOUND_ALLOW_ORIGINS: http://app:3000
+      # Declared here as well as in `ports:` because Coolify only scans a
+      # service's `environment:` section for variables; port-only variables are
+      # not created, so the `ports:` interpolation silently falls back to its
+      # `:-` default (which collides across prod/staging). Harmless to RustFS.
+      STORAGE_CONSOLE_HOST_PORT: ${STORAGE_CONSOLE_HOST_PORT:-59001}
+      STORAGE_API_HOST_PORT: ${STORAGE_API_HOST_PORT:-59000}
     volumes:
       - rustfs-data:/data
       - rustfs-logs:/logs
