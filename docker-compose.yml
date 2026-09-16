@@ -19,8 +19,9 @@ services:
 
   rustfs:
     # Pinned by digest (see docs/adr/0006). Runs as non-root uid 10001: if an
-    # old root- or MinIO-owned volume exists, `chown -R 10001:10001` it first
-    # (`docker volume inspect receipt-app_rustfs-data` for the mountpoint).
+    # old root- or MinIO-owned volume exists, `chown -R 10001:10001` it first.
+    # Find it with `docker volume ls | grep rustfs-data` — the dev volume name
+    # is prefixed by this checkout directory, so it isn't a fixed string.
     image: rustfs/rustfs@sha256:97171b3d72cd47dc81000f92ea84de25608bfc35a94c965501afaeb5d99f6035
     environment:
       RUSTFS_ACCESS_KEY: receipt-app
@@ -87,7 +88,7 @@ services:
           if [ "$$i" -ge 20 ]; then echo "rustfs not reachable, giving up" >&2; exit 1; fi
           sleep 3
         done
-        rc bucket create -p "local/$$STORAGE_BUCKET"
+        rc bucket create --ignore-existing "local/$$STORAGE_BUCKET"
         # `event add` replaces the rule for this ARN, so this is idempotent and
         # picks up a changed event set. `put` expands to s3:ObjectCreated:*.
         rc bucket event add "local/$$STORAGE_BUCKET" arn:rustfs:sqs:us-east-1:primary:webhook --event put

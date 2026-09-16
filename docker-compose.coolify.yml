@@ -213,7 +213,7 @@ services:
           if [ "$$i" -ge 20 ]; then echo "rustfs not reachable, giving up" >&2; exit 1; fi
           sleep 3
         done
-        rc bucket create -p "local/$$STORAGE_BUCKET"
+        rc bucket create --ignore-existing "local/$$STORAGE_BUCKET"
         # `event add` replaces the rule for this ARN, so running it every deploy
         # is idempotent AND picks up a changed event set. Under `set -e` a
         # failure fails the job loudly (unlike `|| true`, which would hide a

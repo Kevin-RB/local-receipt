@@ -47,12 +47,23 @@ Run in a scratch compose outside the repo. All proofs green on `1.0.0-rc.6`:
 - **Healthcheck improves.** The image ships `sh` + `curl`, so liveness/readiness are real HTTP probes instead of a `--version` alive check. The compose healthcheck uses `/health/ready`, which answers 503 until storage, IAM, and lock are ready — the same signal `rustfs-init` gates on.
 - **Young project.** It is a `1.0.0-rc` build. Pin by digest, keep the pre-cutover volume snapshot, and treat upstream format compatibility as unguaranteed — re-verify at cutover.
 
-## Rollback plan
+## Rollback
 
-1. **Before cutover:** snapshot the production `minio-data` volume (`docker run --rm -v minio-data:/data -v "$PWD":/backup alpine tar czf /backup/minio-data-pre-rustfs.tgz -C /data .`). This is a valid MinIO rollback artifact.
-2. **During deploy:** if the RustFS stack fails, re-deploy the previous compose revision (MinIO), which re-attaches the same volume. Because the on-disk format is bidirectionally compatible, objects written by RustFS are still readable by MinIO — the spike verified this.
-3. **After RustFS writes for a sustained period:** a plain volume swap back is still the first rollback, but if a future RustFS release changes the on-disk format, fall back to the pre-cutover snapshot (losing post-cutover uploads) or export via `rc`/S3 and re-import.
-4. Staging runs the migration first; promotion to production is a `staging → main` merge with the same snapshot taken beforehand.
+This change is deliberately **forward-only**: reverting the application to a pre-RustFS revision is not supported, and the schema rename is never undone automatically.
+
+Why there is no pre-RustFS rollback:
+
+- MinIO is abandoned — that is the whole reason for migrating. Reinstating it is not a fallback we want to keep alive.
+- The pre-RustFS application is coupled to MinIO _and_ to the old column name. Restoring it would mean reverting `minio_object_key` and redeploying a stack we deliberately retired: carrying a down-migration for dead code, forever.
+- The only thing genuinely worth protecting is the object data, and it is protected: the on-disk formats are compatible (spike-verified), the volume is snapshotted before cutover, and RustFS itself is redeployable. Losing the ability to run MinIO again is the point, not a risk.
+
+What we actually do:
+
+1. **Before cutover:** snapshot the production object volume as a data artifact — `docker run --rm -v receipt-app_minio-data:/data -v "$PWD":/backup alpine tar czf /backup/minio-data-pre-rustfs.tgz -C /data .`. The volume is `receipt-app_minio-data` because the compose sets `name: receipt-app`; confirm with `docker volume ls | grep minio-data` first.
+2. **If RustFS misbehaves:** fix forward. Redeploy RustFS, or roll back to a previous _RustFS_ deployment — the volume is compatible, so object data survives either way.
+3. **Staging first:** staging runs the migration before production; promotion is a `staging → main` merge with the same snapshot taken beforehand.
+
+If a pre-RustFS revision ever had to run again (not planned), an operator must restore the old column name by hand first — `ALTER TABLE receipts RENAME COLUMN object_key TO minio_object_key;` — because Drizzle's migrations are forward-only and will not do it.
 
 ## Related
 
