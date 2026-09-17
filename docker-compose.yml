@@ -89,6 +89,17 @@ services:
           sleep 3
         done
         rc bucket create --ignore-existing "local/$$STORAGE_BUCKET"
+        # A reused MinIO data volume carries MinIO's bucket-notification config,
+        # whose `arn:minio:` target does not exist in RustFS — and an
+        # unresolvable rule silently breaks dispatch for the whole bucket. Drop
+        # it if present (removal runs only when the rule exists, so a genuine
+        # failure still aborts under `set -e`).
+        existing_rules=$$(rc bucket event list "local/$$STORAGE_BUCKET" 2>/dev/null || true)
+        case "$$existing_rules" in
+          *arn:minio:sqs::primary:webhook*)
+            rc bucket event remove "local/$$STORAGE_BUCKET" arn:minio:sqs::primary:webhook
+            ;;
+        esac
         # `event add` replaces the rule for this ARN, so this is idempotent and
         # picks up a changed event set. `put` expands to s3:ObjectCreated:*.
         rc bucket event add "local/$$STORAGE_BUCKET" arn:rustfs:sqs:us-east-1:primary:webhook --event put
