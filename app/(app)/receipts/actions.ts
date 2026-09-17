@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import { db, receipts } from "@/lib/db";
-import { BUCKET, deleteObject } from "@/lib/minio/client";
+import { BUCKET, deleteObject } from "@/lib/storage/client";
 
 export const deleteReceipt = async (receiptId: string) => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -24,8 +24,8 @@ export const deleteReceipt = async (receiptId: string) => {
   }
 
   try {
-    if (existing.minioObjectKey) {
-      await deleteObject({ bucket: BUCKET, key: existing.minioObjectKey });
+    if (existing.objectKey) {
+      await deleteObject({ bucket: BUCKET, key: existing.objectKey });
     }
 
     await db.delete(receipts).where(eq(receipts.id, receiptId));

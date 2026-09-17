@@ -7,9 +7,9 @@ const mockFindReceiptByIdForOwner = vi
     (
       id: string,
       ownerId: string
-    ) => Promise<{ id: string; minioObjectKey: string } | null>
+    ) => Promise<{ id: string; objectKey: string } | null>
   >()
-  .mockResolvedValue({ id, minioObjectKey: `${id}.jpg` });
+  .mockResolvedValue({ id, objectKey: `${id}.jpg` });
 
 const mockDownloadObject =
   vi.fn<() => Promise<{ transformToByteArray: () => Promise<Uint8Array> }>>();
@@ -26,8 +26,8 @@ vi.mock(import("@/lib/auth"), () => ({
   auth: { api: { getSession: mockGetSession } },
 }));
 
-// @ts-expect-error mock types don't need to match MinIO internals
-vi.mock(import("@/lib/minio/client"), () => ({
+// @ts-expect-error mock types don't need to match storage internals
+vi.mock(import("@/lib/storage/client"), () => ({
   BUCKET: "receipts",
   contentTypeFromKey: vi
     .fn<(key: string) => string>()
@@ -44,7 +44,7 @@ describe("GET /api/receipts/:id/image", () => {
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockFindReceiptByIdForOwner.mockResolvedValue({
       id,
-      minioObjectKey: `${id}.jpg`,
+      objectKey: `${id}.jpg`,
     });
     mockDownloadObject.mockResolvedValue({
       transformToByteArray: () => Promise.resolve(new Uint8Array([1, 2, 3])),

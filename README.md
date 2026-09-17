@@ -2,13 +2,13 @@
 
 Local-first receipt AI analyser.
 
-Upload a receipt photo via the Next.js web UI, and an Inngest background job extracts merchant, line items, totals, GST, and date using local vision/language models via the AI SDK. The image is stored in Minio, structured data in Postgres, and the UI updates live via Inngest Realtime.
+Upload a receipt photo via the Next.js web UI, and an Inngest background job extracts merchant, line items, totals, GST, and date using local vision/language models via the AI SDK. The image is stored in RustFS, structured data in Postgres, and the UI updates live via Inngest Realtime.
 
 ## Stack
 
 - **Next.js** (App Router) — UI and backend in one app
 - **Postgres** — persistence
-- **Minio** — S3-compatible image storage
+- **RustFS** — S3-compatible image storage
 - **Inngest** — durable background jobs + realtime
 - **LM Studio** — local OpenAI-compatible model endpoint (runs on host)
 

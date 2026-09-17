@@ -92,7 +92,7 @@ export default async function ReceiptDetailPage({
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <ReceiptImage
             className="lg:min-h-0 lg:h-[calc(100dvh-5rem)] lg:self-start lg:sticky lg:top-6"
-            hasImage={!!receipt.minioObjectKey}
+            hasImage={!!receipt.objectKey}
             receiptId={receipt.id}
           />
           <ReceiptEditForm receipt={receipt} />
@@ -100,7 +100,7 @@ export default async function ReceiptDetailPage({
       ) : (
         <ReceiptImage
           className="lg:min-h-0 lg:h-[calc(100dvh-5rem)]"
-          hasImage={!!receipt.minioObjectKey}
+          hasImage={!!receipt.objectKey}
           receiptId={receipt.id}
         />
       )}

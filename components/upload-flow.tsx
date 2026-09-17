@@ -17,7 +17,7 @@ type UploadMachine =
   | { status: "done"; receiptId: string }
   | { status: "idle" }
   | { status: "requesting-url" }
-  | { status: "uploading-to-minio" };
+  | { status: "uploading-to-storage" };
 
 export const UploadFlow = () => {
   const [upload, setUpload] = useState<UploadMachine>({ status: "idle" });
