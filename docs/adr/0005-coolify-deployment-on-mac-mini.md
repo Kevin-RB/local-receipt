@@ -47,6 +47,10 @@ Backups are being reworked as a separate task (cron-based, likely off-box); unti
 - **T18 — merge-gate CD (issue #73).** The GitHub App is installed with auto-deploy on `main`; branch protection requires the CI `quality` job (Typecheck, lint, test) plus the pullfrog review before merge. The old `.github/workflows/deploy.yml` webhook job and the `COOLIFY_DEPLOY_WEBHOOK` secret are removed — no double-deploys. Commit statuses appear on PRs; rollback is one click in Coolify.
 - **T20 — headless LM Studio (issue #80).** LM Studio runs headless on the macOS host (`llmster`), bound to loopback only with no API auth (nothing is LAN-exposed); containers reach it at `LM_STUDIO_URL=http://host.docker.internal:1234/v1`. Models are pinned (`glm-ocr`, `google/gemma-4-e4b` with 8k context on parse) with no idle TTL. It does not auto-start on reboot — after a mini reboot run `lms daemon up`, load both models, and `lms server start --port 1234` (see AGENTS.md for the exact command).
 
+## Update (2026-09-17): object storage moved to RustFS
+
+The object store is now **RustFS**, not MinIO — see ADR-0006. The MinIO-specific topology described above is historical and must not be followed as current setup: the S3 API on `uploads.tribi.dev` is served by RustFS; the console is the RustFS console on `${STORAGE_CONSOLE_HOST_PORT}`, which needs a private API host port and a one-time Server Configuration entry (unlike MinIO's server-side-proxying console); CORS is server-level (`RUSTFS_CORS_ALLOWED_ORIGINS`) rather than a per-bucket MinIO rule; and the credential fence is the RustFS root keys plus the least-privilege `receipts-app` IAM user, not MinIO root. ADR-0006 is authoritative for storage.
+
 ## Related
 
 - Issue #54 (public deployment)
