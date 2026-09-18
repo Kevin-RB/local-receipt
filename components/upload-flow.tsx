@@ -4,13 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { ReceiptToastNotifier } from "@/components/receipt-toast-notifier";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useReceiptRealtime } from "@/hooks/use-receipt-realtime";
 
 import { ImageUploadCard } from "./image-upload-card";
@@ -61,12 +55,6 @@ export const UploadFlow = () => {
   return (
     <>
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Upload Receipt</CardTitle>
-          <CardDescription>
-            Upload a receipt image to get AI-powered insights.
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           <ImageUploadCard
             onUploadComplete={(id) =>
@@ -75,6 +63,9 @@ export const UploadFlow = () => {
             onUploadStateChange={(stage) => setUpload({ status: stage })}
           />
         </CardContent>
+        <CardFooter className="justify-center text-muted-foreground">
+          Upload a receipt image to get AI-powered insights.
+        </CardFooter>
       </Card>
       {upload.status === "done" && <ReceiptToastNotifier realtime={realtime} />}
     </>

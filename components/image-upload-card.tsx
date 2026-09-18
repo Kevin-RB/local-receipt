@@ -1,19 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ImagePlusIcon } from "lucide-react";
+import { Camera, ImagePlusIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import z from "zod";
 
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { compressReceiptImage } from "@/lib/images/compress-receipt-image";
 import { ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
 import { cn } from "@/lib/utils";
@@ -55,6 +50,7 @@ export const ImageUploadCard = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const form = useForm<FormValues>({
@@ -156,6 +152,9 @@ export const ImageUploadCard = ({
       if (inputRef.current) {
         inputRef.current.value = "";
       }
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = "";
+      }
     }
   };
 
@@ -181,6 +180,12 @@ export const ImageUploadCard = ({
     }
   };
 
+  const openCamera = () => {
+    if (!isBusy) {
+      cameraInputRef.current?.click();
+    }
+  };
+
   return (
     <form
       id="upload-form"
@@ -195,14 +200,9 @@ export const ImageUploadCard = ({
             const { name, onBlur: handleBlur } = field;
             return (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="receipt-input">
-                  <FieldDescription>
-                    Camera or gallery photo &middot; resized automatically
-                  </FieldDescription>
-                </FieldLabel>
                 <button
                   type="button"
-                  onClick={openPicker}
+                  onClick={openCamera}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setIsDragOver(true);
@@ -229,15 +229,29 @@ export const ImageUploadCard = ({
                     />
                   ) : (
                     <>
-                      <ImagePlusIcon className="size-10 text-muted-foreground" />
+                      <Camera className="size-10 text-muted-foreground sm:hidden" />
+                      <ImagePlusIcon className="hidden size-10 text-muted-foreground sm:block" />
                       <div className="flex flex-col items-center gap-1 text-center">
-                        <span className="text-xs font-medium">
+                        <span className="text-xs font-medium sm:hidden">
+                          Take a photo or choose one below
+                        </span>
+                        <span className="hidden text-xs font-medium sm:inline">
                           Click to browse or drag and drop
                         </span>
                       </div>
                     </>
                   )}
                 </button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openPicker}
+                  disabled={isBusy}
+                  className="w-full sm:hidden"
+                >
+                  <ImagePlusIcon data-icon="inline-start" />
+                  Choose image
+                </Button>
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
                 )}
@@ -252,6 +266,17 @@ export const ImageUploadCard = ({
                   className="sr-only"
                   aria-label="Upload receipt image"
                   aria-invalid={fieldState.invalid}
+                  disabled={isBusy}
+                />
+                <input
+                  ref={cameraInputRef}
+                  id="receipt-camera-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleChange}
+                  className="sr-only"
+                  aria-label="Take a photo of a receipt"
                   disabled={isBusy}
                 />
                 {/* <div className="flex items-center gap-2">
