@@ -7,6 +7,7 @@ import {
   BUCKET,
   contentTypeFromKey,
   createPresignedUrl,
+  presignEndpointForHost,
 } from "@/lib/storage/client";
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
@@ -49,6 +50,7 @@ export const POST = async (
   const uploadUrl = await createPresignedUrl({
     bucket: BUCKET,
     contentType: contentTypeFromKey(receipt.objectKey),
+    endpoint: presignEndpointForHost(request.headers.get("host")),
     expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
     key: receipt.objectKey,
   });

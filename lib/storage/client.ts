@@ -44,25 +44,20 @@ export const contentTypeFromKey = (key: string): string => {
     : "image/jpeg";
 };
 
-export const s3Client = new S3Client({
-  credentials: {
-    accessKeyId: STORAGE_ACCESS_KEY,
-    secretAccessKey: STORAGE_SECRET_KEY,
-  },
-  endpoint: withScheme(STORAGE_ENDPOINT),
-  forcePathStyle: true,
-  region: "us-east-1",
-});
+const createS3Client = (endpoint: string) =>
+  new S3Client({
+    credentials: {
+      accessKeyId: STORAGE_ACCESS_KEY,
+      secretAccessKey: STORAGE_SECRET_KEY,
+    },
+    endpoint: withScheme(endpoint),
+    forcePathStyle: true,
+    region: "us-east-1",
+  });
 
-const s3PublicClient = new S3Client({
-  credentials: {
-    accessKeyId: STORAGE_ACCESS_KEY,
-    secretAccessKey: STORAGE_SECRET_KEY,
-  },
-  endpoint: withScheme(STORAGE_PUBLIC_ENDPOINT),
-  forcePathStyle: true,
-  region: "us-east-1",
-});
+export const s3Client = createS3Client(STORAGE_ENDPOINT);
+
+const s3PublicClient = createS3Client(STORAGE_PUBLIC_ENDPOINT);
 
 export const downloadObject = async ({
   bucket,
@@ -87,19 +82,37 @@ export const deleteObject = async ({
   await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 };
 
+// The presigned URL's host is part of its signature, so it must name a host the
+// browser can resolve. In local development the browser reaches storage on the
+// same hostname it used for the app (just a different port), so derive it from
+// the request host. Every other environment — staging and production — keeps
+// the configured public endpoint (e.g. the Traefik-fronted uploads host).
+export const presignEndpointForHost = (host: string | null): string => {
+  if (process.env.NODE_ENV !== "development" || !host) {
+    return STORAGE_PUBLIC_ENDPOINT;
+  }
+
+  const port = new URL(withScheme(STORAGE_PUBLIC_ENDPOINT)).port || "9000";
+  return `${host.split(":")[0]}:${port}`;
+};
+
 export const createPresignedUrl = ({
   bucket,
   contentType,
+  endpoint = STORAGE_PUBLIC_ENDPOINT,
   expiresIn,
   key,
 }: {
   bucket: string;
   contentType: string;
+  endpoint?: string;
   expiresIn: number;
   key: string;
 }) =>
   getSignedUrl(
-    s3PublicClient,
+    endpoint === STORAGE_PUBLIC_ENDPOINT
+      ? s3PublicClient
+      : createS3Client(endpoint),
     new PutObjectCommand({
       Bucket: bucket,
       ContentType: contentType,
