@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ImagePlusIcon } from "lucide-react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import z from "zod";
 
@@ -14,7 +14,8 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { ACCEPTED_LABEL, ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
+import { compressReceiptImage } from "@/lib/images/compress-receipt-image";
+import { ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
 import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -52,13 +53,25 @@ export const ImageUploadCard = ({
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   const form = useForm<FormValues>({
     defaultValues: { receipt: undefined as File | undefined },
     mode: "onSubmit",
     resolver: zodResolver(formSchema),
   });
+  const isBusy = form.formState.isSubmitting || isProcessing;
+
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    },
+    []
+  );
 
   const onSubmit = async (data: FormValues) => {
     const file = data.receipt;
@@ -117,13 +130,33 @@ export const ImageUploadCard = ({
   };
 
   const handleFile = async (file: File) => {
-    setPreview(URL.createObjectURL(file));
-    form.setValue("receipt", file);
-    const valid = await form.trigger("receipt");
-    if (valid) {
-      form.handleSubmit(onSubmit)();
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
     }
-    return valid;
+    previewUrlRef.current = URL.createObjectURL(file);
+    setPreview(previewUrlRef.current);
+    form.clearErrors("receipt");
+    setIsProcessing(true);
+
+    try {
+      const compressed = await compressReceiptImage(file);
+      form.setValue("receipt", compressed);
+      const valid = await form.trigger("receipt");
+      if (valid) {
+        form.handleSubmit(onSubmit)();
+      }
+      return valid;
+    } catch {
+      form.setError("receipt", {
+        message: "We couldn't process that image. Try another photo.",
+      });
+      return false;
+    } finally {
+      setIsProcessing(false);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +176,7 @@ export const ImageUploadCard = ({
   };
 
   const openPicker = () => {
-    if (!form.formState.isSubmitting) {
+    if (!isBusy) {
       inputRef.current?.click();
     }
   };
@@ -159,12 +192,12 @@ export const ImageUploadCard = ({
           name="receipt"
           control={form.control}
           render={({ fieldState, field }) => {
-            const { onBlur: handleBlur } = field;
+            const { name, onBlur: handleBlur } = field;
             return (
               <Field data-invalid={fieldState.invalid}>
                 <FieldLabel htmlFor="receipt-input">
                   <FieldDescription>
-                    {ACCEPTED_LABEL} &middot; 2000&times;2000px max
+                    Camera or gallery photo &middot; resized automatically
                   </FieldDescription>
                 </FieldLabel>
                 <button
@@ -179,12 +212,11 @@ export const ImageUploadCard = ({
                     setIsDragOver(false);
                   }}
                   onDrop={handleDrop}
-                  disabled={form.formState.isSubmitting}
+                  disabled={isBusy}
                   className={cn(
                     "flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-none border-2 border-dashed border-border bg-card p-8 transition-colors hover:border-accent-accent hover:bg-muted",
                     isDragOver && "border-primary bg-muted",
-                    form.formState.isSubmitting &&
-                      "cursor-not-allowed opacity-50"
+                    isBusy && "cursor-not-allowed opacity-50"
                   )}
                 >
                   {preview ? (
@@ -212,18 +244,15 @@ export const ImageUploadCard = ({
                 <input
                   ref={inputRef}
                   id="receipt-input"
-                  name={field.name}
+                  name={name}
                   onBlur={handleBlur}
                   type="file"
-                  accept={ACCEPTED_MIME_TYPES.join(",")}
-                  onChange={(e) => {
-                    field.onChange(e.target.files?.[0]);
-                    handleChange(e);
-                  }}
+                  accept="image/*"
+                  onChange={handleChange}
                   className="sr-only"
                   aria-label="Upload receipt image"
                   aria-invalid={fieldState.invalid}
-                  disabled={form.formState.isSubmitting}
+                  disabled={isBusy}
                 />
                 {/* <div className="flex items-center gap-2">
                 <Button
