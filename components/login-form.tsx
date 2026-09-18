@@ -1,9 +1,12 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon, GalleryVerticalEndIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import z from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,36 +26,42 @@ import {
 import { signIn } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
+const signInSchema = z.object({
+  email: z.email("Enter a valid email address."),
+  password: z.string().min(1, "Enter your password."),
+});
+
+type SignInValues = z.infer<typeof signInSchema>;
+
 export const LoginForm = ({
   className,
   ...props
 }: React.ComponentProps<"div">) => {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    setError,
+  } = useForm<SignInValues>({
+    defaultValues: { email: "", password: "" },
+    resolver: zodResolver(signInSchema),
+  });
+
+  const onSubmit = async (values: SignInValues) => {
+    const { error } = await signIn.email(values);
+    if (error) {
+      setError("root", { message: error.message ?? "Failed to sign in" });
+      return;
+    }
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <form
-        onSubmit={async (event) => {
-          event.preventDefault();
-          const formData = new FormData(event.currentTarget);
-          setPending(true);
-          setError(null);
-          const { error: result } = await signIn.email({
-            email: String(formData.get("email")),
-            password: String(formData.get("password")),
-          });
-          setPending(false);
-          if (result) {
-            setError(result.message ?? "Failed to sign in");
-            return;
-          }
-          router.push("/");
-          router.refresh();
-        }}
-      >
+      <form noValidate onSubmit={handleSubmit(onSubmit)}>
         <FieldGroup>
           <div className="flex flex-col items-center gap-2 text-center">
             <Link
@@ -72,46 +81,50 @@ export const LoginForm = ({
               Don&apos;t have an account? <Link href="/sign-up">Sign up</Link>
             </FieldDescription>
           </div>
-          <Field>
+          <Field data-invalid={!!errors.email}>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="m@example.com"
+              {...register("email")}
+              aria-invalid={!!errors.email}
               autoComplete="username"
               className="text-base md:text-xs"
+              id="email"
+              placeholder="m@example.com"
               required
+              type="email"
             />
+            <FieldError errors={[errors.email]} />
           </Field>
-          <Field>
+          <Field data-invalid={!!errors.password}>
             <FieldLabel htmlFor="current-password">Password</FieldLabel>
             <InputGroup>
               <InputGroupInput
-                id="current-password"
-                name="password"
-                type={showPassword ? "text" : "password"}
+                {...register("password")}
+                aria-invalid={!!errors.password}
                 autoComplete="current-password"
                 className="text-base md:text-xs"
+                id="current-password"
                 required
+                type={showPassword ? "text" : "password"}
               />
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
                   className="relative touch-manipulation after:absolute after:-inset-3 after:content-['']"
-                  size="icon-xs"
                   onClick={() => setShowPassword((visible) => !visible)}
+                  size="icon-xs"
+                  type="button"
                 >
                   {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </InputGroupButton>
               </InputGroupAddon>
             </InputGroup>
-            <FieldError>{error}</FieldError>
+            <FieldError errors={[errors.password, errors.root]} />
           </Field>
           <Field>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Signing in…" : "Sign in"}
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
           </Field>
         </FieldGroup>
