@@ -79,24 +79,27 @@ export const LoginForm = ({
               name="email"
               type="email"
               placeholder="m@example.com"
-              autoComplete="email"
+              autoComplete="username"
+              className="text-base md:text-xs"
               required
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <FieldLabel htmlFor="current-password">Password</FieldLabel>
             <InputGroup>
               <InputGroupInput
-                id="password"
+                id="current-password"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
+                className="text-base md:text-xs"
                 required
               />
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
+                  className="relative touch-manipulation after:absolute after:-inset-3 after:content-['']"
                   size="icon-xs"
                   onClick={() => setShowPassword((visible) => !visible)}
                 >

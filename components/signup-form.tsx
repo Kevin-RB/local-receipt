@@ -78,6 +78,7 @@ export const SignupForm = ({
               name="name"
               type="text"
               autoComplete="name"
+              className="text-base md:text-xs"
               required
             />
           </Field>
@@ -89,6 +90,7 @@ export const SignupForm = ({
               type="email"
               placeholder="m@example.com"
               autoComplete="email"
+              className="text-base md:text-xs"
               required
             />
           </Field>
@@ -98,6 +100,7 @@ export const SignupForm = ({
               id="inviteCode"
               name="inviteCode"
               autoComplete="off"
+              className="text-base md:text-xs"
               required
             />
             <FieldDescription>
@@ -112,6 +115,7 @@ export const SignupForm = ({
                 name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
+                className="text-base md:text-xs"
                 minLength={8}
                 required
               />
@@ -119,6 +123,7 @@ export const SignupForm = ({
                 <InputGroupButton
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
+                  className="relative touch-manipulation after:absolute after:-inset-3 after:content-['']"
                   size="icon-xs"
                   onClick={() => setShowPassword((visible) => !visible)}
                 >
