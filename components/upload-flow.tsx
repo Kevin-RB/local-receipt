@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { ReceiptToastNotifier } from "@/components/receipt-toast-notifier";
 import {
@@ -10,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useReceiptRealtime } from "@/hooks/use-receipt-realtime";
 
 import { ImageUploadCard } from "./image-upload-card";
 
@@ -21,6 +23,40 @@ type UploadMachine =
 
 export const UploadFlow = () => {
   const [upload, setUpload] = useState<UploadMachine>({ status: "idle" });
+  const router = useRouter();
+  const receiptId = upload.status === "done" ? upload.receiptId : null;
+  const realtime = useReceiptRealtime({ receiptId });
+  const state = realtime.messages.byTopic.state?.data.state;
+  const refreshedRef = useRef({
+    appeared: false,
+    receiptId: null as string | null,
+    terminal: false,
+  });
+
+  useEffect(() => {
+    if (!(receiptId && state)) {
+      return;
+    }
+
+    if (refreshedRef.current.receiptId !== receiptId) {
+      refreshedRef.current = { appeared: false, receiptId, terminal: false };
+    }
+
+    const refreshed = refreshedRef.current;
+    const isTerminal = state === "done" || state === "failed";
+
+    if (isTerminal ? refreshed.terminal : refreshed.appeared) {
+      return;
+    }
+
+    if (isTerminal) {
+      refreshed.terminal = true;
+    } else {
+      refreshed.appeared = true;
+    }
+
+    router.refresh();
+  }, [receiptId, state, router]);
 
   return (
     <>
@@ -33,16 +69,14 @@ export const UploadFlow = () => {
         </CardHeader>
         <CardContent>
           <ImageUploadCard
-            onUploadComplete={(receiptId) =>
-              setUpload({ receiptId, status: "done" })
+            onUploadComplete={(id) =>
+              setUpload({ receiptId: id, status: "done" })
             }
             onUploadStateChange={(stage) => setUpload({ status: stage })}
           />
         </CardContent>
       </Card>
-      {upload.status === "done" && (
-        <ReceiptToastNotifier receiptId={upload.receiptId} />
-      )}
+      {upload.status === "done" && <ReceiptToastNotifier realtime={realtime} />}
     </>
   );
 };

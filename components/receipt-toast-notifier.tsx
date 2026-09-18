@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
-import { useReceiptRealtime } from "@/hooks/use-receipt-realtime";
+import type { ReceiptRealtime } from "@/hooks/use-receipt-realtime";
 
 const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -143,13 +143,15 @@ const resolveToastBody = (input: {
   };
 };
 
-export const ReceiptToastNotifier = ({ receiptId }: { receiptId: string }) => {
+export const ReceiptToastNotifier = ({
+  realtime,
+}: {
+  realtime: ReceiptRealtime;
+}) => {
   const toastIdRef = useRef<string | null>(null);
   const isTerminalRef = useRef(false);
 
-  const { connectionStatus, error, runStatus, messages } = useReceiptRealtime({
-    receiptId,
-  });
+  const { connectionStatus, error, runStatus, messages } = realtime;
   const state = messages.byTopic.state?.data.state;
   const stateError = messages.byTopic.state?.data.error;
 
