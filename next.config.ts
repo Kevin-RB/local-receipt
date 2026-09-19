@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["kevin"],
   images: {
     remotePatterns: [
       { hostname: "cdn.mos.cms.futurecdn.net", pathname: "/**" },
