@@ -10,7 +10,7 @@ import {
 } from "@/lib/storage/client";
 
 const paramsSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid({ message: "Invalid receipt ID" }),
 });
 
 export const GET = async (

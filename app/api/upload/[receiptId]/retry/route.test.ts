@@ -37,6 +37,9 @@ vi.mock(import("@/lib/storage/client"), () => ({
     .fn<(key: string) => string>()
     .mockReturnValue("image/jpeg"),
   createPresignedUrl: mockCreatePresignedUrl,
+  presignEndpointForHost: vi
+    .fn<() => string>()
+    .mockReturnValue("localhost:9000"),
 }));
 
 const { POST } = await import("./route");

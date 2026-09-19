@@ -90,11 +90,13 @@ export default async function ReceiptDetailPage({
 
       {isEditable ? (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          <ReceiptImage
-            className="lg:min-h-0 lg:h-[calc(100dvh-5rem)] lg:self-start lg:sticky lg:top-6"
-            hasImage={!!receipt.objectKey}
-            receiptId={receipt.id}
-          />
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <ReceiptImage
+              className="lg:min-h-0 lg:h-[calc(100dvh-5rem)]"
+              hasImage={!!receipt.objectKey}
+              receiptId={receipt.id}
+            />
+          </div>
           <ReceiptEditForm receipt={receipt} />
         </div>
       ) : (

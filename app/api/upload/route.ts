@@ -9,6 +9,7 @@ import {
   BUCKET,
   createPresignedUrl,
   extensionForMime,
+  presignEndpointForHost,
 } from "@/lib/storage/client";
 import { ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
 
@@ -75,6 +76,7 @@ export const POST = async (request: Request) => {
   const uploadUrl = await createPresignedUrl({
     bucket: BUCKET,
     contentType,
+    endpoint: presignEndpointForHost(request.headers.get("host")),
     expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
     key: objectKey,
   });
