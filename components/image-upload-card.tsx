@@ -279,18 +279,6 @@ export const ImageUploadCard = ({
                   aria-label="Take a photo of a receipt"
                   disabled={isBusy}
                 />
-                {/* <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={openPicker}
-                  disabled={form.formState.isSubmitting}
-                >
-                  <UploadIcon data-icon="inline-start" />
-                  Browse
-                </Button>
-              </div> */}
               </Field>
             );
           }}
