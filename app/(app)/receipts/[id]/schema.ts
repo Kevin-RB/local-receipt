@@ -20,7 +20,7 @@ export const updateReceiptSchema = z.object({
   ),
   merchant: Merchant.extend({ name: z.string().min(1) }),
   payment: Payment,
-  receiptId: z.string().uuid(),
+  receiptId: z.uuid({ message: "Invalid receipt ID" }),
   totals: Totals.extend({
     gst: money.optional(),
     subtotal: money.optional(),

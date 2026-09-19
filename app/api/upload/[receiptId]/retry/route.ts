@@ -13,7 +13,7 @@ import {
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
 const paramsSchema = z.object({
-  receiptId: z.string().uuid(),
+  receiptId: z.uuid({ message: "Invalid receipt ID" }),
 });
 
 export const POST = async (
