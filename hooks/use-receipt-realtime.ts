@@ -48,3 +48,5 @@ export const useReceiptRealtime = ({
     },
     topics: ["state"] as const,
   });
+
+export type ReceiptRealtime = ReturnType<typeof useReceiptRealtime>;
