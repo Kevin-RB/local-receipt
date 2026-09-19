@@ -1,12 +1,14 @@
 "use client";
 
-import Image from "next/image";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { EyeIcon, EyeOffIcon, GalleryVerticalEndIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import z from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
@@ -15,83 +17,118 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { signIn } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+
+const signInSchema = z.object({
+  email: z.email("Enter a valid email address."),
+  password: z.string().min(1, "Enter your password."),
+});
+
+type SignInValues = z.infer<typeof signInSchema>;
 
 export const LoginForm = ({
   className,
   ...props
 }: React.ComponentProps<"div">) => {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    setError,
+  } = useForm<SignInValues>({
+    defaultValues: { email: "", password: "" },
+    resolver: zodResolver(signInSchema),
+  });
+
+  const onSubmit = async (values: SignInValues) => {
+    const { error } = await signIn.email(values);
+    if (error) {
+      setError("root", { message: error.message ?? "Failed to sign in" });
+      return;
+    }
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="overflow-hidden p-0">
-        <CardContent className="grid p-0 md:grid-cols-2">
-          <form
-            className="p-6 md:p-8"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              setPending(true);
-              setError(null);
-              const { error: result } = await signIn.email({
-                email: String(formData.get("email")),
-                password: String(formData.get("password")),
-              });
-              setPending(false);
-              if (result) {
-                setError(result.message ?? "Failed to sign in");
-                return;
-              }
-              router.push("/");
-              router.refresh();
-            }}
-          >
-            <FieldGroup>
-              <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
-                <p className="text-balance text-muted-foreground">
-                  Sign in to your account
-                </p>
+      <form noValidate onSubmit={handleSubmit(onSubmit)}>
+        <FieldGroup>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Link
+              href="/"
+              className="flex flex-col items-center gap-2 font-medium"
+            >
+              <div className="flex size-8 items-center justify-center rounded-md">
+                <GalleryVerticalEndIcon className="size-6" />
               </div>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input id="password" name="password" type="password" required />
-                <FieldError>{error}</FieldError>
-              </Field>
-              <Field>
-                <Button type="submit" disabled={pending}>
-                  {pending ? "Signing in…" : "Sign in"}
-                </Button>
-              </Field>
-              <FieldDescription className="text-center">
-                Don&apos;t have an account? <Link href="/sign-up">Sign up</Link>
-              </FieldDescription>
-            </FieldGroup>
-          </form>
-          <div className="relative hidden bg-muted md:block">
-            <Image
-              src="https://cdn.mos.cms.futurecdn.net/LotZ8WU7o6esocmzqrPC6S.jpg"
-              alt="Possum receipt app"
-              fill
-              className="object-cover"
-            />
+              <span className="sr-only">possum</span>
+            </Link>
+            <h1 className="text-xl font-bold">Possum receipts</h1>
+            <p className="text-balance text-muted-foreground">
+              Give your receipts a new home
+            </p>
+            <FieldDescription>
+              Don&apos;t have an account? <Link href="/sign-up">Sign up</Link>
+            </FieldDescription>
           </div>
-        </CardContent>
-      </Card>
+          <Field data-invalid={!!errors.email}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              {...register("email")}
+              aria-invalid={!!errors.email}
+              autoComplete="username"
+              className="text-base md:text-xs"
+              id="email"
+              placeholder="m@example.com"
+              required
+              type="email"
+            />
+            <FieldError errors={[errors.email]} />
+          </Field>
+          <Field data-invalid={!!errors.password}>
+            <FieldLabel htmlFor="current-password">Password</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                {...register("password")}
+                aria-invalid={!!errors.password}
+                autoComplete="current-password"
+                className="text-base md:text-xs"
+                id="current-password"
+                required
+                type={showPassword ? "text" : "password"}
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="relative touch-manipulation after:absolute after:-inset-3 after:content-['']"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  size="icon-xs"
+                  type="button"
+                >
+                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            <FieldError errors={[errors.password, errors.root]} />
+          </Field>
+          <Field>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Signing in…" : "Sign in"}
+            </Button>
+          </Field>
+        </FieldGroup>
+      </form>
     </div>
   );
 };
