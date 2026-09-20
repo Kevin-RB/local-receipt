@@ -39,10 +39,11 @@ export const UploadFlow = () => {
 
   const isProcessing = upload.status === "done" && !isTerminalState;
 
-  // Remount the upload card once a completed upload reaches a terminal state
-  // so its preview and file selection are cleared, ready for the next receipt.
-  // Deriving the key during render (rather than via an effect) keeps the card
-  // — and its preview — mounted throughout the upload and processing phases.
+  // Remount the upload card once a completed upload reaches a terminal state so
+  // its preview and file selection are cleared for the next receipt. State is
+  // adjusted during render (guarded against a loop), the documented pattern for
+  // deriving state from changing inputs; an effect is not used because
+  // react-compiler's EffectSetState rule rejects setState in effect bodies.
   if (isTerminalState && receiptId && completedReceiptId !== receiptId) {
     setCompletedReceiptId(receiptId);
   }
