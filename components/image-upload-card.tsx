@@ -39,16 +39,20 @@ class UploadError extends Error {
 
 export const ImageUploadCard = ({
   className,
+  isProcessing = false,
   onUploadComplete,
+  onUploadError,
   onUploadStateChange,
 }: {
   className?: string;
+  isProcessing?: boolean;
   onUploadComplete?: (receiptId: string) => void;
+  onUploadError?: () => void;
   onUploadStateChange?: (stage: UploadStage) => void;
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
@@ -58,7 +62,7 @@ export const ImageUploadCard = ({
     mode: "onSubmit",
     resolver: zodResolver(formSchema),
   });
-  const isBusy = form.formState.isSubmitting || isProcessing;
+  const isBusy = form.formState.isSubmitting || isCompressing || isProcessing;
 
   useEffect(
     () => () => {
@@ -119,6 +123,7 @@ export const ImageUploadCard = ({
 
       onUploadComplete?.(receiptId);
     } catch (error) {
+      onUploadError?.();
       form.setError("receipt", {
         message: error instanceof Error ? error.message : "Upload failed",
       });
@@ -132,7 +137,7 @@ export const ImageUploadCard = ({
     previewUrlRef.current = URL.createObjectURL(file);
     setPreview(previewUrlRef.current);
     form.clearErrors("receipt");
-    setIsProcessing(true);
+    setIsCompressing(true);
 
     try {
       const compressed = await compressReceiptImage(file);
@@ -148,7 +153,7 @@ export const ImageUploadCard = ({
       });
       return false;
     } finally {
-      setIsProcessing(false);
+      setIsCompressing(false);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -214,19 +219,22 @@ export const ImageUploadCard = ({
                   onDrop={handleDrop}
                   disabled={isBusy}
                   className={cn(
-                    "flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-none border-2 border-dashed border-border bg-card p-8 transition-colors hover:border-accent-accent hover:bg-muted",
+                    "flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-none border-2 border-dashed border-border bg-card transition-colors hover:border-accent-accent hover:bg-muted",
+                    preview ? "p-2" : "p-8",
                     isDragOver && "border-primary bg-muted",
                     isBusy && "cursor-not-allowed opacity-50"
                   )}
                 >
                   {preview ? (
-                    <Image
-                      src={preview}
-                      alt="Receipt preview"
-                      width={400}
-                      height={400}
-                      className="max-h-48 w-auto object-contain"
-                    />
+                    <div className="relative h-[50vh] max-h-96 w-full">
+                      <Image
+                        src={preview}
+                        alt="Receipt preview"
+                        fill
+                        sizes="(min-width: 640px) 28rem, 100vw"
+                        className="object-contain"
+                      />
+                    </div>
                   ) : (
                     <>
                       <Camera className="size-10 text-muted-foreground sm:hidden" />
