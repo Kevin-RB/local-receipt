@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { StorageEvent } from "./event";
+import { storageEventSchema } from "./event";
 
 // Captured from staging: RustFS percent-encodes the object key in the payload
 // (slashes become %2F), so the schema must decode it back before lookup.
@@ -64,13 +64,13 @@ const rustFsBody = {
 
 describe("RustFS event schema", () => {
   it("decodes the percent-encoded object key from a captured RustFS body", () => {
-    const result = StorageEvent.safeParse(rustFsBody);
+    const result = storageEventSchema.safeParse(rustFsBody);
     expect(result.success).toBeTruthy();
     expect(result.data?.Records[0].s3.object.key).toBe(decodedKey);
   });
 
   it("leaves an unencoded key unchanged and ignores MinIO-only fields", () => {
-    const result = StorageEvent.safeParse({
+    const result = storageEventSchema.safeParse({
       Records: [
         {
           eventName: "s3:ObjectCreated:Put",
@@ -83,30 +83,31 @@ describe("RustFS event schema", () => {
   });
 
   it("returns failure for empty body", () => {
-    expect(StorageEvent.safeParse({}).success).toBeFalsy();
+    expect(storageEventSchema.safeParse({}).success).toBeFalsy();
   });
 
   it("returns failure when Records is missing", () => {
     expect(
-      StorageEvent.safeParse({ EventName: "s3:ObjectCreated:Put" }).success
+      storageEventSchema.safeParse({ EventName: "s3:ObjectCreated:Put" })
+        .success
     ).toBeFalsy();
   });
 
   it("returns failure when Records is empty", () => {
-    expect(StorageEvent.safeParse({ Records: [] }).success).toBeFalsy();
+    expect(storageEventSchema.safeParse({ Records: [] }).success).toBeFalsy();
   });
 
   it("returns failure when the object key is missing", () => {
     expect(
-      StorageEvent.safeParse({ Records: [{ s3: {} }] }).success
+      storageEventSchema.safeParse({ Records: [{ s3: {} }] }).success
     ).toBeFalsy();
   });
 
   it("returns failure for null body", () => {
-    expect(StorageEvent.safeParse(null).success).toBeFalsy();
+    expect(storageEventSchema.safeParse(null).success).toBeFalsy();
   });
 
   it("returns failure for string body", () => {
-    expect(StorageEvent.safeParse("not an object").success).toBeFalsy();
+    expect(storageEventSchema.safeParse("not an object").success).toBeFalsy();
   });
 });

@@ -75,11 +75,11 @@ export const IntegrityChart = ({
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="items-center pb-0">
+      <CardHeader className="items-center">
         <CardTitle>Integrity</CardTitle>
         <CardDescription>Matching vs. flagged receipts</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent className="flex-1">
         <ChartContainer
           config={chartConfig}
           className="mx-auto aspect-square max-h-70"
@@ -121,11 +121,11 @@ export const IntegrityChart = ({
           </RadialBarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
+      <CardFooter className="flex-col">
         <div className="flex items-center gap-2 leading-none font-medium">
           {warnings.toLocaleString()} of {total.toLocaleString()} flagged
         </div>
-        <div className="leading-none text-muted-foreground">
+        <div className="text-muted-foreground mt-2 leading-none">
           Line items do not sum to the stated total
         </div>
       </CardFooter>

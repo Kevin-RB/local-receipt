@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -86,7 +86,6 @@ export const SignupForm = ({
               {...register("name")}
               aria-invalid={!!errors.name}
               autoComplete="name"
-              className="text-base md:text-xs"
               id="name"
               required
               type="text"
@@ -99,7 +98,6 @@ export const SignupForm = ({
               {...register("email")}
               aria-invalid={!!errors.email}
               autoComplete="email"
-              className="text-base md:text-xs"
               id="email"
               placeholder="m@example.com"
               required
@@ -113,7 +111,6 @@ export const SignupForm = ({
               {...register("inviteCode")}
               aria-invalid={!!errors.inviteCode}
               autoComplete="off"
-              className="text-base md:text-xs"
               id="inviteCode"
               required
             />
@@ -129,7 +126,6 @@ export const SignupForm = ({
                 {...register("password")}
                 aria-invalid={!!errors.password}
                 autoComplete="new-password"
-                className="text-base md:text-xs"
                 id="password"
                 minLength={8}
                 required

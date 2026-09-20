@@ -14,28 +14,24 @@ export const metadata: Metadata = {
   title: "possum",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("font-sans", geist.variable)}
-    >
-      <body className="bg-background text-foreground">
-        <ThemeProvider
-          attribute="class"
-          enableSystem
-          defaultTheme="system"
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
-      </body>
-    </html>
-  );
-}
+const RootLayout = ({ children }: { children: React.ReactNode }) => (
+  <html
+    lang="en"
+    suppressHydrationWarning
+    className={cn("font-sans", geist.variable)}
+  >
+    <body className="bg-background text-foreground">
+      <ThemeProvider
+        attribute="class"
+        enableSystem
+        defaultTheme="system"
+        disableTransitionOnChange
+      >
+        {children}
+        <Toaster />
+      </ThemeProvider>
+    </body>
+  </html>
+);
+
+export default RootLayout;

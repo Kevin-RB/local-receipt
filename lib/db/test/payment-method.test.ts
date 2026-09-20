@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { Payment, paymentMethodEnum } from "@/lib/db/schema/receipt";
+import { paymentSchema, paymentMethodEnum } from "@/lib/db/schema/receipt";
 
 describe("Payment.method", () => {
   it("defaults to 'other' when the method is missing", () => {
-    expect(Payment.parse({})).toStrictEqual({ method: "other" });
-    expect(Payment.parse({ method: undefined })).toStrictEqual({
+    expect(paymentSchema.parse({})).toStrictEqual({ method: "other" });
+    expect(paymentSchema.parse({ method: undefined })).toStrictEqual({
       method: "other",
     });
   });

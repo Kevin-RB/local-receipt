@@ -88,7 +88,7 @@ export const UploadFlow = () => {
             onUploadStateChange={(stage) => setUpload({ status: stage })}
           />
         </CardContent>
-        <CardFooter className="justify-center text-muted-foreground">
+        <CardFooter className="justify-center">
           Upload a receipt image to get AI-powered insights.
         </CardFooter>
       </Card>

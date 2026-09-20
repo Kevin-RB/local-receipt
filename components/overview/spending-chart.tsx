@@ -111,7 +111,7 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="px-2 sm:p-6">
+      <CardContent>
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-75 w-full"

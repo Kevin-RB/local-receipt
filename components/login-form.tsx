@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -74,7 +74,7 @@ export const LoginForm = ({
               <span className="sr-only">possum</span>
             </Link>
             <h1 className="text-xl font-bold">Possum receipts</h1>
-            <p className="text-balance text-muted-foreground">
+            <p className="text-muted-foreground text-balance">
               Give your receipts a new home
             </p>
             <FieldDescription>
@@ -87,7 +87,6 @@ export const LoginForm = ({
               {...register("email")}
               aria-invalid={!!errors.email}
               autoComplete="username"
-              className="text-base md:text-xs"
               id="email"
               placeholder="m@example.com"
               required
@@ -102,7 +101,6 @@ export const LoginForm = ({
                 {...register("password")}
                 aria-invalid={!!errors.password}
                 autoComplete="current-password"
-                className="text-base md:text-xs"
                 id="current-password"
                 required
                 type={showPassword ? "text" : "password"}

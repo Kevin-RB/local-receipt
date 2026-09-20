@@ -5,7 +5,7 @@ import { Camera, ImagePlusIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import z from "zod";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
@@ -36,6 +36,56 @@ class UploadError extends Error {
     this.stage = stage;
   }
 }
+
+const uploadReceipt = async (
+  file: File,
+  onStageChange?: (stage: UploadStage) => void
+): Promise<string> => {
+  onStageChange?.("requesting-url");
+
+  const res = await fetch("/api/upload", {
+    body: JSON.stringify({
+      contentType: file.type,
+      fileSize: file.size,
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    throw new UploadError(
+      "requesting-url",
+      `Upload request failed (${res.status} ${res.statusText})`
+    );
+  }
+
+  const parsed = UploadResponse.safeParse(await res.json());
+  if (!parsed.success) {
+    throw new UploadError(
+      "requesting-url",
+      "Invalid response from upload endpoint"
+    );
+  }
+
+  const { receiptId, uploadUrl } = parsed.data;
+
+  onStageChange?.("uploading-to-storage");
+
+  const putRes = await fetch(uploadUrl, {
+    body: file,
+    headers: { "Content-Type": file.type },
+    method: "PUT",
+  });
+
+  if (!putRes.ok) {
+    throw new UploadError(
+      "uploading-to-storage",
+      "Failed to upload image to storage"
+    );
+  }
+
+  return receiptId;
+};
 
 export const ImageUploadCard = ({
   className,
@@ -74,53 +124,8 @@ export const ImageUploadCard = ({
   );
 
   const onSubmit = async (data: FormValues) => {
-    const file = data.receipt;
-
-    onUploadStateChange?.("requesting-url");
-
     try {
-      const res = await fetch("/api/upload", {
-        body: JSON.stringify({
-          contentType: file.type,
-          fileSize: file.size,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      if (!res.ok) {
-        throw new UploadError(
-          "requesting-url",
-          `Upload request failed (${res.status} ${res.statusText})`
-        );
-      }
-
-      const raw = await res.json();
-      const parsed = UploadResponse.safeParse(raw);
-      if (!parsed.success) {
-        throw new UploadError(
-          "requesting-url",
-          "Invalid response from upload endpoint"
-        );
-      }
-
-      const { receiptId, uploadUrl } = parsed.data;
-
-      onUploadStateChange?.("uploading-to-storage");
-
-      const putRes = await fetch(uploadUrl, {
-        body: file,
-        headers: { "Content-Type": file.type },
-        method: "PUT",
-      });
-
-      if (!putRes.ok) {
-        throw new UploadError(
-          "uploading-to-storage",
-          "Failed to upload image to storage"
-        );
-      }
-
+      const receiptId = await uploadReceipt(data.receipt, onUploadStateChange);
       onUploadComplete?.(receiptId);
     } catch (error) {
       onUploadError?.();
@@ -139,28 +144,30 @@ export const ImageUploadCard = ({
     form.clearErrors("receipt");
     setIsCompressing(true);
 
+    let valid = false;
     try {
       const compressed = await compressReceiptImage(file);
       form.setValue("receipt", compressed);
-      const valid = await form.trigger("receipt");
-      if (valid) {
-        form.handleSubmit(onSubmit)();
-      }
-      return valid;
+      valid = await form.trigger("receipt");
     } catch {
       form.setError("receipt", {
         message: "We couldn't process that image. Try another photo.",
       });
-      return false;
-    } finally {
-      setIsCompressing(false);
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-      if (cameraInputRef.current) {
-        cameraInputRef.current.value = "";
-      }
     }
+
+    setIsCompressing(false);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
+    }
+
+    if (valid) {
+      form.handleSubmit(onSubmit)();
+    }
+
+    return valid;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,7 +226,7 @@ export const ImageUploadCard = ({
                   onDrop={handleDrop}
                   disabled={isBusy}
                   className={cn(
-                    "flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-none border-2 border-dashed border-border bg-card transition-colors hover:border-accent-accent hover:bg-muted",
+                    "border-border bg-card hover:border-accent hover:bg-muted flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-none border-2 border-dashed transition-colors",
                     preview ? "p-2" : "p-8",
                     isDragOver && "border-primary bg-muted",
                     isBusy && "cursor-not-allowed opacity-50"
@@ -237,8 +244,8 @@ export const ImageUploadCard = ({
                     </div>
                   ) : (
                     <>
-                      <Camera className="size-10 text-muted-foreground sm:hidden" />
-                      <ImagePlusIcon className="hidden size-10 text-muted-foreground sm:block" />
+                      <Camera className="text-muted-foreground size-10 sm:hidden" />
+                      <ImagePlusIcon className="text-muted-foreground hidden size-10 sm:block" />
                       <div className="flex flex-col items-center gap-1 text-center">
                         <span className="text-xs font-medium sm:hidden">
                           Take a photo or choose one below
