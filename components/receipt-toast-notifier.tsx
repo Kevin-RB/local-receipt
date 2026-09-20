@@ -4,6 +4,7 @@ import type {
   UseRealtimeConnectionStatus,
   UseRealtimeRunStatus,
 } from "inngest/react";
+import { CircleCheckIcon, Loader2Icon, OctagonXIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import {
@@ -30,6 +31,26 @@ const TOP_VIEWPORT_CLASS =
 const TOP_TOAST_CLASS =
   "top-0 bottom-auto left-0 origin-top [--offset-y:calc(var(--toast-offset-y)+(var(--toast-index)*var(--gap))+var(--toast-swipe-movement-y))] [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)+(var(--toast-index)*var(--peek))+(var(--shrink)*var(--height))))_scale(var(--scale))] after:bottom-full after:top-auto data-starting-style:[transform:translateY(-150%)] [&[data-ending-style]:not([data-limited]):not([data-swipe-direction])]:[transform:translateY(-150%)]";
 
+const TOAST_ICONS = {
+  error: { Icon: OctagonXIcon, className: "text-destructive" },
+  loading: { Icon: Loader2Icon, className: "animate-spin" },
+  success: { Icon: CircleCheckIcon, className: undefined },
+} as const;
+
+const ReceiptToastIcon = ({ type }: { type: string | undefined }) => {
+  if (type !== "error" && type !== "loading" && type !== "success") {
+    return null;
+  }
+
+  const { className, Icon } = TOAST_ICONS[type];
+
+  return (
+    <span className="shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4">
+      <Icon aria-hidden="true" className={className} />
+    </span>
+  );
+};
+
 const ReceiptToastList = () => {
   const { toasts } = useToastManager();
 
@@ -41,6 +62,7 @@ const ReceiptToastList = () => {
       className={TOP_TOAST_CLASS}
     >
       <ToastContent>
+        <ReceiptToastIcon type={toastItem.type} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <ToastTitle />
           <ToastDescription />
