@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import z from "zod";
+import { z } from "zod";
 
 import { receiptColumns } from "@/components/receipts/columns";
 import type { ReceiptTable } from "@/components/receipts/columns";
@@ -31,7 +31,7 @@ const getReceiptData = async (ownerId: string): Promise<ReceiptTable[]> => {
   return normalizedReceipts;
 };
 
-export default async function Home() {
+const Home = async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
@@ -43,7 +43,7 @@ export default async function Home() {
   return (
     <main className="container mx-auto flex flex-col gap-6 p-6">
       <h1 className="sr-only">Possum Receipts</h1>
-      <p className="text-center text-lg font-medium text-muted-foreground">
+      <p className="text-muted-foreground text-center text-lg font-medium">
         Welcome, possum
       </p>
       <div className="flex justify-center">
@@ -55,4 +55,6 @@ export default async function Home() {
       </section>
     </main>
   );
-}
+};
+
+export default Home;

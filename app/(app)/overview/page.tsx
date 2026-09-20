@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import z from "zod";
+import { z } from "zod";
 
 import { IntegrityChart } from "@/components/overview/integrity-chart";
 import { MerchantSpendingChart } from "@/components/overview/merchant-spending-chart";
@@ -19,7 +19,7 @@ const getReceipts = async (ownerId: string): Promise<ReceiptSelect[]> => {
   return parsed.data;
 };
 
-export default async function OverviewPage() {
+const OverviewPage = async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
@@ -55,4 +55,6 @@ export default async function OverviewPage() {
       </div>
     </main>
   );
-}
+};
+
+export default OverviewPage;

@@ -12,13 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function Error({
+const ErrorPage = ({
   error,
   retry,
 }: {
   error: Error & { digest?: string };
   retry: () => void;
-}) {
+}) => {
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -27,9 +27,9 @@ export default function Error({
     <main className="container mx-auto flex min-h-svh flex-col items-center justify-center gap-6 p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <TriangleAlertIcon className="size-4" />
-            Something went wrong
+          <CardTitle className="flex items-center">
+            <TriangleAlertIcon className="text-destructive mr-2 size-4" />
+            <span className="text-destructive">Something went wrong</span>
           </CardTitle>
           <CardDescription>
             The page could not be loaded. Try again, and if the problem
@@ -44,4 +44,6 @@ export default function Error({
       </Card>
     </main>
   );
-}
+};
+
+export default ErrorPage;
