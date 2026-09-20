@@ -6,24 +6,59 @@ import type {
 } from "inngest/react";
 import { useEffect, useRef } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { toast } from "@/components/ui/toast";
+import {
+  Toast,
+  ToastClose,
+  ToastContent,
+  ToastDescription,
+  ToastPortal,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+  createToastManager,
+  useToastManager,
+} from "@/components/ui/toast";
 import type { ReceiptRealtime } from "@/hooks/use-receipt-realtime";
 
 const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
-const ToastTitle = ({
-  children,
-  status,
-}: {
-  children: React.ReactNode;
-  status: { connectionStatus: string; runStatus: string };
-}) => (
-  <div className="flex flex-row items-center gap-2">
-    <span>{children}</span>
-    <Badge variant="secondary">{status.connectionStatus}</Badge>
-    <Badge variant="secondary">{status.runStatus}</Badge>
-  </div>
+const receiptToastManager = createToastManager();
+
+const TOP_VIEWPORT_CLASS =
+  "top-4 bottom-auto sm:right-4 sm:left-4 sm:mx-auto sm:w-auto";
+
+const TOP_TOAST_CLASS =
+  "top-0 bottom-auto left-0 origin-top [--offset-y:calc(var(--toast-offset-y)+(var(--toast-index)*var(--gap))+var(--toast-swipe-movement-y))] [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)+(var(--toast-index)*var(--peek))+(var(--shrink)*var(--height))))_scale(var(--scale))] after:bottom-full after:top-auto data-starting-style:[transform:translateY(-150%)] [&[data-ending-style]:not([data-limited]):not([data-swipe-direction])]:[transform:translateY(-150%)]";
+
+const ReceiptToastList = () => {
+  const { toasts } = useToastManager();
+
+  return toasts.map((toastItem) => (
+    <Toast
+      key={toastItem.id}
+      toast={toastItem}
+      swipeDirection="up"
+      className={TOP_TOAST_CLASS}
+    >
+      <ToastContent>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <ToastTitle />
+          <ToastDescription />
+        </div>
+        <ToastClose />
+      </ToastContent>
+    </Toast>
+  ));
+};
+
+const ReceiptToaster = () => (
+  <ToastProvider toastManager={receiptToastManager}>
+    <ToastPortal>
+      <ToastViewport className={TOP_VIEWPORT_CLASS}>
+        <ReceiptToastList />
+      </ToastViewport>
+    </ToastPortal>
+  </ToastProvider>
 );
 
 interface ToastBody {
@@ -170,25 +205,17 @@ export const ReceiptToastNotifier = ({
       state === "failed";
 
     if (toastIdRef.current) {
-      toast.update(toastIdRef.current, {
+      receiptToastManager.update(toastIdRef.current, {
         description,
         timeout,
-        title: (
-          <ToastTitle status={{ connectionStatus, runStatus }}>
-            {title}
-          </ToastTitle>
-        ),
+        title,
         type,
       });
     } else {
-      toastIdRef.current = toast.add({
+      toastIdRef.current = receiptToastManager.add({
         description,
         timeout,
-        title: (
-          <ToastTitle status={{ connectionStatus, runStatus }}>
-            {title}
-          </ToastTitle>
-        ),
+        title,
         type,
       });
     }
@@ -197,12 +224,12 @@ export const ReceiptToastNotifier = ({
   useEffect(
     () => () => {
       if (toastIdRef.current && !isTerminalRef.current) {
-        toast.close(toastIdRef.current);
+        receiptToastManager.close(toastIdRef.current);
         toastIdRef.current = null;
       }
     },
     []
   );
 
-  return null;
+  return <ReceiptToaster />;
 };
