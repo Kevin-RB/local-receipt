@@ -16,7 +16,7 @@ const decodeObjectKey = (key: string): string => {
 // `requestParameters` and omits MinIO's `x-minio-*` response elements), so we
 // validate only the fields this consumer reads: the object key of the first
 // record. Everything else is intentionally unvalidated.
-export const StorageEvent = z.looseObject({
+export const storageEventSchema = z.looseObject({
   Records: z
     .array(
       z.looseObject({
@@ -29,4 +29,4 @@ export const StorageEvent = z.looseObject({
     .min(1),
 });
 
-export type StorageEvent = z.infer<typeof StorageEvent>;
+export type StorageEvent = z.infer<typeof storageEventSchema>;

@@ -18,7 +18,7 @@ import { deleteReceipt } from "@/app/(app)/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { dateRangeFilterFn } from "@/components/receipts/filters";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -77,8 +77,8 @@ const RowActions = ({
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
-      setDeleting(true);
       const result = await deleteReceipt(id);
       if (result.success) {
         setConfirmOpen(false);
@@ -97,9 +97,8 @@ const RowActions = ({
         title: "Delete failed",
         type: "error",
       });
-    } finally {
-      setDeleting(false);
     }
+    setDeleting(false);
   };
 
   return (
@@ -107,7 +106,7 @@ const RowActions = ({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label="Open row actions"
-          className={buttonVariants({ size: "icon", variant: "ghost" })}
+          render={<Button size="icon" variant="ghost" />}
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>

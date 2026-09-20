@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { db, findReceiptByObjectKey, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
-import { StorageEvent } from "@/lib/storage/event";
+import { storageEventSchema } from "@/lib/storage/event";
 
 const { STORAGE_WEBHOOK_SECRET } = process.env;
 
@@ -29,7 +29,7 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const parsed = StorageEvent.safeParse(body);
+  const parsed = storageEventSchema.safeParse(body);
 
   if (!parsed.success) {
     console.error(

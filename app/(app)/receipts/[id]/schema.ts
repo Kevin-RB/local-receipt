@@ -1,10 +1,10 @@
-import z from "zod";
+import { z } from "zod";
 
 import {
-  Merchant,
-  Payment,
-  Totals,
-  Transaction,
+  merchantSchema,
+  paymentSchema,
+  totalsSchema,
+  transactionSchema,
 } from "@/lib/db/schema/receipt";
 import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
 
@@ -18,15 +18,15 @@ export const updateReceiptSchema = z.object({
       unitPrice: money.nullable().optional(),
     })
   ),
-  merchant: Merchant.extend({ name: z.string().min(1) }),
-  payment: Payment,
+  merchant: merchantSchema.extend({ name: z.string().min(1) }),
+  payment: paymentSchema,
   receiptId: z.uuid({ message: "Invalid receipt ID" }),
-  totals: Totals.extend({
+  totals: totalsSchema.extend({
     gst: money.optional(),
     subtotal: money.optional(),
     total: money,
   }),
-  transaction: Transaction,
+  transaction: transactionSchema,
 });
 
 export type UpdateReceiptInput = z.infer<typeof updateReceiptSchema>;

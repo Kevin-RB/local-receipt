@@ -47,16 +47,14 @@ const ReceiptImage = ({
         unoptimized
       />
     ) : (
-      <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+      <div className="text-muted-foreground absolute inset-0 flex items-center justify-center">
         No image available
       </div>
     )}
   </div>
 );
 
-export default async function ReceiptDetailPage({
-  params,
-}: ReceiptDetailPageProps) {
+const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
@@ -92,7 +90,7 @@ export default async function ReceiptDetailPage({
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div className="lg:sticky lg:top-6 lg:self-start">
             <ReceiptImage
-              className="lg:min-h-0 lg:h-[calc(100dvh-5rem)]"
+              className="lg:h-[calc(100dvh-5rem)] lg:min-h-0"
               hasImage={!!receipt.objectKey}
               receiptId={receipt.id}
             />
@@ -101,11 +99,13 @@ export default async function ReceiptDetailPage({
         </div>
       ) : (
         <ReceiptImage
-          className="lg:min-h-0 lg:h-[calc(100dvh-5rem)]"
+          className="lg:h-[calc(100dvh-5rem)] lg:min-h-0"
           hasImage={!!receipt.objectKey}
           receiptId={receipt.id}
         />
       )}
     </main>
   );
-}
+};
+
+export default ReceiptDetailPage;

@@ -201,7 +201,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   />
                 </FieldContent>
               </Field>
-              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FieldGroup className="grid grid-cols-1 sm:grid-cols-2">
                 <Field>
                   <FieldLabel>ABN</FieldLabel>
                   <FieldContent>
@@ -259,7 +259,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 name="payment.method"
                 render={({ field }) => (
                   <RadioGroup
-                    className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                    className="grid grid-cols-1 sm:grid-cols-3"
                     onValueChange={(value) => field.onChange(value)}
                     value={field.value}
                   >
@@ -294,7 +294,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
               <FieldDescription>
                 The amounts shown on the receipt, before and after tax.
               </FieldDescription>
-              <FieldGroup className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FieldGroup className="grid grid-cols-1 sm:grid-cols-3">
                 <Field>
                   <FieldLabel>Subtotal</FieldLabel>
                   <FieldContent>
@@ -348,11 +348,11 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
               <FieldDescription>
                 The individual lines on the receipt, one per product or service.
               </FieldDescription>
-              <FieldGroup className="space-y-3">
+              <FieldGroup>
                 {fields.map((field, index) => (
                   <FieldGroup
                     key={field.id}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3"
+                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto]"
                   >
                     <Field data-invalid={!!errors.items?.[index]?.name}>
                       <FieldLabel>Name</FieldLabel>

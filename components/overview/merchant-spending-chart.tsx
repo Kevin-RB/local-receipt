@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { Pie, PieChart, Sector } from "recharts";
 import type {
@@ -55,12 +56,12 @@ const formatTooltipValue = (
   <div className="flex w-full items-center justify-between gap-4">
     <div className="flex items-center gap-2">
       <div
-        className="h-2.5 w-2.5 shrink-0 rounded-xs"
-        style={{ backgroundColor: item.payload.fill }}
+        className="h-2.5 w-2.5 shrink-0 rounded-xs bg-(--swatch-color)"
+        style={{ "--swatch-color": item.payload.fill } as CSSProperties}
       />
       <span className="text-muted-foreground">{name}</span>
     </div>
-    <span className="font-medium text-foreground tabular-nums">
+    <span className="text-foreground font-medium tabular-nums">
       {currencyFormatter.format(Number(value))}
     </span>
   </div>
@@ -113,7 +114,7 @@ export const MerchantSpendingChart = ({
         <CardTitle>Spending by merchant</CardTitle>
         <CardDescription>Share of total spent per merchant</CardDescription>
       </CardHeader>
-      <CardContent className="px-2 sm:p-6">
+      <CardContent>
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-75 w-full"

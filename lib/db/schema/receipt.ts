@@ -27,34 +27,34 @@ export const processingStatusEnum = z.enum([
 
 export type ProcessingStatus = z.infer<typeof processingStatusEnum>;
 
-export const Merchant = z.strictObject({
+export const merchantSchema = z.strictObject({
   abn: z.string().optional(),
   address: z.string().optional(),
   name: z.string(),
   storeId: z.string().optional(),
 });
-export type Merchant = z.infer<typeof Merchant>;
+export type Merchant = z.infer<typeof merchantSchema>;
 
-export const Transaction = z.strictObject({
+export const transactionSchema = z.strictObject({
   datetime: z.string().optional(),
   receiptNumber: z.string().optional(),
 });
-export type Transaction = z.infer<typeof Transaction>;
+export type Transaction = z.infer<typeof transactionSchema>;
 
-export const Totals = z.strictObject({
+export const totalsSchema = z.strictObject({
   gst: z.number().optional(),
   subtotal: z.number().optional(),
   total: z.number(),
 });
-export type Totals = z.infer<typeof Totals>;
+export type Totals = z.infer<typeof totalsSchema>;
 
 export const paymentMethodEnum = z.enum(["cash", "card", "other"]);
 export type PaymentMethod = z.infer<typeof paymentMethodEnum>;
 
-export const Payment = z.strictObject({
+export const paymentSchema = z.strictObject({
   method: paymentMethodEnum.default("other"),
 });
-export type Payment = z.infer<typeof Payment>;
+export type Payment = z.infer<typeof paymentSchema>;
 
 export const receipts = snakeCase.table(
   "receipts",
@@ -105,9 +105,9 @@ export type ReceiptInsert = z.infer<typeof receiptInsertSchema>;
 export type ReceiptUpdate = z.infer<typeof receiptUpdateSchema>;
 
 export const receiptNestedSchema = z.object({
-  merchant: Merchant,
-  payment: Payment,
-  totals: Totals,
-  transaction: Transaction,
+  merchant: merchantSchema,
+  payment: paymentSchema,
+  totals: totalsSchema,
+  transaction: transactionSchema,
 });
 export type ReceiptNested = z.infer<typeof receiptNestedSchema>;

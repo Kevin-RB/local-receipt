@@ -117,7 +117,7 @@ export const DataTable = <TData extends RowData>({
             aria-label={`Filter by date range: ${rangeLabel}`}
             render={
               <Button
-                className="justify-start px-2.5 font-normal"
+                className="justify-start"
                 id="date-range-filter"
                 variant="outline"
               >
@@ -126,7 +126,7 @@ export const DataTable = <TData extends RowData>({
               </Button>
             }
           />
-          <PopoverContent align="start" className="w-auto p-0">
+          <PopoverContent align="start" className="w-auto">
             <Calendar
               defaultMonth={defaultMonth}
               disabled={{ after: today }}
