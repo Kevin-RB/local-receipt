@@ -34,6 +34,9 @@ vi.mock(import("@/lib/storage/client"), () => ({
     .mockImplementation((mime: string) =>
       mime === "image/jpeg" ? "jpg" : "png"
     ),
+  presignEndpointForHost: vi
+    .fn<() => string>()
+    .mockReturnValue("localhost:9000"),
 }));
 
 // @ts-expect-error mock types don't need to match Drizzle internals

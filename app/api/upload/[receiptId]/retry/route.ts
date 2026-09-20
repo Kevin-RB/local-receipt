@@ -7,12 +7,13 @@ import {
   BUCKET,
   contentTypeFromKey,
   createPresignedUrl,
+  presignEndpointForHost,
 } from "@/lib/storage/client";
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 
 const paramsSchema = z.object({
-  receiptId: z.string().uuid(),
+  receiptId: z.uuid({ message: "Invalid receipt ID" }),
 });
 
 export const POST = async (
@@ -49,6 +50,7 @@ export const POST = async (
   const uploadUrl = await createPresignedUrl({
     bucket: BUCKET,
     contentType: contentTypeFromKey(receipt.objectKey),
+    endpoint: presignEndpointForHost(request.headers.get("host")),
     expiresIn: PRESIGNED_URL_EXPIRY_SECONDS,
     key: receipt.objectKey,
   });
