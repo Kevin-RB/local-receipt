@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
+import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
+
+const persistenceItemSchema = receiptItemInsertSchema
+  .omit({ id: true, receiptId: true })
+  .array();
 
 const base = {
   merchant: { name: "Store" },
@@ -86,5 +91,18 @@ describe("receipt information extraction contract", () => {
 
     expect(result.totals.subtotal).toBe(10);
     expect(result.totals.gst).toBe(0.91);
+  });
+
+  it("produces items that satisfy the persistence insert schema", () => {
+    const result = ReceiptInformationExtractionSchema.parse({
+      ...base,
+      items: [
+        { kind: "discount", lineTotal: -2, name: "SPECIAL" },
+        { kind: "surcharge", lineTotal: 0.37, name: "CREDIT SURCHARGE" },
+        { lineTotal: 10, name: "Milk" },
+      ],
+    });
+
+    expect(persistenceItemSchema.safeParse(result.items).success).toBeTruthy();
   });
 });
