@@ -6,14 +6,18 @@ import {
   totalsSchema,
   transactionSchema,
 } from "@/lib/db/schema/receipt";
-import { receiptItemInsertSchema } from "@/lib/db/schema/receipt-item";
+import {
+  lineItemKindEnum,
+  receiptItemInsertSchema,
+} from "@/lib/db/schema/receipt-item";
 
 const money = z.number().min(0);
 
 export const updateReceiptSchema = z.object({
   items: z.array(
     receiptItemInsertSchema.omit({ id: true, receiptId: true }).extend({
-      lineTotal: money,
+      kind: lineItemKindEnum.default("product"),
+      lineTotal: z.number(),
       quantity: money.nullable().optional(),
       unitPrice: money.nullable().optional(),
     })

@@ -116,12 +116,14 @@ const receiptId = "123e4567-e89b-12d3-a456-426614174000";
 const validInput: UpdateReceiptInput = {
   items: [
     {
+      kind: "product",
       lineTotal: 10,
       name: "Milk",
       quantity: 1,
       unitPrice: 10,
     },
     {
+      kind: "product",
       lineTotal: 5.5,
       name: "Bread",
       quantity: 1,
@@ -185,17 +187,45 @@ describe(updateReceipt, () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("rejects payloads with negative line totals", async () => {
+  it("accepts a negative line total as a discount", async () => {
     const result = await updateReceipt({
       ...validInput,
-      items: [{ ...validInput.items[0], lineTotal: -1 }],
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "discount", lineTotal: -2, name: "SPECIAL", quantity: 1 },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
     });
 
-    expect(result).toStrictEqual({
-      error: "Validation failed",
-      success: false,
+    expect(result).toStrictEqual({ success: true });
+  });
+
+  it("round-trips each line's kind through the save path", async () => {
+    const items: UpdateReceiptInput["items"] = [
+      {
+        kind: "surcharge",
+        lineTotal: 0.37,
+        name: "CREDIT SURCHARGE",
+        quantity: 1,
+      },
+      {
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        quantity: 1,
+      },
+      { kind: "product", lineTotal: 12, name: "Milk", quantity: 2 },
+    ];
+
+    await updateReceipt({
+      ...validInput,
+      items,
+      totals: { gst: 0, subtotal: 10.37, total: 10.37 },
     });
-    expect(mockTransaction).not.toHaveBeenCalled();
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith(
+      items.map((item) => ({ ...item, receiptId }))
+    );
   });
 
   it("rejects payloads with a non-enum payment method", async () => {
@@ -295,7 +325,15 @@ describe(updateReceipt, () => {
   it("stores a computed integrity warning when items do not sum to the total", async () => {
     await updateReceipt({
       ...validInput,
-      items: [{ lineTotal: 10, name: "Milk", quantity: 1, unitPrice: 10 }],
+      items: [
+        {
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+          quantity: 1,
+          unitPrice: 10,
+        },
+      ],
       totals: { gst: 0, subtotal: 10, total: 20 },
     });
 

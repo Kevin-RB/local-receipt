@@ -28,12 +28,24 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
 import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
-import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
-import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import { lineItemKindEnum } from "@/lib/db/schema/receipt-item";
+import type {
+  LineItemKind,
+  ReceiptItemSelect,
+} from "@/lib/db/schema/receipt-item";
+import { reconcile } from "@/lib/receipt/integrity";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -78,6 +90,17 @@ const paymentMethodOptions: {
   value,
 }));
 
+const lineItemKindLabels: Record<LineItemKind, string> = {
+  discount: "Discount",
+  product: "Product",
+  surcharge: "Surcharge",
+};
+
+const lineItemKindItems = lineItemKindEnum.options.map((value) => ({
+  label: lineItemKindLabels[value],
+  value,
+}));
+
 const normalizeDatetime = (value: string | undefined) => {
   if (!value) {
     return;
@@ -90,6 +113,7 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
 
   return {
     items: receipt.receiptItems.map((item) => ({
+      kind: item.kind,
       lineTotal: item.lineTotal,
       name: item.name,
       quantity: item.quantity,
@@ -125,10 +149,11 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
   const watchedItems = useWatch({ control, name: "items" });
   const watchedTotals = useWatch({ control, name: "totals" });
 
-  const integrityWarning = useMemo(
+  const reconciliation = useMemo(
     () =>
-      computeIntegrityWarning(
+      reconcile(
         (watchedItems ?? []).map((item) => ({
+          kind: item.kind ?? "product",
           lineTotal: Number(item.lineTotal),
         })),
         {
@@ -170,7 +195,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
       <Card>
         <CardHeader>
           <CardAction>
-            <IntegrityBadge hasWarning={integrityWarning} />
+            <IntegrityBadge hasWarning={!reconciliation.matches} />
           </CardAction>
         </CardHeader>
 
@@ -352,7 +377,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 {fields.map((field, index) => (
                   <FieldGroup
                     key={field.id}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto]"
+                    className="grid grid-cols-[2fr_0.9fr_1fr_1fr_1fr_auto]"
                   >
                     <Field data-invalid={!!errors.items?.[index]?.name}>
                       <FieldLabel>Name</FieldLabel>
@@ -362,6 +387,43 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                           {...register(`items.${index}.name` as const)}
                         />
                         <FormFieldError error={errors.items?.[index]?.name} />
+                      </FieldContent>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Kind</FieldLabel>
+                      <FieldContent>
+                        <Controller
+                          control={control}
+                          name={`items.${index}.kind` as const}
+                          render={({ field: kindField }) => (
+                            <Select
+                              items={lineItemKindItems}
+                              onValueChange={(value) =>
+                                kindField.onChange(value as LineItemKind)
+                              }
+                              value={kindField.value ?? "product"}
+                            >
+                              <SelectTrigger
+                                aria-label="Line kind"
+                                className="w-full"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {lineItemKindItems.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
                       </FieldContent>
                     </Field>
                     <Field>
@@ -401,7 +463,6 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                       <FieldContent>
                         <Input
                           aria-invalid={!!errors.items?.[index]?.lineTotal}
-                          min="0"
                           step="0.01"
                           type="number"
                           {...register(`items.${index}.lineTotal` as const, {
@@ -431,6 +492,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   className={cn(fields.length === 0 && "w-full")}
                   onClick={() =>
                     append({
+                      kind: "product",
                       lineTotal: Number.NaN,
                       name: "",
                       quantity: undefined,

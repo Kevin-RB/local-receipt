@@ -9,6 +9,7 @@ describe("receipt_items snake_case casing", () => {
     expect(config.name).toBe("receipt_items");
     expect(config.columns.map((c) => c.name)).toStrictEqual([
       "id",
+      "kind",
       "line_total",
       "name",
       "quantity",

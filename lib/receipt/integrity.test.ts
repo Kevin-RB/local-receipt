@@ -1,95 +1,105 @@
 import { describe, expect, it } from "vitest";
 
-import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import { reconcile } from "@/lib/receipt/integrity";
+import type { ReconcileItem } from "@/lib/receipt/integrity";
 
-describe(computeIntegrityWarning, () => {
-  it("returns false when items sum equals totals.total", () => {
+const product = (lineTotal: number): ReconcileItem => ({
+  kind: "product",
+  lineTotal,
+});
+
+describe(reconcile, () => {
+  it("sums product lines and matches a printed total", () => {
     expect(
-      computeIntegrityWarning([{ lineTotal: 10 }, { lineTotal: 5.5 }], {
-        total: 15.5,
-      })
-    ).toBeFalsy();
+      reconcile([product(10), product(5.5)], { total: 15.5 })
+    ).toStrictEqual({
+      delta: 0,
+      itemsSum: 15.5,
+      matches: true,
+      productsSum: 15.5,
+      surchargesSum: 0,
+    });
   });
 
-  it("returns true when items sum differs from totals.total", () => {
-    expect(
-      computeIntegrityWarning([{ lineTotal: 10 }, { lineTotal: 5 }], {
-        total: 20,
-      })
-    ).toBeTruthy();
+  it("counts a card surcharge as a surcharge, not a product", () => {
+    const result = reconcile(
+      [product(10), { kind: "surcharge", lineTotal: 0.37 }],
+      { total: 10.37 }
+    );
+
+    expect(result.productsSum).toBe(10);
+    expect(result.surchargesSum).toBe(0.37);
+    expect(result.itemsSum).toBe(10.37);
+    expect(result.delta).toBe(0);
+    expect(result.matches).toBeTruthy();
   });
 
-  it("returns true when items sum is lower than totals.total", () => {
-    expect(
-      computeIntegrityWarning([{ lineTotal: 5 }], { total: 10 })
-    ).toBeTruthy();
+  it("reduces the product sum with a negative discount line", () => {
+    const result = reconcile(
+      [product(10), { kind: "discount", lineTotal: -2 }],
+      { total: 8 }
+    );
+
+    expect(result.productsSum).toBe(8);
+    expect(result.surchargesSum).toBe(0);
+    expect(result.itemsSum).toBe(8);
+    expect(result.matches).toBeTruthy();
   });
 
-  it("returns false for empty items with zero total", () => {
-    expect(computeIntegrityWarning([], { total: 0 })).toBeFalsy();
+  it("reports a positive signed delta when the total exceeds the items", () => {
+    const result = reconcile([product(15)], { total: 20 });
+
+    expect(result.delta).toBe(5);
+    expect(result.matches).toBeFalsy();
   });
 
-  it("returns true for empty items with non-zero total", () => {
-    expect(computeIntegrityWarning([], { total: 10 })).toBeTruthy();
+  it("reports a negative signed delta when the items exceed the total", () => {
+    const result = reconcile([product(15)], { total: 10 });
+
+    expect(result.delta).toBe(-5);
+    expect(result.matches).toBeFalsy();
   });
 
-  it("returns false when totals is null", () => {
-    expect(computeIntegrityWarning([{ lineTotal: 10 }], null)).toBeFalsy();
+  it("matches empty items against a zero total", () => {
+    expect(reconcile([], { total: 0 }).matches).toBeTruthy();
   });
 
-  it("returns false when totals is undefined", () => {
-    const totals = undefined;
-    expect(computeIntegrityWarning([{ lineTotal: 10 }], totals)).toBeFalsy();
+  it("does not match empty items against a non-zero total", () => {
+    expect(reconcile([], { total: 10 }).matches).toBeFalsy();
   });
 
-  it("handles floating-point sums that match within tolerance", () => {
-    const totals = { total: 0.3 };
-    expect(
-      computeIntegrityWarning([{ lineTotal: 0.1 }, { lineTotal: 0.2 }], totals)
-    ).toBeFalsy();
+  it("matches when there are no totals to reconcile", () => {
+    expect(reconcile([product(10)], null).matches).toBeTruthy();
+    expect(reconcile([product(10)]).matches).toBeTruthy();
+    expect(reconcile([product(10)], { total: undefined }).matches).toBeTruthy();
   });
 
-  it("handles floating-point sums outside tolerance", () => {
-    const totals = { total: 0.32 };
-    expect(
-      computeIntegrityWarning([{ lineTotal: 0.1 }, { lineTotal: 0.2 }], totals)
-    ).toBeTruthy();
+  it("does not match when the total is not a number", () => {
+    expect(reconcile([product(10)], { total: Number.NaN }).matches).toBeFalsy();
   });
 
-  it("flags a diff exactly equal to one cent", () => {
-    const totals = { total: 2.6 };
-    expect(computeIntegrityWarning([{ lineTotal: 2.59 }], totals)).toBeTruthy();
+  it("does not match when a line total is not a number", () => {
+    expect(reconcile([product(Number.NaN)], { total: 10 }).matches).toBeFalsy();
   });
 
   it("ignores sub-cent rounding differences", () => {
-    const totals = { total: 10 };
-    expect(computeIntegrityWarning([{ lineTotal: 9.995 }], totals)).toBeFalsy();
-  });
-
-  it("returns false when totals.total is undefined", () => {
-    const totals = { total: undefined };
-    expect(computeIntegrityWarning([{ lineTotal: 10 }], totals)).toBeFalsy();
-  });
-
-  it("returns a warning when the total is not a number", () => {
-    const totals = { total: Number.NaN };
-    expect(computeIntegrityWarning([{ lineTotal: 10 }], totals)).toBeTruthy();
-  });
-
-  it("returns a warning when an item line total is not a number", () => {
-    const totals = { total: 10 };
+    expect(reconcile([product(9.995)], { total: 10 }).matches).toBeTruthy();
     expect(
-      computeIntegrityWarning([{ lineTotal: Number.NaN }], totals)
+      reconcile([product(0.1), product(0.2)], { total: 0.3 }).matches
     ).toBeTruthy();
   });
 
-  it("returns true when items sum includes many small differences", () => {
-    const totals = { total: 30 };
-    expect(
-      computeIntegrityWarning(
-        [{ lineTotal: 9.99 }, { lineTotal: 4.99 }, { lineTotal: 14.99 }],
-        totals
-      )
-    ).toBeTruthy();
+  it("treats a one-cent difference as a mismatch", () => {
+    expect(reconcile([product(2.59)], { total: 2.6 }).matches).toBeFalsy();
+  });
+
+  it("ignores subtotal and gst when deciding a match", () => {
+    const result = reconcile([product(10)], {
+      gst: 0.91,
+      subtotal: 9.09,
+      total: 10,
+    });
+
+    expect(result.matches).toBeTruthy();
   });
 });

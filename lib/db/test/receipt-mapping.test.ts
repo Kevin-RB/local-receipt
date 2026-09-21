@@ -125,6 +125,18 @@ describe(receiptToFlat, () => {
     ).toBeNull();
   });
 
+  it("clears the transaction datetime when it cannot be parsed", () => {
+    expect(
+      receiptToFlat({
+        ...nestedReceipt,
+        transaction: {
+          ...nestedReceipt.transaction,
+          datetime: "28/07/2026 6:51pm",
+        },
+      }).transactionDateTime
+    ).toBeNull();
+  });
+
   it("round-trips a nested receipt through the flat columns", () => {
     expect(receiptToFlat(receiptToNested(flatReceipt))).toStrictEqual(
       receiptToFlat(nestedReceipt)

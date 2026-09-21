@@ -20,7 +20,7 @@ A local-first web app that turns photos of paper receipts into structured, persi
 
 **Processing status**: The lifecycle state of a receipt row: `uploading`, `pending`, `processing`, `done`, or `error`. _Avoid_: Status, job state, run state.
 
-**Integrity warning**: A flag on a completed receipt indicating the extracted line items do not sum to the stated total. The receipt is still stored, but the user is warned. _Avoid_: Validation error, mismatch flag.
+**Integrity warning**: A flag on a completed receipt indicating the extracted line items (including surcharges and discounts) do not sum to the stated total. The receipt is still stored, but the user is warned. _Avoid_: Validation error, mismatch flag.
 
 **Manual edit**: A user's correction of the stored extraction on a completed receipt. Available only when the processing status is `done`, and covers merchant, payment method, totals, transaction, and line items. _Avoid_: Edit, amendment, correction (too generic — use "manual edit" when contrasting with AI-extracted data).
 
@@ -30,9 +30,11 @@ A local-first web app that turns photos of paper receipts into structured, persi
 
 **Transaction datetime**: The date and time the purchase was made. Distinct from the upload time (when the receipt image was added). _Avoid_: Purchase date, receipt date.
 
-**Totals**: The money amounts stated on a receipt: a required total, plus optional subtotal and GST. _Avoid_: Sum, grand total, amount.
+**Totals**: The money amounts stated on a receipt. The total is the amount paid and is required. The subtotal is the receipt's printed subtotal — the sum of the line items, GST-inclusive — and is present only when the receipt prints one. GST is the tax component included within the total, never an amount added to it, and is present only when the receipt states it. _Avoid_: Sum, grand total, amount.
 
-**Line item**: A single product or service line on a receipt, with a name, quantity, unit price, and line total. A discount is a line item with a negative line total. _Avoid_: Item, entry, row.
+**Line item**: A single charge on a receipt, with a name, quantity, unit price, line total, and a kind of `product`, `surcharge`, or `discount`. A discount has a negative line total; a surcharge is a positive line item distinct from a product. _Avoid_: Item, entry, row.
+
+**Card surcharge**: A fee a merchant adds for a payment method (e.g. a 0.50% credit-card fee). Modelled as a line item of kind `surcharge`, so it is included in the total. _Avoid_: Payment fee, GST surcharge.
 
 **Owner**: The user whose account uploaded a receipt. Only the owner may view, edit, delete, or subscribe to a receipt's processing stream. _Avoid_: Creator, author, uploader.
 
