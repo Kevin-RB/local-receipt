@@ -33,7 +33,7 @@ import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
-import { computeIntegrityWarning } from "@/lib/receipt/integrity";
+import { reconcile } from "@/lib/receipt/integrity";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -90,6 +90,7 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
 
   return {
     items: receipt.receiptItems.map((item) => ({
+      kind: item.kind,
       lineTotal: item.lineTotal,
       name: item.name,
       quantity: item.quantity,
@@ -125,10 +126,11 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
   const watchedItems = useWatch({ control, name: "items" });
   const watchedTotals = useWatch({ control, name: "totals" });
 
-  const integrityWarning = useMemo(
+  const reconciliation = useMemo(
     () =>
-      computeIntegrityWarning(
+      reconcile(
         (watchedItems ?? []).map((item) => ({
+          kind: item.kind ?? "product",
           lineTotal: Number(item.lineTotal),
         })),
         {
@@ -170,7 +172,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
       <Card>
         <CardHeader>
           <CardAction>
-            <IntegrityBadge hasWarning={integrityWarning} />
+            <IntegrityBadge hasWarning={!reconciliation.matches} />
           </CardAction>
         </CardHeader>
 
@@ -354,6 +356,11 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                     key={field.id}
                     className="grid grid-cols-[2fr_1fr_1fr_1fr_auto]"
                   >
+                    <input
+                      defaultValue={field.kind}
+                      type="hidden"
+                      {...register(`items.${index}.kind` as const)}
+                    />
                     <Field data-invalid={!!errors.items?.[index]?.name}>
                       <FieldLabel>Name</FieldLabel>
                       <FieldContent>
@@ -401,7 +408,6 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                       <FieldContent>
                         <Input
                           aria-invalid={!!errors.items?.[index]?.lineTotal}
-                          min="0"
                           step="0.01"
                           type="number"
                           {...register(`items.${index}.lineTotal` as const, {
@@ -431,6 +437,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   className={cn(fields.length === 0 && "w-full")}
                   onClick={() =>
                     append({
+                      kind: "product",
                       lineTotal: Number.NaN,
                       name: "",
                       quantity: undefined,

@@ -13,8 +13,8 @@ interface FunctionOutput {
 
 const mockExtraction: ReceiptInformationExtraction = {
   items: [
-    { lineTotal: 4.5, name: "REG LATTE" },
-    { lineTotal: 12.9, name: "SRIRACHA CHICKEN" },
+    { kind: "product", lineTotal: 4.5, name: "REG LATTE", quantity: 1 },
+    { kind: "product", lineTotal: 12.9, name: "SRIRACHA CHICKEN", quantity: 1 },
   ],
   merchant: { name: "Test Cafe" },
   payment: { method: "card" },
@@ -98,7 +98,7 @@ describe("transcribeReceipt function", () => {
 
   it("sets integrityWarning when line-sum mismatches total", async () => {
     const badExtraction: ReceiptInformationExtraction = {
-      items: [{ lineTotal: 10, name: "Item 1" }],
+      items: [{ kind: "product", lineTotal: 10, name: "Item 1", quantity: 1 }],
       merchant: { name: "Store" },
       payment: { method: "other" },
       totals: { total: 15 },
@@ -118,9 +118,9 @@ describe("transcribeReceipt function", () => {
   it("sets integrityWarning false when line sum matches total exactly", async () => {
     const exactExtraction: ReceiptInformationExtraction = {
       items: [
-        { lineTotal: 5, name: "A" },
-        { lineTotal: 5, name: "B" },
-        { lineTotal: 0.01, name: "C" },
+        { kind: "product", lineTotal: 5, name: "A", quantity: 1 },
+        { kind: "product", lineTotal: 5, name: "B", quantity: 1 },
+        { kind: "product", lineTotal: 0.01, name: "C", quantity: 1 },
       ],
       merchant: { name: "Store" },
       payment: { method: "other" },
@@ -138,12 +138,117 @@ describe("transcribeReceipt function", () => {
     expect(output.integrityWarning).toBeFalsy();
   });
 
+  it("counts a card surcharge as a line that reconciles the total", async () => {
+    const surchargeExtraction: ReceiptInformationExtraction = {
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        {
+          kind: "surcharge",
+          lineTotal: 0.37,
+          name: "CREDIT SURCHARGE",
+          quantity: 1,
+        },
+      ],
+      merchant: { name: "ALDI" },
+      payment: { method: "card" },
+      totals: { subtotal: 10.37, total: 10.37 },
+      transaction: {},
+    };
+
+    const engine = createEngine({
+      handler: () => surchargeExtraction,
+      id: "parsing",
+    });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.integrityWarning).toBeFalsy();
+    expect(output.extraction.items[1].kind).toBe("surcharge");
+  });
+
+  it("forces a negative line total to a discount regardless of model output", async () => {
+    const discounted = {
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "product", lineTotal: -2, name: "SPECIAL", quantity: 1 },
+      ],
+      merchant: { name: "Coles" },
+      payment: { method: "card" },
+      totals: { total: 8 },
+      transaction: {},
+    } as unknown as ReceiptInformationExtraction;
+
+    const engine = createEngine({
+      handler: () => discounted,
+      id: "parsing",
+    });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.extraction.items[1].kind).toBe("discount");
+    expect(output.integrityWarning).toBeFalsy();
+  });
+
+  it("defaults a missing kind and quantity on an extracted line", async () => {
+    const sparse = {
+      items: [{ lineTotal: 10, name: "Product" }],
+      merchant: { name: "Store" },
+      payment: { method: "other" },
+      totals: { total: 10 },
+      transaction: {},
+    } as unknown as ReceiptInformationExtraction;
+
+    const engine = createEngine({ handler: () => sparse, id: "parsing" });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.extraction.items[0].kind).toBe("product");
+    expect(output.extraction.items[0].quantity).toBe(1);
+    expect(output.integrityWarning).toBeFalsy();
+  });
+
+  it("coerces a null quantity to one", async () => {
+    const nullQuantity = {
+      items: [
+        { kind: "product", lineTotal: 10, name: "Product", quantity: null },
+      ],
+      merchant: { name: "Store" },
+      payment: { method: "other" },
+      totals: { total: 10 },
+      transaction: {},
+    } as unknown as ReceiptInformationExtraction;
+
+    const engine = createEngine({ handler: () => nullQuantity, id: "parsing" });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.extraction.items[0].quantity).toBe(1);
+  });
+
+  it("leaves unprinted unit price, subtotal and gst absent", async () => {
+    const sparse = {
+      items: [{ lineTotal: 10, name: "Product" }],
+      merchant: { name: "Store" },
+      payment: { method: "other" },
+      totals: { total: 10 },
+      transaction: {},
+    } as unknown as ReceiptInformationExtraction;
+
+    const engine = createEngine({ handler: () => sparse, id: "parsing" });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.extraction.items[0].unitPrice).toBeUndefined();
+    expect(output.extraction.totals.subtotal).toBeUndefined();
+    expect(output.extraction.totals.gst).toBeUndefined();
+  });
+
   it("completes without integrity warning when subtotal and gst are present", async () => {
     const fullExtraction: ReceiptInformationExtraction = {
-      items: [{ lineTotal: 10, name: "Product" }],
+      items: [{ kind: "product", lineTotal: 10, name: "Product", quantity: 1 }],
       merchant: { abn: "12345678901", name: "Full Store" },
       payment: { method: "card" },
-      totals: { gst: 0.91, subtotal: 9.09, total: 10 },
+      totals: { gst: 0.91, subtotal: 10, total: 10 },
       transaction: {
         datetime: "2025-06-01T12:00:00Z",
         receiptNumber: "RCPT-001",
@@ -158,7 +263,7 @@ describe("transcribeReceipt function", () => {
     const output = result as FunctionOutput;
 
     expect(output.integrityWarning).toBeFalsy();
-    expect(output.extraction.totals.subtotal).toBe(9.09);
+    expect(output.extraction.totals.subtotal).toBe(10);
     expect(output.extraction.totals.gst).toBe(0.91);
   });
 

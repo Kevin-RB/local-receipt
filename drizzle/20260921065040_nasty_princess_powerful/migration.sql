@@ -1,0 +1,1 @@
+ALTER TABLE "receipt_items" ADD COLUMN "kind" text DEFAULT 'product' NOT NULL;
