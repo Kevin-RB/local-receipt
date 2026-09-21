@@ -19,9 +19,8 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { CENTS_EPSILON } from "@/lib/receipt/integrity";
 import type { Reconciliation } from "@/lib/receipt/integrity";
-
-const CENT_EPSILON = 0.01;
 
 const currency = new Intl.NumberFormat("en-AU", {
   currency: "AUD",
@@ -74,7 +73,7 @@ const Metric = ({
     <PopoverTrigger
       aria-label={`${label} ${value}`}
       openOnHover
-      render={<Button variant="ghost" />}
+      render={<Button size="lg" variant="ghost" />}
     >
       <Icon data-icon="inline-start" />
       <span className="text-muted-foreground hidden @2xl:inline">{label}</span>
@@ -110,7 +109,7 @@ export const ReconciliationBar = ({
     : "Matching";
 
   return (
-    <div className="bg-background/40 sticky top-0 z-10 flex flex-col gap-3 pb-3 backdrop-blur-sm">
+    <div className="bg-background/90 sticky top-0 z-10 flex flex-col gap-3 mask-b-from-90% mask-b-to-100% pb-3 backdrop-blur-sm">
       {hasTotal ? (
         <Alert variant={warning ? "destructive" : "default"}>
           {warning ? <CircleAlert /> : <CircleCheck />}
@@ -167,7 +166,7 @@ export const LineReconciliationHints = ({
     hasQuantity &&
     u !== undefined &&
     t !== undefined &&
-    Math.abs(q * u - t) >= CENT_EPSILON;
+    Math.abs(q * u - t) >= CENTS_EPSILON;
 
   return (
     <>
