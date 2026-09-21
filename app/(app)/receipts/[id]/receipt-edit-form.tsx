@@ -28,11 +28,23 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
 import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
-import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
+import { lineItemKindEnum } from "@/lib/db/schema/receipt-item";
+import type {
+  LineItemKind,
+  ReceiptItemSelect,
+} from "@/lib/db/schema/receipt-item";
 import { reconcile } from "@/lib/receipt/integrity";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +87,17 @@ const paymentMethodOptions: {
 }[] = paymentMethodEnum.options.map((value) => ({
   description: paymentMethodDescriptions[value],
   label: paymentMethodLabels[value],
+  value,
+}));
+
+const lineItemKindLabels: Record<LineItemKind, string> = {
+  discount: "Discount",
+  product: "Product",
+  surcharge: "Surcharge",
+};
+
+const lineItemKindItems = lineItemKindEnum.options.map((value) => ({
+  label: lineItemKindLabels[value],
   value,
 }));
 
@@ -354,13 +377,8 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 {fields.map((field, index) => (
                   <FieldGroup
                     key={field.id}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_auto]"
+                    className="grid grid-cols-[2fr_0.9fr_1fr_1fr_1fr_auto]"
                   >
-                    <input
-                      defaultValue={field.kind}
-                      type="hidden"
-                      {...register(`items.${index}.kind` as const)}
-                    />
                     <Field data-invalid={!!errors.items?.[index]?.name}>
                       <FieldLabel>Name</FieldLabel>
                       <FieldContent>
@@ -369,6 +387,43 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                           {...register(`items.${index}.name` as const)}
                         />
                         <FormFieldError error={errors.items?.[index]?.name} />
+                      </FieldContent>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Kind</FieldLabel>
+                      <FieldContent>
+                        <Controller
+                          control={control}
+                          name={`items.${index}.kind` as const}
+                          render={({ field: kindField }) => (
+                            <Select
+                              items={lineItemKindItems}
+                              onValueChange={(value) =>
+                                kindField.onChange(value as LineItemKind)
+                              }
+                              value={kindField.value ?? "product"}
+                            >
+                              <SelectTrigger
+                                aria-label="Line kind"
+                                className="w-full"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {lineItemKindItems.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
                       </FieldContent>
                     </Field>
                     <Field>
