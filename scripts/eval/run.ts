@@ -31,6 +31,19 @@ const parseModelOutput = (raw: unknown) => {
   } as const;
 };
 
+// A local LM Studio serves one generation at a time reliably, so the fixtures
+// run sequentially rather than fanning out and getting rejected.
+const runSequentially = async <T>(
+  tasks: (() => Promise<T>)[]
+): Promise<T[]> => {
+  const results: T[] = [];
+  for (const task of tasks) {
+    // oxlint-disable-next-line no-await-in-loop
+    results.push(await task());
+  }
+  return results;
+};
+
 const withLmStudio = async <T>(call: () => Promise<T>): Promise<T> => {
   try {
     return await call();
@@ -155,15 +168,17 @@ const main = async () => {
     const pairs = args.ocrModels.flatMap((ocrModel) =>
       args.parseModels.map((parseModel) => ({ ocrModel, parseModel }))
     );
-    results = await Promise.all(
+    results = await runSequentially(
       pairs.flatMap(({ ocrModel, parseModel }) =>
-        goldens.map((golden) => runBoth(golden, root, ocrModel, parseModel))
+        goldens.map(
+          (golden) => () => runBoth(golden, root, ocrModel, parseModel)
+        )
       )
     );
   } else if (args.pass === "ocr") {
-    results = await Promise.all(
+    results = await runSequentially(
       args.ocrModels.flatMap((ocrModel) =>
-        goldens.map((golden) => runOcr(golden, root, ocrModel))
+        goldens.map((golden) => () => runOcr(golden, root, ocrModel))
       )
     );
   } else {
@@ -174,9 +189,9 @@ const main = async () => {
       throw new Error("--pass parse requires --transcript <path>");
     }
     const transcript = await readFile(args.transcript, "utf-8");
-    results = await Promise.all(
-      args.parseModels.map((parseModel) =>
-        runParse(goldens[0], root, parseModel, transcript)
+    results = await runSequentially(
+      args.parseModels.map(
+        (parseModel) => () => runParse(goldens[0], root, parseModel, transcript)
       )
     );
   }
