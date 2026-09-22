@@ -5,10 +5,10 @@ import { auth } from "@/lib/auth";
 import { findReceiptByIdForOwner } from "@/lib/db";
 import {
   BUCKET,
-  contentTypeFromKey,
   createPresignedUrl,
   presignEndpointForHost,
 } from "@/lib/storage/client";
+import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;
 

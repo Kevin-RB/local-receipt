@@ -1,8 +1,10 @@
-import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
+import { APICallError, NoObjectGeneratedError } from "ai";
 import { eq } from "drizzle-orm";
 import { NonRetriableError, eventType } from "inngest";
 import { z } from "zod/v4";
 
+import { isUnreachableError } from "@/lib/ai/errors";
+import { LM_STUDIO_URL } from "@/lib/ai/provider";
 import {
   parseReceiptText,
   transcribeReceiptImage,
@@ -15,39 +17,8 @@ import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { reconcile } from "@/lib/receipt/integrity";
-import {
-  BUCKET,
-  contentTypeFromKey,
-  downloadObject,
-} from "@/lib/storage/client";
-
-const isApiUnreachable = (error: unknown): boolean => {
-  if (!APICallError.isInstance(error)) {
-    return false;
-  }
-  if (error.statusCode !== undefined) {
-    return false;
-  }
-
-  const { cause } = error;
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "code" in cause &&
-    (cause as { code: unknown }).code === "ECONNREFUSED"
-  ) {
-    return true;
-  }
-  return false;
-};
-
-const isUnreachableError = (error: unknown): boolean => {
-  if (RetryError.isInstance(error)) {
-    return error.errors.some(isApiUnreachable);
-  }
-  return isApiUnreachable(error);
-};
-const LM_STUDIO_URL = process.env.LM_STUDIO_URL ?? "http://localhost:1234/v1";
+import { BUCKET, downloadObject } from "@/lib/storage/client";
+import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 const setReceiptStatus = (id: string, status: ProcessingStatus) =>
   db.update(receipts).set({ status }).where(eq(receipts.id, id));

@@ -82,7 +82,7 @@ const applyOverrides = (overrides?: Partial<(typeof baseSteps)[number]>) =>
 
 const createEngine = (
   overrides?: Partial<(typeof baseSteps)[number]>,
-  unmocked: string[] = []
+  realSteps: string[] = []
 ) =>
   new InngestTestEngine({
     events: [
@@ -95,7 +95,7 @@ const createEngine = (
       },
     ],
     function: transcribeReceipt,
-    steps: applyOverrides(overrides).filter((s) => !unmocked.includes(s.id)),
+    steps: applyOverrides(overrides).filter((s) => !realSteps.includes(s.id)),
     transformCtx: (rawCtx) => {
       if (rawCtx.step && typeof rawCtx.step === "object") {
         const stepProxy = new Proxy(rawCtx.step, {

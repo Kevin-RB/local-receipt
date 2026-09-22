@@ -4,7 +4,7 @@ import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 
 import { evaluateExtraction } from "./evaluate";
-import type { FixtureGolden } from "./evaluate";
+import type { FixtureGolden } from "./golden";
 
 const golden: FixtureGolden = {
   evidence: {
@@ -80,6 +80,24 @@ describe(evaluateExtraction, () => {
     expect(total?.errorClass).toBe("ocr");
     expect(summary.ocr).toBe(1);
     expect(summary.parse).toBe(0);
+  });
+
+  it("falls back to the expected value when the golden states no evidence", () => {
+    const noEvidence: FixtureGolden = {
+      ...golden,
+      evidence: undefined,
+      extraction: { ...golden.extraction, totals: { total: 78.5 } },
+    };
+
+    const { fields } = evaluateExtraction({
+      extraction: { ...noEvidence.extraction, totals: { total: 78.85 } },
+      golden: noEvidence,
+      transcript: "ALDI STORES\nGROCERIES\nTOTAL 78.50",
+    });
+
+    const total = fields.find((field) => field.path === "totals.total");
+
+    expect(total?.errorClass).toBe("parse");
   });
 
   it("treats an optional field absent from both the golden and the model as fine", () => {

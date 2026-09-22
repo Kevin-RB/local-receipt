@@ -7,8 +7,6 @@ import {
 import type { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export { contentTypeFromKey, extensionForMime } from "./content-type";
-
 const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT ?? "localhost:9000";
 const STORAGE_PUBLIC_ENDPOINT =
   process.env.STORAGE_PUBLIC_ENDPOINT ?? STORAGE_ENDPOINT;

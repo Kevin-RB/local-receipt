@@ -29,10 +29,13 @@ vi.mock(import("@/lib/auth"), () => ({
 // @ts-expect-error mock types don't need to match storage internals
 vi.mock(import("@/lib/storage/client"), () => ({
   BUCKET: "receipts",
+  downloadObject: mockDownloadObject,
+}));
+
+vi.mock(import("@/lib/storage/content-type"), () => ({
   contentTypeFromKey: vi
     .fn<(key: string) => string>()
     .mockReturnValue("image/jpeg"),
-  downloadObject: mockDownloadObject,
 }));
 
 const { GET } = await import("./route");

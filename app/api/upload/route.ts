@@ -8,10 +8,10 @@ import { db, receipts } from "@/lib/db";
 import {
   BUCKET,
   createPresignedUrl,
-  extensionForMime,
   presignEndpointForHost,
 } from "@/lib/storage/client";
 import { ACCEPTED_MIME_TYPES } from "@/lib/storage/constants";
+import { extensionForMime } from "@/lib/storage/content-type";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const PRESIGNED_URL_EXPIRY_SECONDS = 60 * 5;

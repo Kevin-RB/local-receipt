@@ -24,19 +24,21 @@ vi.mock(import("@/lib/auth"), () => ({
 }));
 
 vi.mock(import("@/lib/storage/client"), () => ({
-  ACCEPTED_MIME_TYPES: ["image/jpeg", "image/png"] as const,
   BUCKET: "receipts",
   createPresignedUrl: vi
     .fn<() => Promise<string>>()
     .mockResolvedValue("http://rustfs:9000/receipts/abc.jpg?signature=xyz"),
+  presignEndpointForHost: vi
+    .fn<() => string>()
+    .mockReturnValue("localhost:9000"),
+}));
+
+vi.mock(import("@/lib/storage/content-type"), () => ({
   extensionForMime: vi
     .fn<(mime: string) => string>()
     .mockImplementation((mime: string) =>
       mime === "image/jpeg" ? "jpg" : "png"
     ),
-  presignEndpointForHost: vi
-    .fn<() => string>()
-    .mockReturnValue("localhost:9000"),
 }));
 
 // @ts-expect-error mock types don't need to match Drizzle internals

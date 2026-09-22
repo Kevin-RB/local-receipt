@@ -68,7 +68,8 @@ Return valid JSON conforming to the schema. Use appropriate types (strings for t
 
 export const transcribeReceiptImage = async (
   base64: string,
-  mimeType: string
+  mimeType: string,
+  model: string = ORC_MODEL
 ): Promise<string> => {
   const { text } = await generateText({
     maxRetries: 1,
@@ -81,13 +82,16 @@ export const transcribeReceiptImage = async (
         role: "user",
       },
     ],
-    model: lmstudio(ORC_MODEL),
+    model: lmstudio(model),
     temperature: 0,
   });
   return text;
 };
 
-export const parseReceiptText = async (transcript: string) => {
+export const parseReceiptText = async (
+  transcript: string,
+  model: string = PARSE_MODEL
+) => {
   const { output } = await generateText({
     maxRetries: 1,
     messages: [
@@ -96,7 +100,7 @@ export const parseReceiptText = async (transcript: string) => {
         role: "user",
       },
     ],
-    model: lmstudio(PARSE_MODEL),
+    model: lmstudio(model),
     output: Output.object({
       schema: ReceiptInformationExtractionSchema,
     }),

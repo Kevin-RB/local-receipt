@@ -1,19 +1,6 @@
 import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 
-export interface FixtureGolden {
-  /** SHA-256 of the receipt image, which identifies the fixture. */
-  id: string;
-  /** Image path relative to the fixtures root. */
-  image: string;
-  /** The human-corrected extraction the model output is compared against. */
-  extraction: ReceiptInformationExtraction;
-  /**
-   * Expected printed text per field path (e.g. `totals.total` → "78.58"),
-   * used to tell an OCR error from a parse error.
-   */
-  evidence?: Record<string, string>;
-  notes?: string;
-}
+import type { FixtureGolden } from "./golden";
 
 export type FieldStatus = "match" | "mismatch";
 
@@ -87,11 +74,11 @@ const transcriptContains = (transcript: string, evidence: string) => {
 };
 
 const renderValue = (value: unknown): string => {
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toFixed(2);
-  }
-  if (typeof value === "string" || typeof value === "boolean") {
+  if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
+  }
+  if (typeof value === "string") {
+    return value;
   }
   return "";
 };
