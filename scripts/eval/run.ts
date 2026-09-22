@@ -16,7 +16,12 @@ import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 import { parseArgs, usage } from "./args";
 import { indexSource, loadGoldens, readFixtureImage } from "./fixtures";
-import { printResult, printSummary, summarize } from "./report";
+import {
+  printResult,
+  printSummary,
+  reportArchiveName,
+  summarize,
+} from "./report";
 import type { FixtureResult } from "./report";
 
 const parseModelOutput = (raw: unknown) => {
@@ -254,15 +259,24 @@ const main = async () => {
   };
 
   await mkdir(args.out, { recursive: true });
+  const body = `${JSON.stringify(report, null, 2)}\n`;
+  // One archive per run, plus `report.json` as the most recent run.
+  const archivePath = path.join(
+    args.out,
+    reportArchiveName(report.generatedAt)
+  );
   const reportPath = path.join(args.out, "report.json");
-  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  await Promise.all([
+    writeFile(archivePath, body),
+    writeFile(reportPath, body),
+  ]);
 
   console.log(`\nExtraction evaluation (${args.pass}):`);
   for (const result of results) {
     printResult(result);
   }
   printSummary(report.summary);
-  console.log(`\nReport written to ${reportPath}`);
+  console.log(`\nReport written to ${archivePath} (and ${reportPath})`);
 };
 
 try {

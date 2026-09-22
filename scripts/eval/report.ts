@@ -109,6 +109,14 @@ export const summarize = (results: FixtureResult[]): ModelSummary[] => {
   return [...byModel.values()];
 };
 
+/**
+ * Archive name for a run: one report per run, so successive model
+ * comparisons accumulate instead of overwriting each other. `:` and `.` are
+ * replaced because they are unsafe on some filesystems.
+ */
+export const reportArchiveName = (generatedAt: string) =>
+  `report-${generatedAt.replaceAll(/[:.]/gu, "-")}.json`;
+
 const formatValue = (value: unknown) =>
   value === undefined ? "∅" : JSON.stringify(value);
 

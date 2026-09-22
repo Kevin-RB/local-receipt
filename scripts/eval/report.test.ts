@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { printSummary, summarize } from "./report";
+import { printSummary, reportArchiveName, summarize } from "./report";
 import type { FixtureResult } from "./report";
 
 const field = (path: string, status: "match" | "mismatch") => ({
@@ -110,6 +110,24 @@ describe(summarize, () => {
     ]);
 
     expect(summaries).toStrictEqual([]);
+  });
+});
+
+describe(reportArchiveName, () => {
+  it("makes a filesystem-safe, sortable name so runs accumulate", () => {
+    expect(reportArchiveName("2026-09-22T18:14:03.512Z")).toBe(
+      "report-2026-09-22T18-14-03-512Z.json"
+    );
+  });
+
+  it("sorts chronologically", () => {
+    const names = [
+      reportArchiveName("2026-09-22T09:00:00.000Z"),
+      reportArchiveName("2026-09-21T09:00:00.000Z"),
+    ].toSorted();
+
+    expect(names[0]).toContain("2026-09-21");
+    expect(names[1]).toContain("2026-09-22");
   });
 });
 
