@@ -13,6 +13,7 @@ import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
+import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { reconcile } from "@/lib/receipt/integrity";
 import {
   BUCKET,
@@ -148,6 +149,13 @@ export const transcribeReceipt = inngest.createFunction(
       }
     });
 
+    await step.run("store-transcript", async () => {
+      await db
+        .update(receipts)
+        .set({ transcript })
+        .where(eq(receipts.id, receiptId));
+    });
+
     await step.realtime.publish("publish-parsing", ch.state, {
       state: "parsing",
     });
@@ -185,11 +193,7 @@ export const transcribeReceipt = inngest.createFunction(
 
     const { data: extraction } = parsedExtraction;
 
-    const items = extraction.items.map((item) => ({
-      ...item,
-      kind: item.lineTotal < 0 ? ("discount" as const) : item.kind,
-      quantity: item.quantity ?? 1,
-    }));
+    const items = normalizeExtractedItems(extraction.items);
 
     const integrityWarning = !reconcile(items, {
       total: extraction.totals.total,

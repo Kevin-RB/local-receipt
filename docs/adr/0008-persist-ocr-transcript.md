@@ -1,0 +1,37 @@
+# ADR-0008: Persist the OCR transcript for inspection
+
+Date: 2026-09-22
+
+## Status
+
+Accepted
+
+## Context
+
+Extraction is two passes: OCR turns the receipt image into a plain-text transcript, then parsing turns that transcript into the structured receipt contract. Only the final structured output was stored, so a wrong field could not be traced to the pass that produced it — a misread digit and a parser mistake were indistinguishable after the fact. There was also no way to measure extraction quality across models or prompt changes.
+
+This touches the boundary set by ADR-0003 (no provenance, no re-extraction). That ADR is about tracking per-item origin and re-running extraction; neither is proposed here.
+
+## Decision
+
+Store the OCR transcript on the receipt row as a nullable `transcript` column. It is written immediately after the OCR step and before parsing, so a receipt that later fails to parse still keeps the text OCR produced. The transcript is shown in a collapsed disclosure on the receipt detail page.
+
+The transcript is an observability artifact for pass 1 only:
+
+- It is never used to re-derive or overwrite stored extraction, and manual edits neither read nor write it.
+- It is not per-item provenance; it does not distinguish AI-extracted from human-edited rows.
+- It does not enable re-extraction. ADR-0003 still stands.
+
+The offline evaluation harness (issue #131) uses the same transcript to classify each mismatch as an OCR error or a parse error: if the golden's expected printed text is absent from the transcript, OCR never captured it; if present, the parser had what it needed and got it wrong. Fixture images and goldens are real receipts and stay out of version control.
+
+## Consequences
+
+- The receipt row carries the receipt's full text, including anything personal it prints (addresses, ABNs, partial card numbers). It lives in the same database as the rest of the extraction and is subject to the same access rules.
+- A failed parse leaves a transcript behind, which is the point: it makes parse failures diagnosable.
+- No provenance is added, and unit price is still never derived or persisted.
+
+## Related
+
+- ADR-0003 (no re-extraction or provenance) — still stands.
+- ADR-0007 (GST-inclusive money model) — the money model the harness checks against.
+- Issue #131 (extraction-quality evaluation harness), placeholder #127.

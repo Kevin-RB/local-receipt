@@ -7,7 +7,7 @@ import {
 import type { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import type { AcceptedMimeType } from "./constants";
+export { contentTypeFromKey, extensionForMime } from "./content-type";
 
 const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT ?? "localhost:9000";
 const STORAGE_PUBLIC_ENDPOINT =
@@ -23,26 +23,6 @@ const withScheme = (endpoint: string): string =>
   /^https?:\/\//iu.test(endpoint) ? endpoint : `http://${endpoint}`;
 
 export const BUCKET = process.env.STORAGE_BUCKET ?? "receipts";
-
-const MIME_TO_EXT = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-} as const satisfies Record<AcceptedMimeType, string>;
-
-const EXT_TO_MIME = {
-  jpg: "image/jpeg",
-  png: "image/png",
-} as const;
-
-export const extensionForMime = (mime: AcceptedMimeType): string =>
-  MIME_TO_EXT[mime];
-
-export const contentTypeFromKey = (key: string): string => {
-  const ext = key.split(".").pop();
-  return ext && ext in EXT_TO_MIME
-    ? EXT_TO_MIME[ext as keyof typeof EXT_TO_MIME]
-    : "image/jpeg";
-};
 
 const createS3Client = (endpoint: string) =>
   new S3Client({

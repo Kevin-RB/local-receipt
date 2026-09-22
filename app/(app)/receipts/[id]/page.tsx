@@ -54,6 +54,17 @@ const ReceiptImage = ({
   </div>
 );
 
+const ReceiptTranscript = ({ transcript }: { transcript: string }) => (
+  <details className="border-border bg-card mt-8 rounded-lg border">
+    <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+      OCR transcript
+    </summary>
+    <pre className="border-border text-muted-foreground overflow-x-auto border-t px-4 py-3 font-mono text-xs whitespace-pre-wrap">
+      {transcript}
+    </pre>
+  </details>
+);
+
 const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -104,6 +115,10 @@ const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
           receiptId={receipt.id}
         />
       )}
+
+      {receipt.transcript ? (
+        <ReceiptTranscript transcript={receipt.transcript} />
+      ) : null}
     </main>
   );
 };

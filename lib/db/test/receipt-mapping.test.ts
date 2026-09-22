@@ -22,6 +22,7 @@ const flatReceipt: ReceiptSelect = {
   subtotal: 9.9,
   total: 10.9,
   transactionDateTime: dtypeReceipt,
+  transcript: null,
   userId: "user-1",
 };
 
