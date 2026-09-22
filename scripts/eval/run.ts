@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { registerAiDevTools } from "@/lib/ai/devtools";
 import { isUnreachableError } from "@/lib/ai/errors";
 import { LM_STUDIO_URL } from "@/lib/ai/provider";
 import {
@@ -15,7 +16,7 @@ import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 import { parseArgs, usage } from "./args";
 import { indexSource, loadGoldens, readFixtureImage } from "./fixtures";
-import { printResult, summarize } from "./report";
+import { printResult, printSummary, summarize } from "./report";
 import type { FixtureResult } from "./report";
 
 const parseModelOutput = (raw: unknown) => {
@@ -44,17 +45,54 @@ const runSequentially = async <T>(
   return results;
 };
 
+const providerUnreachable = (error: unknown): Error =>
+  new Error(
+    `LM Studio is not reachable at ${LM_STUDIO_URL}. Start LM Studio and try again.`,
+    { cause: error }
+  );
+
 const withLmStudio = async <T>(call: () => Promise<T>): Promise<T> => {
   try {
     return await call();
   } catch (error) {
     if (isUnreachableError(error)) {
-      throw new Error(
-        `LM Studio is not reachable at ${LM_STUDIO_URL}. Start LM Studio and try again.`,
-        { cause: error }
-      );
+      throw providerUnreachable(error);
     }
     throw error;
+  }
+};
+
+interface ParsePass {
+  parseMs: number;
+  parsed: ReturnType<typeof parseModelOutput>;
+}
+
+/**
+ * Runs the parse pass, timing it. An unreachable server aborts the run; a
+ * model that returns unusable JSON is reported as a failed parse instead,
+ * because that rate is itself a result worth seeing.
+ */
+const runParsePass = async (
+  transcript: string,
+  parseModel: string
+): Promise<ParsePass> => {
+  const startedAt = Date.now();
+  try {
+    const output = await parseReceiptText(transcript, parseModel);
+    return {
+      parseMs: Date.now() - startedAt,
+      parsed: parseModelOutput(output),
+    };
+  } catch (error) {
+    if (isUnreachableError(error)) {
+      throw providerUnreachable(error);
+    }
+    return {
+      parseMs: Date.now() - startedAt,
+      parsed: {
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
   }
 };
 
@@ -62,7 +100,8 @@ const buildResult = (
   golden: FixtureGolden,
   models: { ocrModel: string; parseModel: string },
   transcript: string,
-  parsed: ReturnType<typeof parseModelOutput>
+  parsed: ReturnType<typeof parseModelOutput>,
+  timing: { ocrMs?: number; parseMs?: number } = {}
 ): FixtureResult => {
   const base = {
     fixture: golden.id,
@@ -70,6 +109,7 @@ const buildResult = (
     ocrModel: models.ocrModel,
     parseModel: models.parseModel,
     transcript,
+    ...timing,
   };
 
   if ("error" in parsed) {
@@ -94,6 +134,7 @@ const runBoth = async (
   parseModel: string
 ): Promise<FixtureResult> => {
   const bytes = await readFixtureImage(golden, root);
+  const ocrStartedAt = Date.now();
   const transcript = await withLmStudio(() =>
     transcribeReceiptImage(
       bytes.toString("base64"),
@@ -101,11 +142,13 @@ const runBoth = async (
       ocrModel
     )
   );
-  const parsed = parseModelOutput(
-    await withLmStudio(() => parseReceiptText(transcript, parseModel))
-  );
+  const ocrMs = Date.now() - ocrStartedAt;
+  const { parseMs, parsed } = await runParsePass(transcript, parseModel);
 
-  return buildResult(golden, { ocrModel, parseModel }, transcript, parsed);
+  return buildResult(golden, { ocrModel, parseModel }, transcript, parsed, {
+    ocrMs,
+    parseMs,
+  });
 };
 
 const runOcr = async (
@@ -114,6 +157,7 @@ const runOcr = async (
   ocrModel: string
 ): Promise<FixtureResult> => {
   const bytes = await readFixtureImage(golden, root);
+  const ocrStartedAt = Date.now();
   const transcript = await withLmStudio(() =>
     transcribeReceiptImage(
       bytes.toString("base64"),
@@ -125,6 +169,7 @@ const runOcr = async (
     fixture: golden.id,
     image: golden.image,
     ocrModel,
+    ocrMs: Date.now() - ocrStartedAt,
     transcript,
   };
 };
@@ -136,19 +181,22 @@ const runParse = async (
   transcript: string
 ): Promise<FixtureResult> => {
   await readFixtureImage(golden, root);
-  const parsed = parseModelOutput(
-    await withLmStudio(() => parseReceiptText(transcript, parseModel))
-  );
+  const { parseMs, parsed } = await runParsePass(transcript, parseModel);
   return buildResult(
     golden,
     { ocrModel: "external", parseModel },
     transcript,
-    parsed
+    parsed,
+    { parseMs }
   );
 };
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
+
+  if (process.env.NODE_ENV !== "production") {
+    registerAiDevTools();
+  }
 
   if (args.help) {
     console.log(usage());
@@ -213,12 +261,7 @@ const main = async () => {
   for (const result of results) {
     printResult(result);
   }
-  console.log("");
-  for (const summary of report.summary) {
-    console.log(
-      `${summary.ocrModel} → ${summary.parseModel}: ${summary.matched} matched, ${summary.mismatched} mismatched (ocr ${summary.ocr}, parse ${summary.parse})`
-    );
-  }
+  printSummary(report.summary);
   console.log(`\nReport written to ${reportPath}`);
 };
 

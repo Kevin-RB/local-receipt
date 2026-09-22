@@ -18,3 +18,4 @@ fixtures/
 .tmp/
 .pnpm-store/
 temp/
+.devtools/
