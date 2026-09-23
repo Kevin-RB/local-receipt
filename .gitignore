@@ -7,7 +7,6 @@ dist/
 .DS_Store
 prototype/
 Receipts/
-fixtures/
 !app/receipts/
 !app/(app)/receipts/
 !app/api/receipts/
