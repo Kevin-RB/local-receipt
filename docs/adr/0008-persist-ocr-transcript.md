@@ -22,7 +22,7 @@ The transcript is an observability artifact for pass 1 only:
 - It is not per-item provenance; it does not distinguish AI-extracted from human-edited rows.
 - It does not enable re-extraction. ADR-0003 still stands.
 
-The offline evaluation harness (issue #131) uses the same transcript to classify each mismatch as an OCR error or a parse error: if the golden's expected printed text is absent from the transcript, OCR never captured it; if present, the parser had what it needed and got it wrong. Fixture images and goldens are real receipts and stay out of version control.
+The offline evaluation harness (issue #131) used the same transcript to classify each mismatch as an OCR error or a parse error: if the golden's expected printed text is absent from the transcript, OCR never captured it; if present, the parser had what it needed and got it wrong. Fixture images and goldens are real receipts and stay out of version control. (Superseded — the harness was later removed; see Update below.)
 
 ## Consequences
 
