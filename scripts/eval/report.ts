@@ -1,5 +1,6 @@
 import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 import type { EvalResult } from "@/lib/eval/evaluate";
+import type { TranscriptScore } from "@/lib/eval/transcript";
 
 export interface FixtureResult {
   eval?: EvalResult;
@@ -14,6 +15,8 @@ export interface FixtureResult {
   /** Wall-clock ms for the parse pass, when it ran and did not throw. */
   parseMs?: number;
   transcript?: string;
+  /** Scored against the golden transcript, when the fixture has one. */
+  transcriptScore?: TranscriptScore;
 }
 
 export interface FieldBreakdown {
@@ -120,6 +123,64 @@ export const reportArchiveName = (generatedAt: string) =>
 const formatValue = (value: unknown) =>
   value === undefined ? "∅" : JSON.stringify(value);
 
+export interface OcrSummary {
+  /** Mean CER across scored fixtures. */
+  cer: Average;
+  fixtures: number;
+  missingLines: number;
+  ocrModel: string;
+  /** Mean WER across scored fixtures. */
+  wer: Average;
+}
+
+/**
+ * Aggregates OCR quality by model, over fixtures that have a golden transcript.
+ * Kept separate from the parse summary because OCR is scored on text, not
+ * fields.
+ */
+export const summarizeOcr = (results: FixtureResult[]): OcrSummary[] => {
+  const byModel = new Map<string, OcrSummary>();
+
+  for (const result of results) {
+    if (!result.transcriptScore) {
+      continue;
+    }
+    const summary = byModel.get(result.ocrModel) ?? {
+      cer: { count: 0, total: 0 },
+      fixtures: 0,
+      missingLines: 0,
+      ocrModel: result.ocrModel,
+      wer: { count: 0, total: 0 },
+    };
+    summary.fixtures += 1;
+    summary.cer.count += 1;
+    summary.cer.total += result.transcriptScore.cer;
+    summary.wer.count += 1;
+    summary.wer.total += result.transcriptScore.wer;
+    summary.missingLines += result.transcriptScore.missingLines.length;
+    byModel.set(result.ocrModel, summary);
+  }
+
+  return [...byModel.values()];
+};
+
+const formatPercent = (average: Average) =>
+  average.count === 0
+    ? "n/a"
+    : `${((average.total / average.count) * 100).toFixed(2)}%`;
+
+export const printOcrSummary = (summaries: OcrSummary[]) => {
+  if (summaries.length === 0) {
+    return;
+  }
+  console.log("\nOCR quality (vs golden transcript):");
+  for (const summary of summaries) {
+    console.log(
+      `  ${summary.ocrModel}: ${summary.fixtures} fixtures, CER ${formatPercent(summary.cer)}, WER ${formatPercent(summary.wer)}, ${summary.missingLines} golden lines missing`
+    );
+  }
+};
+
 const formatDuration = (average: Average) =>
   average.count === 0
     ? "n/a"
@@ -139,10 +200,18 @@ export const printResult = (result: FixtureResult) => {
   }
 
   if (!result.eval) {
+    const score = result.transcriptScore;
     const length = result.transcript?.length ?? 0;
     console.log(
-      `  OCR  ${result.fixture.slice(0, 8)} ${label}: ${length} chars`
+      `  OCR  ${result.fixture.slice(0, 8)} ${label}: ${length} chars${
+        score
+          ? `, CER ${(score.cer * 100).toFixed(1)}%, WER ${(score.wer * 100).toFixed(1)}%`
+          : ""
+      }`
     );
+    for (const line of score?.missingLines ?? []) {
+      console.log(`        [missing] ${line}`);
+    }
     return;
   }
 

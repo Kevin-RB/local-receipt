@@ -11,16 +11,20 @@ import {
 import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
 import { evaluateExtraction } from "@/lib/eval/evaluate";
 import type { FixtureGolden } from "@/lib/eval/golden";
+import { scoreTranscript } from "@/lib/eval/transcript";
+import type { TranscriptScore } from "@/lib/eval/transcript";
 import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 import { parseArgs, usage } from "./args";
 import { indexSource, loadGoldens, readFixtureImage } from "./fixtures";
 import {
+  printOcrSummary,
   printResult,
   printSummary,
   reportArchiveName,
   summarize,
+  summarizeOcr,
 } from "./report";
 import type { FixtureResult } from "./report";
 
@@ -101,12 +105,24 @@ const runParsePass = async (
   }
 };
 
+const scoreAgainstGolden = (
+  golden: FixtureGolden,
+  transcript: string
+): TranscriptScore | undefined =>
+  golden.transcript
+    ? scoreTranscript({ actual: transcript, golden: golden.transcript })
+    : undefined;
+
 const buildResult = (
   golden: FixtureGolden,
   models: { ocrModel: string; parseModel: string },
   transcript: string,
   parsed: ReturnType<typeof parseModelOutput>,
-  timing: { ocrMs?: number; parseMs?: number } = {}
+  timing: {
+    ocrMs?: number;
+    parseMs?: number;
+    transcriptScore?: TranscriptScore;
+  } = {}
 ): FixtureResult => {
   const base = {
     fixture: golden.id,
@@ -153,6 +169,7 @@ const runBoth = async (
   return buildResult(golden, { ocrModel, parseModel }, transcript, parsed, {
     ocrMs,
     parseMs,
+    transcriptScore: scoreAgainstGolden(golden, transcript),
   });
 };
 
@@ -176,6 +193,7 @@ const runOcr = async (
     ocrModel,
     ocrMs: Date.now() - ocrStartedAt,
     transcript,
+    transcriptScore: scoreAgainstGolden(golden, transcript),
   };
 };
 
@@ -235,24 +253,33 @@ const main = async () => {
       )
     );
   } else {
-    if (goldens.length !== 1) {
-      throw new Error("--pass parse expects exactly one --fixture");
+    const externalTranscript = args.transcript
+      ? await readFile(args.transcript, "utf-8")
+      : undefined;
+    if (externalTranscript && goldens.length !== 1) {
+      throw new Error(
+        "--pass parse with --transcript expects exactly one --fixture"
+      );
     }
-    if (!args.transcript) {
-      throw new Error("--pass parse requires --transcript <path>");
-    }
-    const transcript = await readFile(args.transcript, "utf-8");
-    results = await runSequentially(
-      args.parseModels.map(
-        (parseModel) => () => runParse(goldens[0], root, parseModel, transcript)
-      )
+    const tasks = args.parseModels.flatMap((parseModel) =>
+      goldens.map((golden) => () => {
+        const transcript = externalTranscript ?? golden.transcript;
+        if (!transcript) {
+          throw new Error(
+            `Fixture ${golden.id.slice(0, 8)} has no golden transcript; add one or pass --transcript`
+          );
+        }
+        return runParse(golden, root, parseModel, transcript);
+      })
     );
+    results = await runSequentially(tasks);
   }
 
   const report = {
     fixtures: goldens.length,
     generatedAt: new Date().toISOString(),
     models: { ocr: args.ocrModels, parse: args.parseModels },
+    ocrSummary: summarizeOcr(results),
     pass: args.pass,
     results,
     summary: summarize(results),
@@ -276,6 +303,7 @@ const main = async () => {
     printResult(result);
   }
   printSummary(report.summary);
+  printOcrSummary(report.ocrSummary);
   console.log(`\nReport written to ${archivePath} (and ${reportPath})`);
 };
 

@@ -15,6 +15,16 @@ export const goldenSchema = z.object({
   /** Image path relative to the fixtures root. */
   image: z.string().min(1),
   notes: z.string().optional(),
+  /**
+   * The corrected OCR transcript — the printed text, verified against the
+   * receipt. Lets the OCR pass be scored on its own, and lets the parse pass be
+   * run against known-good text so its errors are isolated from OCR's.
+   *
+   * Must be authored from the receipt, never copied from a model's output:
+   * a golden derived from the model under test scores that model perfect by
+   * construction.
+   */
+  transcript: z.string().min(1).optional(),
 });
 
 export type FixtureGolden = z.infer<typeof goldenSchema>;
