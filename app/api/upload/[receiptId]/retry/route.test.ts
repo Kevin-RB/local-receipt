@@ -33,13 +33,16 @@ vi.mock(import("@/lib/auth"), () => ({
 
 vi.mock(import("@/lib/storage/client"), () => ({
   BUCKET: "receipts",
-  contentTypeFromKey: vi
-    .fn<(key: string) => string>()
-    .mockReturnValue("image/jpeg"),
   createPresignedUrl: mockCreatePresignedUrl,
   presignEndpointForHost: vi
     .fn<() => string>()
     .mockReturnValue("localhost:9000"),
+}));
+
+vi.mock(import("@/lib/storage/content-type"), () => ({
+  contentTypeFromKey: vi
+    .fn<(key: string) => string>()
+    .mockReturnValue("image/jpeg"),
 }));
 
 const { POST } = await import("./route");

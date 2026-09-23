@@ -3,11 +3,8 @@ import { z } from "zod/v4";
 
 import { auth } from "@/lib/auth";
 import { findReceiptByIdForOwner } from "@/lib/db";
-import {
-  BUCKET,
-  contentTypeFromKey,
-  downloadObject,
-} from "@/lib/storage/client";
+import { BUCKET, downloadObject } from "@/lib/storage/client";
+import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 const paramsSchema = z.object({
   id: z.uuid({ message: "Invalid receipt ID" }),

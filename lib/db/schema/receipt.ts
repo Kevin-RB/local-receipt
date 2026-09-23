@@ -77,6 +77,7 @@ export const receipts = snakeCase.table(
       mode: "date",
       withTimezone: true,
     }),
+    transcript: text(),
     userId: text()
       .notNull()
       .references(() => user.id),

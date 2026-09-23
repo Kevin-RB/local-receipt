@@ -1,8 +1,10 @@
-import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
+import { APICallError, NoObjectGeneratedError } from "ai";
 import { eq } from "drizzle-orm";
 import { NonRetriableError, eventType } from "inngest";
 import { z } from "zod/v4";
 
+import { isUnreachableError } from "@/lib/ai/errors";
+import { LM_STUDIO_URL } from "@/lib/ai/provider";
 import {
   parseReceiptText,
   transcribeReceiptImage,
@@ -13,40 +15,10 @@ import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
+import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { reconcile } from "@/lib/receipt/integrity";
-import {
-  BUCKET,
-  contentTypeFromKey,
-  downloadObject,
-} from "@/lib/storage/client";
-
-const isApiUnreachable = (error: unknown): boolean => {
-  if (!APICallError.isInstance(error)) {
-    return false;
-  }
-  if (error.statusCode !== undefined) {
-    return false;
-  }
-
-  const { cause } = error;
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "code" in cause &&
-    (cause as { code: unknown }).code === "ECONNREFUSED"
-  ) {
-    return true;
-  }
-  return false;
-};
-
-const isUnreachableError = (error: unknown): boolean => {
-  if (RetryError.isInstance(error)) {
-    return error.errors.some(isApiUnreachable);
-  }
-  return isApiUnreachable(error);
-};
-const LM_STUDIO_URL = process.env.LM_STUDIO_URL ?? "http://localhost:1234/v1";
+import { BUCKET, downloadObject } from "@/lib/storage/client";
+import { contentTypeFromKey } from "@/lib/storage/content-type";
 
 const setReceiptStatus = (id: string, status: ProcessingStatus) =>
   db.update(receipts).set({ status }).where(eq(receipts.id, id));
@@ -148,6 +120,13 @@ export const transcribeReceipt = inngest.createFunction(
       }
     });
 
+    await step.run("store-transcript", async () => {
+      await db
+        .update(receipts)
+        .set({ transcript })
+        .where(eq(receipts.id, receiptId));
+    });
+
     await step.realtime.publish("publish-parsing", ch.state, {
       state: "parsing",
     });
@@ -185,11 +164,7 @@ export const transcribeReceipt = inngest.createFunction(
 
     const { data: extraction } = parsedExtraction;
 
-    const items = extraction.items.map((item) => ({
-      ...item,
-      kind: item.lineTotal < 0 ? ("discount" as const) : item.kind,
-      quantity: item.quantity ?? 1,
-    }));
+    const items = normalizeExtractedItems(extraction.items);
 
     const integrityWarning = !reconcile(items, {
       total: extraction.totals.total,

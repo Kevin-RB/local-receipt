@@ -1,9 +1,29 @@
 import { InngestTestEngine } from "@inngest/test";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 
 import { transcribeReceipt } from "./transcribe-receipt";
+
+const { mockSet, mockUpdate } = vi.hoisted(() => {
+  const setWhere = vi.fn<() => Promise<void>>().mockResolvedValue();
+  const setValue = vi
+    .fn<(payload: Record<string, unknown>) => { where: typeof setWhere }>()
+    .mockReturnValue({ where: setWhere });
+  const updateTable = vi
+    .fn<(table: unknown) => { set: typeof setValue }>()
+    .mockReturnValue({ set: setValue });
+
+  return { mockSet: setValue, mockUpdate: updateTable };
+});
+
+// @ts-expect-error mock types don't match Drizzle internals
+vi.mock(import("@/lib/db"), () => ({
+  db: { update: mockUpdate },
+  findReceiptById: vi.fn<() => Promise<null>>(),
+  receiptItems: {},
+  receipts: {},
+}));
 
 interface FunctionOutput {
   extraction: ReceiptInformationExtraction;
@@ -47,11 +67,23 @@ const baseSteps = [
   },
   {
     handler: () => null,
+    id: "store-transcript",
+  },
+  {
+    handler: () => null,
     id: "storing",
   },
 ];
 
-const createEngine = (overrides?: Partial<(typeof baseSteps)[number]>) =>
+const applyOverrides = (overrides?: Partial<(typeof baseSteps)[number]>) =>
+  overrides
+    ? baseSteps.map((s) => (s.id === overrides.id ? { ...s, ...overrides } : s))
+    : baseSteps;
+
+const createEngine = (
+  overrides?: Partial<(typeof baseSteps)[number]>,
+  realSteps: string[] = []
+) =>
   new InngestTestEngine({
     events: [
       {
@@ -63,11 +95,7 @@ const createEngine = (overrides?: Partial<(typeof baseSteps)[number]>) =>
       },
     ],
     function: transcribeReceipt,
-    steps: overrides
-      ? baseSteps.map((s) =>
-          s.id === overrides.id ? { ...s, ...overrides } : s
-        )
-      : baseSteps,
+    steps: applyOverrides(overrides).filter((s) => !realSteps.includes(s.id)),
     transformCtx: (rawCtx) => {
       if (rawCtx.step && typeof rawCtx.step === "object") {
         const stepProxy = new Proxy(rawCtx.step, {
@@ -85,6 +113,11 @@ const createEngine = (overrides?: Partial<(typeof baseSteps)[number]>) =>
   });
 
 describe("transcribeReceipt function", () => {
+  beforeEach(() => {
+    mockSet.mockClear();
+    mockUpdate.mockClear();
+  });
+
   it("runs extracting → parsing → storing and returns the extraction", async () => {
     const engine = createEngine();
     const { result } = await engine.execute();
@@ -276,5 +309,28 @@ describe("transcribeReceipt function", () => {
     expect(output.receiptId).toBeDefined();
     expect(output.extraction.items).toHaveLength(2);
     expect(output.extraction.merchant.name).toBe("Test Cafe");
+  });
+
+  it("stores the OCR transcript as soon as it is produced", async () => {
+    const engine = createEngine(undefined, ["store-transcript"]);
+    await engine.execute();
+
+    expect(mockSet).toHaveBeenCalledWith({ transcript: "FAKE OCR TRANSCRIPT" });
+  });
+
+  it("keeps the OCR transcript when parsing fails", async () => {
+    const engine = createEngine(
+      {
+        handler: () => {
+          throw new Error("parse blew up");
+        },
+        id: "parsing",
+      },
+      ["store-transcript"]
+    );
+
+    await engine.execute().catch(() => {});
+
+    expect(mockSet).toHaveBeenCalledWith({ transcript: "FAKE OCR TRANSCRIPT" });
   });
 });
