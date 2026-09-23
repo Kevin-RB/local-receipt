@@ -33,5 +33,11 @@ The offline evaluation harness (issue #131) uses the same transcript to classify
 ## Related
 
 - ADR-0003 (no re-extraction or provenance) — still stands.
-- ADR-0007 (GST-inclusive money model) — the money model the harness checks against.
-- Issue #131 (extraction-quality evaluation harness), placeholder #127.
+- ADR-0007 (GST-inclusive money model) — the money model these receipts follow.
+- Issue #131, placeholder #127 — where this and the harness were specified.
+
+## Update (2026-09-23)
+
+The evaluation harness this decision was written alongside has since been removed: the model question it existed to answer is settled (`glm-ocr` plus `gemma-4-e4b`), and every alternative was unusable. The OCR-vs-parse classification described above went with it.
+
+The transcript itself is retained on its own merits, which is why this ADR stands. It is what lets a failed parse be diagnosed from the app without a harness at all, and the disclosure on the receipt detail page is its reader.
