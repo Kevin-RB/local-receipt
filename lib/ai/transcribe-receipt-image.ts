@@ -17,10 +17,16 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **merchant.storeId**: Store/branch identifier if present.
 - **transaction.datetime**: Transaction date and time as a bare ISO 8601 string representing the local wall-clock time printed on the receipt (e.g. "2026-07-28T18:51:00"). Do NOT include a timezone suffix ("Z", "+10:00", etc.).
 - **transaction.receiptNumber**: Receipt/invoice/transaction number if present.
-- **items**: Array of line items. Each item must have a **name** (string) and **lineTotal** (number, in dollars). May optionally have **quantity** (number) and **unitPrice** (number).
+- **items**: Array of line items. Each item must have a **name** (string), a **lineTotal** (number, in dollars), and a **kind**:
+  - **"product"** for a normal product or service line.
+  - **"surcharge"** for a fee the merchant adds for the payment method (for example a "CREDIT SURCHARGE" or card fee, often a percentage of the total). A surcharge is its own line; never fold it into another item or omit it.
+  - **"discount"** for a deduction. Its **lineTotal** must be negative.
+  Each item may also have **quantity** (number) and **unitPrice** (number):
+  - **quantity**: the number of units stated on the receipt. If the receipt prints no quantity for a line, use **1**. Never leave it out and never invent a quantity.
+  - **unitPrice**: only when the receipt prints a unit price. Never compute it from lineTotal ÷ quantity; omit it when the receipt does not print it.
 - **totals.total**: The final total amount paid (number, in dollars). Always required.
-- **totals.subtotal**: Pre-tax subtotal if present (number, in dollars).
-- **totals.gst**: GST amount if present (number, in dollars).
+- **totals.subtotal**: The subtotal **exactly as printed** on the receipt, GST-inclusive (number, in dollars). Only include it when the receipt prints a subtotal line. Never compute or back-solve a subtotal (for example, never calculate total − GST).
+- **totals.gst**: The GST amount **exactly as printed**, representing tax already included within the total (number, in dollars). Only include it when the receipt states a GST amount. GST is a component of the total, never an amount added on top of it.
 - **payment.method**: Always present. Payment method, normalized to one of "cash", "card", or "other":
   - Card-like methods (e.g. VISA, Mastercard, EFTPOS, debit, credit) → "card"
   - Cash → "cash"
@@ -47,12 +53,14 @@ Rules for folding:
 
 - All amounts are in dollars (e.g. "$12.50" → 12.50).
 - Remove currency symbols, parse as numbers.
-- Negative amounts (discounts) should be treated as negative values in item lineTotals.
+- Negative amounts are discounts: keep the negative value in **lineTotal** and set **kind** to "discount".
 
 ## Fallback rules
 
-- If the subtotal cannot be identified but total is present, omit subtotal.
-- If GST cannot be identified, omit it.
+- If the receipt does not print a subtotal, omit the subtotal entirely. Never derive it.
+- If the receipt does not state GST, omit it.
+- If a line prints no quantity, use 1.
+- Omit unitPrice unless the receipt prints it.
 - If the merchant name cannot be found, use "Unknown Merchant".
 - If the transaction datetime cannot be parsed to ISO 8601, omit it.
 
@@ -60,7 +68,8 @@ Return valid JSON conforming to the schema. Use appropriate types (strings for t
 
 export const transcribeReceiptImage = async (
   base64: string,
-  mimeType: string
+  mimeType: string,
+  model: string = ORC_MODEL
 ): Promise<string> => {
   const { text } = await generateText({
     maxRetries: 1,
@@ -73,13 +82,16 @@ export const transcribeReceiptImage = async (
         role: "user",
       },
     ],
-    model: lmstudio(ORC_MODEL),
+    model: lmstudio(model),
     temperature: 0,
   });
   return text;
 };
 
-export const parseReceiptText = async (transcript: string) => {
+export const parseReceiptText = async (
+  transcript: string,
+  model: string = PARSE_MODEL
+) => {
   const { output } = await generateText({
     maxRetries: 1,
     messages: [
@@ -88,7 +100,7 @@ export const parseReceiptText = async (transcript: string) => {
         role: "user",
       },
     ],
-    model: lmstudio(PARSE_MODEL),
+    model: lmstudio(model),
     output: Output.object({
       schema: ReceiptInformationExtractionSchema,
     }),

@@ -22,6 +22,7 @@ const flatReceipt: ReceiptSelect = {
   subtotal: 9.9,
   total: 10.9,
   transactionDateTime: dtypeReceipt,
+  transcript: null,
   userId: "user-1",
 };
 
@@ -122,6 +123,18 @@ describe(receiptToFlat, () => {
     const { datetime: _datetime, ...transaction } = nestedReceipt.transaction;
     expect(
       receiptToFlat({ ...nestedReceipt, transaction }).transactionDateTime
+    ).toBeNull();
+  });
+
+  it("clears the transaction datetime when it cannot be parsed", () => {
+    expect(
+      receiptToFlat({
+        ...nestedReceipt,
+        transaction: {
+          ...nestedReceipt.transaction,
+          datetime: "28/07/2026 6:51pm",
+        },
+      }).transactionDateTime
     ).toBeNull();
   });
 

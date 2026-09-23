@@ -27,6 +27,21 @@ export type ReceiptFlatWrite = Pick<
   (typeof receiptFlatWriteKeys)[number]
 >;
 
+const parseTransactionDateTime = (
+  datetime: string | undefined,
+  timezone: string
+): Date | null => {
+  if (!datetime) {
+    return null;
+  }
+
+  try {
+    return receiptDateTimeToDate(datetime, timezone);
+  } catch {
+    return null;
+  }
+};
+
 export const receiptToFlat = (
   nested: ReceiptNested,
   timezone = RECEIPT_TIMEZONE
@@ -40,9 +55,10 @@ export const receiptToFlat = (
   receiptNumber: nested.transaction.receiptNumber,
   subtotal: nested.totals.subtotal,
   total: nested.totals.total,
-  transactionDateTime: nested.transaction.datetime
-    ? receiptDateTimeToDate(nested.transaction.datetime, timezone)
-    : null,
+  transactionDateTime: parseTransactionDateTime(
+    nested.transaction.datetime,
+    timezone
+  ),
 });
 
 export const receiptToNested = (

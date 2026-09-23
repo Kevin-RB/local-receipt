@@ -17,3 +17,4 @@ Receipts/
 .tmp/
 .pnpm-store/
 temp/
+.devtools/
