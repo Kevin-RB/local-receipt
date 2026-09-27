@@ -2,6 +2,7 @@
 
 import {
   ChartColumnBigIcon,
+  MessageCircleIcon,
   ReceiptTextIcon,
   SquirrelIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
 const navItems = [
   { icon: ReceiptTextIcon, title: "Receipts", url: "/" },
   { icon: ChartColumnBigIcon, title: "Overview", url: "/overview" },
+  { icon: MessageCircleIcon, title: "Chat", url: "/chat" },
 ];
 
 export const AppSidebar = () => {

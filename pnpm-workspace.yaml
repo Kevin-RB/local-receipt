@@ -2,3 +2,6 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   sharp: true
+minimumReleaseAgeExclude:
+  - "@ai-sdk/gateway@4.0.92"
+  - ai@7.0.114
