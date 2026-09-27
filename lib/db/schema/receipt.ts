@@ -59,6 +59,7 @@ export type Payment = z.infer<typeof paymentSchema>;
 export const receipts = snakeCase.table(
   "receipts",
   {
+    categorizedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     gst: numeric({ mode: "number", precision: 10, scale: 2 }),
     hasIntegrityWarning: boolean().notNull().default(false),
