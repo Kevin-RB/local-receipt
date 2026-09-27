@@ -39,12 +39,14 @@ const Home = async () => {
   }
 
   const receipts = await getReceiptData(session.user.id);
+  const [firstName = ""] = session.user.name.trim().split(/\s+/u);
+  const displayName = `${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}`;
 
   return (
     <main className="container mx-auto flex flex-col gap-6 p-6">
       <h1 className="sr-only">Possum Receipts</h1>
       <p className="text-muted-foreground text-center text-lg font-medium">
-        Welcome, possum
+        Welcome, {displayName}
       </p>
       <div className="flex justify-center">
         <UploadFlow />
