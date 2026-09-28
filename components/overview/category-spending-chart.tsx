@@ -27,25 +27,13 @@ import {
 } from "@/components/ui/select";
 import { sumSpendingByCategory, windowDays } from "@/lib/overview";
 import type { CategorySpendInput } from "@/lib/overview";
-
-type RangeKey = "30-days" | "2-months" | "3-months";
-
-const RANGE_LABELS: Record<RangeKey, string> = {
-  "2-months": "2 months",
-  "3-months": "3 months",
-  "30-days": "30 days",
-};
-
-const RANGE_MONTHS: Record<RangeKey, number | null> = {
-  "2-months": 2,
-  "3-months": 3,
-  "30-days": null,
-};
-
-const RANGE_ITEMS = Object.entries(RANGE_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}));
+import {
+  currencyFormatter,
+  RANGE_ITEMS,
+  RANGE_LABELS,
+  RANGE_MONTHS,
+} from "@/lib/overview-chart";
+import type { RangeKey } from "@/lib/overview-chart";
 
 const chartConfig = {
   total: {
@@ -53,11 +41,6 @@ const chartConfig = {
     label: "Total",
   },
 } satisfies ChartConfig;
-
-const currencyFormatter = new Intl.NumberFormat("en-AU", {
-  currency: "AUD",
-  style: "currency",
-});
 
 export const CategorySpendingChart = ({
   rows,
