@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   sumDailySpending,
+  sumSpendingByCategory,
   sumSpendingByMerchant,
   windowDays,
 } from "@/lib/overview";
-import type { MerchantSpendingInput, SpendingInput } from "@/lib/overview";
+import type {
+  CategorySpendInput,
+  MerchantSpendingInput,
+  SpendingInput,
+} from "@/lib/overview";
 import { simulateBrowserWithPolyfilledTemporal } from "@/test/polyfilled-temporal";
 
 const TODAY = Temporal.PlainDate.from("2026-08-19");
@@ -148,6 +153,58 @@ describe(sumSpendingByMerchant, () => {
     ]);
 
     expect(result).toStrictEqual([{ label: "Coles", total: 0.3 }]);
+  });
+});
+
+describe(sumSpendingByCategory, () => {
+  const row = (
+    overrides: Partial<CategorySpendInput> = {}
+  ): CategorySpendInput => ({
+    categoryName: "Groceries",
+    date: TODAY.subtract({ days: 1 }).toString(),
+    total: 10,
+    ...overrides,
+  });
+
+  it("sums totals per category within the window and sorts descending", () => {
+    const result = sumSpendingByCategory(
+      [
+        row({ categoryName: "Groceries", total: 5 }),
+        row({ categoryName: "Dining & Takeaway", total: 30 }),
+        row({ categoryName: "Groceries", total: 12.5 }),
+      ],
+      30,
+      TODAY
+    );
+
+    expect(result).toStrictEqual([
+      { label: "Dining & Takeaway", total: 30 },
+      { label: "Groceries", total: 17.5 },
+    ]);
+  });
+
+  it("ignores rows outside the day window", () => {
+    const result = sumSpendingByCategory(
+      [
+        row({ date: TODAY.subtract({ days: 40 }).toString(), total: 99 }),
+        row({ date: TODAY.add({ days: 1 }).toString(), total: 50 }),
+        row({ date: TODAY.toString(), total: 7 }),
+      ],
+      30,
+      TODAY
+    );
+
+    expect(result).toStrictEqual([{ label: "Groceries", total: 7 }]);
+  });
+
+  it("rounds totals to cents", () => {
+    const result = sumSpendingByCategory(
+      [row({ total: 0.1 }), row({ total: 0.2 })],
+      30,
+      TODAY
+    );
+
+    expect(result).toStrictEqual([{ label: "Groceries", total: 0.3 }]);
   });
 });
 

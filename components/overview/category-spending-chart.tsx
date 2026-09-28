@@ -25,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sumDailySpending, windowDays } from "@/lib/overview";
-import type { SpendingInput } from "@/lib/overview";
+import { sumSpendingByCategory, windowDays } from "@/lib/overview";
+import type { CategorySpendInput } from "@/lib/overview";
 import {
   currencyFormatter,
   RANGE_ITEMS,
@@ -37,25 +37,16 @@ import type { RangeKey } from "@/lib/overview-chart";
 
 const chartConfig = {
   total: {
-    color: "var(--chart-1)",
+    color: "var(--chart-2)",
     label: "Total",
   },
 } satisfies ChartConfig;
 
-const formatDayTick = (value: unknown) =>
-  Temporal.PlainDate.from(String(value)).toLocaleString("en-AU", {
-    day: "numeric",
-    month: "short",
-  });
-
-const formatDayTooltipLabel = (value: unknown) =>
-  Temporal.PlainDate.from(String(value)).toLocaleString("en-AU", {
-    day: "numeric",
-    month: "short",
-    weekday: "short",
-  });
-
-export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
+export const CategorySpendingChart = ({
+  rows,
+}: {
+  rows: CategorySpendInput[];
+}) => {
   const [range, setRange] = useState<RangeKey>("30-days");
 
   const today = useMemo(() => Temporal.Now.plainDateISO(), []);
@@ -63,14 +54,14 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
   const data = useMemo(() => {
     const months = RANGE_MONTHS[range];
     const days = months === null ? 30 : windowDays(today, months);
-    return sumDailySpending(receipts, days, today);
-  }, [receipts, range, today]);
+    return sumSpendingByCategory(rows, days, today);
+  }, [rows, range, today]);
 
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-start justify-between">
         <div className="flex flex-col gap-1">
-          <CardTitle>Spending</CardTitle>
+          <CardTitle>Spending by category</CardTitle>
           <CardDescription>
             Total spent in the last {RANGE_LABELS[range]}
           </CardDescription>
@@ -80,7 +71,7 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
           onValueChange={(value) => setRange(value as RangeKey)}
           value={range}
         >
-          <SelectTrigger aria-label="Spending period" size="sm">
+          <SelectTrigger aria-label="Category spending period" size="sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -95,44 +86,55 @@ export const SpendingChart = ({ receipts }: { receipts: SpendingInput[] }) => {
         </Select>
       </CardHeader>
       <CardContent>
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-75 w-full"
-        >
-          <BarChart
-            accessibilityLayer
-            data={data}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
+        {data.length === 0 ? (
+          <p className="text-muted-foreground py-10 text-center text-sm">
+            No categorised spending in this period.
+          </p>
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto h-75 w-full"
           >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="label"
-              minTickGap={32}
-              tickFormatter={formatDayTick}
-              tickLine={false}
-              tickMargin={8}
-            />
-            <YAxis
-              axisLine={false}
-              tickFormatter={(value) => currencyFormatter.format(Number(value))}
-              tickLine={false}
-              tickMargin={8}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) => currencyFormatter.format(Number(value))}
-                  labelFormatter={formatDayTooltipLabel}
-                />
-              }
-            />
-            <Bar dataKey="total" fill="var(--color-total)" />
-          </BarChart>
-        </ChartContainer>
+            <BarChart
+              accessibilityLayer
+              data={data}
+              layout="vertical"
+              margin={{
+                left: 12,
+                right: 12,
+              }}
+            >
+              <CartesianGrid horizontal={false} />
+              <XAxis
+                axisLine={false}
+                tickFormatter={(value) =>
+                  currencyFormatter.format(Number(value))
+                }
+                tickLine={false}
+                tickMargin={8}
+                type="number"
+              />
+              <YAxis
+                axisLine={false}
+                dataKey="label"
+                tickLine={false}
+                tickMargin={8}
+                type="category"
+                width={140}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value) =>
+                      currencyFormatter.format(Number(value))
+                    }
+                  />
+                }
+              />
+              <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );

@@ -18,3 +18,4 @@ Receipts/
 .pnpm-store/
 temp/
 .devtools/
+public/
