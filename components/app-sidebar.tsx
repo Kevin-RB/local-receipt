@@ -22,10 +22,14 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
+/**
+ * The chat is the front door, so it comes first. `/` is the only chat URL —
+ * there is no `/chat` alias.
+ */
 const navItems = [
-  { icon: ReceiptTextIcon, title: "Receipts", url: "/" },
+  { icon: MessageCircleIcon, title: "Chat", url: "/" },
+  { icon: ReceiptTextIcon, title: "Receipts", url: "/receipts" },
   { icon: ChartColumnBigIcon, title: "Overview", url: "/overview" },
-  { icon: MessageCircleIcon, title: "Chat", url: "/chat" },
 ];
 
 export const AppSidebar = () => {
@@ -54,6 +58,8 @@ export const AppSidebar = () => {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     render={<Link href={item.url} />}
+                    // Exact match, not `startsWith`: the chat's URL is `/`, and
+                    // a prefix test would mark it active on every route.
                     isActive={pathname === item.url}
                   >
                     <item.icon />

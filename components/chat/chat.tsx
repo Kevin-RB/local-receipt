@@ -134,34 +134,38 @@ export const Chat = ({ firstName }: { firstName: string }) => {
       {isEmpty ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           {/*
-            The whole empty state waits for the greeting rather than rendering
-            with a hole where the title goes. The greeting comes from the
-            browser's own clock, so it is only known after hydration; gating the
-            block keeps it from shifting the layout once it arrives.
+            The composer and description render on the server; only the title
+            waits for the greeting, which is resolved in the browser from the
+            user's own clock and is therefore unknown during SSR. Gating the
+            whole block on it — the obvious way to avoid a layout shift — left
+            the first paint with no composer at all, so the title is gated
+            instead and its space is reserved with a `min-h`.
           */}
-          {greeting ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="brand">
-                  <MessageCircleIcon />
-                </EmptyMedia>
-                <EmptyTitle size="lg">{greeting}</EmptyTitle>
-                <EmptyDescription>
-                  Ask about your spending — for example “how much did I spend on
-                  groceries last month?”
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent className="w-full max-w-3xl">
-                <PromptForm
-                  isBusy={busy}
-                  onStop={stop}
-                  onSubmit={(text) => sendMessage({ text })}
-                  placeholder="How can I help you today?"
-                />
-                <Suggestions onSelect={(text) => sendMessage({ text })} />
-              </EmptyContent>
-            </Empty>
-          ) : null}
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="brand">
+                <MessageCircleIcon />
+              </EmptyMedia>
+              <div className="flex min-h-8 items-center justify-center">
+                {greeting ? (
+                  <EmptyTitle size="lg">{greeting}</EmptyTitle>
+                ) : null}
+              </div>
+              <EmptyDescription>
+                Ask about your spending — for example “how much did I spend on
+                groceries last month?”
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent className="w-full max-w-3xl">
+              <PromptForm
+                isBusy={busy}
+                onStop={stop}
+                onSubmit={(text) => sendMessage({ text })}
+                placeholder="How can I help you today?"
+              />
+              <Suggestions onSelect={(text) => sendMessage({ text })} />
+            </EmptyContent>
+          </Empty>
           {debugPanel}
         </div>
       ) : (
