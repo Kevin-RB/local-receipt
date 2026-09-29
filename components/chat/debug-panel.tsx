@@ -2,6 +2,7 @@
 
 import type { ChatStatus } from "ai";
 import { getToolName, isToolUIPart } from "ai";
+import { useSyncExternalStore } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import type { ChatMessagePart, ChatUIMessage } from "@/lib/chat/tools";
@@ -48,6 +49,15 @@ const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
   </div>
 );
 
+/**
+ * `useChat` generates its id randomly per instance, so the server and the
+ * client each render a different one. Rendering it during SSR is therefore a
+ * hydration mismatch, so the whole body waits for mount. The panel is
+ * dev-only and collapsed by default, so nothing is lost by deferring it.
+ */
+const subscribeToNothing = () => () => 0;
+const hasMounted = () => true;
+
 export const ChatDebugPanel = ({
   chatId,
   error,
@@ -61,6 +71,11 @@ export const ChatDebugPanel = ({
   status: ChatStatus;
   throttle: number;
 }) => {
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    hasMounted,
+    () => false
+  );
   const last = messages.at(-1);
 
   return (
@@ -69,27 +84,29 @@ export const ChatDebugPanel = ({
         AI SDK debug
       </summary>
 
-      <div className="mt-2 flex flex-col gap-1">
-        <Row
-          label="status"
-          value={<Badge variant={variantFor(status)}>{status}</Badge>}
-        />
-        <Row label="chat id" value={chatId} />
-        <Row label="messages" value={messages.length} />
-        <Row label="throttle" value={`${throttle}ms`} />
-        {last ? (
-          <>
-            <Row label="last role" value={last.role} />
-            <Row
-              label="last parts"
-              value={last.parts.map(summarize).join(", ") || "—"}
-            />
-          </>
-        ) : (
-          <Row label="last" value="—" />
-        )}
-        {error ? <Row label="error" value={error.message} /> : null}
-      </div>
+      {mounted ? (
+        <div className="mt-2 flex flex-col gap-1">
+          <Row
+            label="status"
+            value={<Badge variant={variantFor(status)}>{status}</Badge>}
+          />
+          <Row label="chat id" value={chatId} />
+          <Row label="messages" value={messages.length} />
+          <Row label="throttle" value={`${throttle}ms`} />
+          {last ? (
+            <>
+              <Row label="last role" value={last.role} />
+              <Row
+                label="last parts"
+                value={last.parts.map(summarize).join(", ") || "—"}
+              />
+            </>
+          ) : (
+            <Row label="last" value="—" />
+          )}
+          {error ? <Row label="error" value={error.message} /> : null}
+        </div>
+      ) : null}
     </details>
   );
 };
