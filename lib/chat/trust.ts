@@ -1,6 +1,6 @@
-import { getStaticToolName, isStaticToolUIPart } from "ai";
+import { isDynamicToolUIPart, isStaticToolUIPart } from "ai";
 
-import type { ChatUIMessage } from "./tools";
+import type { ChatMessagePart, ChatUIMessage } from "./tools";
 
 /**
  * The only tool whose output legitimately originates in the browser, keyed by
@@ -23,6 +23,33 @@ const REJECTED = {
 } as const;
 
 /**
+ * Any part that will become a `tool-result` for the model.
+ *
+ * `isStaticToolUIPart` alone is not enough: it matches `type: "tool-*"`, so a
+ * part typed `dynamic-tool` slips past. The SDK still converts one carrying
+ * `providerExecuted === true` and `state: "output-available"` into a
+ * `tool-result`, and both fields arrive on the request body. The app registers
+ * no dynamic tools, so any such part is fabricated by definition.
+ *
+ * See https://github.com/Kevin-RB/local-receipt/pull/136#discussion_r1
+ */
+const isToolResultPart = (
+  part: ChatMessagePart
+): part is Extract<
+  ChatMessagePart,
+  { type: "dynamic-tool" | `tool-${string}` }
+> => isStaticToolUIPart(part) || isDynamicToolUIPart(part);
+
+/** Only `ask_user` may be answered by the browser. */
+const isTrustedClientTool = (part: { type: string }): boolean => {
+  const name = part.type.startsWith("tool-")
+    ? part.type.slice("tool-".length)
+    : (part as { toolName?: string }).toolName;
+
+  return name !== undefined && CLIENT_ANSWERED_TOOLS.has(name);
+};
+
+/**
  * The model treats a tool result as ground truth, so a client that posted a
  * fabricated `spend_by_merchant` result could talk the model into reporting
  * invented totals — and, more subtly, could contradict the real answer. Tool
@@ -41,9 +68,9 @@ export const discardUntrustedToolOutputs = (
     let changed = false;
     const parts = message.parts.map((part) => {
       if (
-        !isStaticToolUIPart(part) ||
+        !isToolResultPart(part) ||
         part.state !== "output-available" ||
-        CLIENT_ANSWERED_TOOLS.has(getStaticToolName(part))
+        isTrustedClientTool(part)
       ) {
         return part;
       }
