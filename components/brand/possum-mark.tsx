@@ -15,13 +15,14 @@ import { cn } from "@/lib/utils";
 export const PossumMark = ({
   className,
   ground = "var(--background)",
+  style,
   ...props
 }: React.ComponentProps<"svg"> & { ground?: string }) => (
   <svg
     viewBox="0 0 40 40"
     aria-hidden="true"
     className={cn("size-8", className)}
-    style={{ "--possum-ground": ground, ...props.style } as React.CSSProperties}
+    style={{ "--possum-ground": ground, ...style } as React.CSSProperties}
     {...props}
   >
     <rect

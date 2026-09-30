@@ -41,7 +41,7 @@ export const AppSidebar = () => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="default" render={<Link href="/" />}>
-              <PossumMark className="size-10" ground="var(--sidebar-accent)" />
+              <PossumMark ground="var(--sidebar-accent)" />
               <span className="truncate font-semibold">Possum Receipts</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
