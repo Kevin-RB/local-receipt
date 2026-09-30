@@ -143,13 +143,11 @@ export const Chat = ({ firstName }: { firstName: string }) => {
           */}
           <Empty>
             <EmptyHeader>
-              <EmptyMedia variant="brand">
+              <EmptyMedia variant="icon">
                 <MessageCircleIcon />
               </EmptyMedia>
               <div className="flex min-h-8 items-center justify-center">
-                {greeting ? (
-                  <EmptyTitle size="lg">{greeting}</EmptyTitle>
-                ) : null}
+                {greeting ? <EmptyTitle>{greeting}</EmptyTitle> : null}
               </div>
               <EmptyDescription>
                 Ask about your spending — for example “how much did I spend on
