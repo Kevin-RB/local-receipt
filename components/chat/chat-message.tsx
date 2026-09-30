@@ -70,7 +70,7 @@ const AssistantPart = ({
 }) => {
   if (part.type === "text") {
     return (
-      <Bubble variant="muted">
+      <Bubble variant="secondary">
         <BubbleContent>
           <TextPart isStreaming={isStreaming} part={part} />
         </BubbleContent>
@@ -96,7 +96,7 @@ export const ChatMessage = ({
     return (
       <Message align="end">
         <MessageContent>
-          <Bubble variant="default">
+          <Bubble variant="tinted">
             <BubbleContent className="whitespace-pre-wrap">
               {message.parts
                 .filter((part) => part.type === "text")

@@ -4,11 +4,11 @@ import {
   ChartColumnBigIcon,
   MessageCircleIcon,
   ReceiptTextIcon,
-  SquirrelIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { PossumMark } from "@/components/brand/possum-mark";
 import {
   Sidebar,
   SidebarContent,
@@ -40,10 +40,8 @@ export const AppSidebar = () => {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <div className="bg-sidebar-accent text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <SquirrelIcon />
-              </div>
+            <SidebarMenuButton size="default" render={<Link href="/" />}>
+              <PossumMark ground="var(--sidebar-accent)" />
               <span className="truncate font-semibold">Possum Receipts</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
