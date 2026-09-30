@@ -8,7 +8,18 @@ import {
   receiptItems,
   receipts,
 } from "@/lib/db";
-import { RECEIPT_TIMEZONE } from "@/lib/receipt/datetime";
+import {
+  RECEIPT_TIMEZONE,
+  receiptDateToISODateString,
+} from "@/lib/receipt/datetime";
+
+import type {
+  CategoryTotal,
+  LineItemSearch,
+  MerchantTotal,
+  ReceiptDetail,
+  ReceiptSummary,
+} from "./output-schemas";
 
 const SEARCH_LIMIT = 25;
 const LIST_LIMIT = 20;
@@ -43,11 +54,6 @@ const optionalDateFilters = (from?: string, to?: string) => {
   return filters;
 };
 
-export interface CategoryTotal {
-  category: string;
-  total: number;
-}
-
 export const spendByCategory = async (
   ownerId: string,
   from: string,
@@ -75,12 +81,6 @@ export const spendByCategory = async (
   return rows;
 };
 
-export interface MerchantTotal {
-  merchant: string;
-  receipts: number;
-  total: number;
-}
-
 export const spendByMerchant = async (
   ownerId: string,
   from: string,
@@ -105,22 +105,6 @@ export const spendByMerchant = async (
     .orderBy(desc(sql`sum(${receipts.total})`));
   return rows;
 };
-
-export interface LineItemMatch {
-  category: string | null;
-  date: Date | null;
-  item: string;
-  kind: string;
-  lineTotal: number;
-  merchant: string | null;
-  receiptId: string;
-}
-
-export interface LineItemSearch {
-  count: number;
-  items: LineItemMatch[];
-  total: number;
-}
 
 export const searchLineItems = async (
   ownerId: string,
@@ -157,16 +141,15 @@ export const searchLineItems = async (
     }
   }
 
-  return { count: items.length, items, total: roundToCents(total) };
+  return {
+    count: items.length,
+    items: items.map((item) => ({
+      ...item,
+      date: item.date ? receiptDateToISODateString(item.date) : null,
+    })),
+    total: roundToCents(total),
+  };
 };
-
-export interface ReceiptSummary {
-  date: Date | null;
-  hasIntegrityWarning: boolean;
-  id: string;
-  merchant: string | null;
-  total: number | null;
-}
 
 export const listReceiptSummaries = async (
   ownerId: string,
@@ -193,25 +176,11 @@ export const listReceiptSummaries = async (
     )
     .orderBy(desc(receipts.transactionDateTime))
     .limit(LIST_LIMIT);
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    date: row.date ? receiptDateToISODateString(row.date) : null,
+  }));
 };
-
-export interface ReceiptDetail {
-  date: Date | null;
-  gst: number | null;
-  id: string;
-  items: {
-    kind: string;
-    lineTotal: number;
-    name: string;
-    quantity: number | null;
-    unitPrice: number | null;
-  }[];
-  merchant: string | null;
-  paymentMethod: string | null;
-  subtotal: number | null;
-  total: number | null;
-}
 
 export const receiptDetail = async (
   ownerId: string,
@@ -223,7 +192,9 @@ export const receiptDetail = async (
   }
 
   return {
-    date: receipt.transactionDateTime,
+    date: receipt.transactionDateTime
+      ? receiptDateToISODateString(receipt.transactionDateTime)
+      : null,
     gst: receipt.gst,
     id: receipt.id,
     items: receipt.receiptItems.map((item) => ({

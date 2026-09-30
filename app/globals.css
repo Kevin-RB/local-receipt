@@ -129,3 +129,34 @@
     @apply font-sans;
   }
 }
+
+/* Relative bar behind a category total, sized by the share passed in as the
+   `--share` custom property by `components/chat/parts/spend-by-category-part.tsx`.
+   Kept here rather than as a utility because the value is only known at runtime. */
+.share-bar {
+  scale: var(--share, 0) 1;
+}
+
+/* Marks work that is genuinely in flight — a running tool call, a pending
+   question. Fades the label in and out so a slow query reads as "working"
+   rather than as a finished answer with no data. */
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.shimmer {
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    opacity: 0.6;
+  }
+}
