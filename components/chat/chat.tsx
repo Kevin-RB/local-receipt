@@ -6,17 +6,16 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
 } from "ai";
 import { Leap } from "loading-dev";
-import { MessageCircleIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
+import { PossumMark } from "@/components/brand/possum-mark";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
 } from "@/components/ui/empty";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import {
@@ -133,21 +132,19 @@ export const Chat = ({ firstName }: { firstName: string }) => {
     <div className="flex h-full w-full flex-col">
       {isEmpty ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          {/*
-            The composer and description render on the server; only the title
-            waits for the greeting, which is resolved in the browser from the
-            user's own clock and is therefore unknown during SSR. Gating the
-            whole block on it — the obvious way to avoid a layout shift — left
-            the first paint with no composer at all, so the title is gated
-            instead and its space is reserved with a `min-h`.
-          */}
           <Empty>
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <MessageCircleIcon />
-              </EmptyMedia>
-              <div className="flex min-h-8 items-center justify-center">
-                {greeting ? <EmptyTitle>{greeting}</EmptyTitle> : null}
+              {/* No reserved height needed: the mark renders unconditionally
+                  and is taller than the text, so the row cannot change height
+                  when the greeting eases in after hydration — see
+                  `lib/chat/greeting.ts`. */}
+              <div className="flex items-center justify-center gap-3">
+                <PossumMark className="size-16" ground="var(--background)" />
+                {greeting ? (
+                  <h1 className="font-heading text-2xl font-semibold tracking-tight">
+                    {greeting}
+                  </h1>
+                ) : null}
               </div>
               <EmptyDescription>
                 Ask about your spending — for example “how much did I spend on
