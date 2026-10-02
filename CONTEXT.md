@@ -39,3 +39,9 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Owner**: The user whose account uploaded a receipt. Only the owner may view, edit, delete, or subscribe to a receipt's processing stream. _Avoid_: Creator, author, uploader.
 
 **Invite code**: The single shared secret a prospective user enters at sign-up to create an account, controlled by the app owner to gate registration. _Avoid_: Registration code, access code, beta key.
+
+**Category**: A controlled classification of a line item, drawn from an app-owned taxonomy shared across all users. Categories form a two-level tree (a top-level category and its subcategories), and a line item carries exactly one, always a leaf. _Avoid_: Tag, label, type, bucket.
+
+**Subcategory**: A leaf category within a top-level category (e.g. Dairy & Eggs within Groceries). The level a line item is actually assigned. _Avoid_: Child category, sub-type.
+
+**Categorization**: The pass that assigns a category to each line item, interpreting the item's name and merchant. Distinct from extraction. _Avoid_: Classification, tagging.

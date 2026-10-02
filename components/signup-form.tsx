@@ -1,13 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { EyeIcon, EyeOffIcon, GalleryVerticalEndIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PossumMark } from "@/components/brand/possum-mark";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -70,9 +71,7 @@ export const SignupForm = ({
               href="/"
               className="flex flex-col items-center gap-2 font-medium"
             >
-              <div className="flex size-8 items-center justify-center rounded-md">
-                <GalleryVerticalEndIcon className="size-6" />
-              </div>
+              <PossumMark className="size-16" ground="var(--background)" />
               <span className="sr-only">possum</span>
             </Link>
             <h1 className="text-xl font-bold">Create an account</h1>

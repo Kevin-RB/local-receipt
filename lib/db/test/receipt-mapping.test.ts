@@ -7,6 +7,7 @@ import type { ReceiptNested, ReceiptSelect } from "@/lib/db/schema/receipt";
 const dtypeReceipt = new Date("2026-06-15T04:32:00.000Z");
 
 const flatReceipt: ReceiptSelect = {
+  categorizedAt: null,
   createdAt: dtypeReceipt,
   gst: 1,
   hasIntegrityWarning: false,

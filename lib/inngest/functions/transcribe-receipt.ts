@@ -15,6 +15,7 @@ import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
+import { receiptExtractedEvent } from "@/lib/inngest/functions/categorize-receipt";
 import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { reconcile } from "@/lib/receipt/integrity";
 import { BUCKET, downloadObject } from "@/lib/storage/client";
@@ -194,6 +195,11 @@ export const transcribeReceipt = inngest.createFunction(
     await step.realtime.publish("publish-done", ch.state, {
       state: "done",
     });
+
+    await step.sendEvent(
+      "emit-extracted",
+      receiptExtractedEvent.create({ receiptId, userId: event.data.userId })
+    );
 
     return {
       extraction: { ...extraction, items },

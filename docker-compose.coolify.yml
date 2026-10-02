@@ -17,10 +17,16 @@
 #                `pnpm db:migrate` against Postgres; the app only starts when it
 #                has completed successfully, so the server never runs ahead of
 #                the schema.
+#   toolbox    - long-lived idle container (Dockerfile `toolbox` target) that
+#                exists only to be exec'd into for on-demand jobs; see its own
+#                comment below.
 #   postgres   - single app database; internal only.
 #   rustfs     - object storage (ADR-0006); webhook sent to the app over the
 #                compose network (service name `app`, not host.docker.internal).
 #   rustfs-init - one-shot job: bucket + bucket-notification event.
+#
+# Backups: two independent mechanisms, both same-host. See the `backups-data`
+# mount on `postgres` and the Backups section of AGENTS.md.
 #
 # Host ports exist on postgres/rustfs solely for private admin (LAN and
 # Tailscale tailnet): Postgres on ${POSTGRES_HOST_PORT:-55432} (psql/Studio
@@ -76,6 +82,8 @@ services:
       LM_STUDIO_URL: ${LM_STUDIO_URL:-http://host.docker.internal:1234/v1}
       ORC_MODEL: ${ORC_MODEL:-glm-ocr}
       PARSE_MODEL: ${PARSE_MODEL:-google/gemma-4-e4b}
+      CATEGORIZE_MODEL: ${CATEGORIZE_MODEL:-google/gemma-4-e4b}
+      CHAT_MODEL: ${CHAT_MODEL:-google/gemma-4-e4b}
       INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:?}
       INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:?}
     extra_hosts:
@@ -106,6 +114,53 @@ services:
     exclude_from_hc: true
     restart: "no"
 
+  # toolbox - stays up purely to be exec'd into, so that on-demand jobs
+  # against the deployed database have a toolchain to run in. Currently the
+  # categorization backfill (see AGENTS.md). `app` cannot host it: the
+  # standalone server ships no `node_modules`, `tsx` or `package.json`, so
+  # there is nothing there to run a script with.
+  #
+  # Deliberately long-lived rather than a one-shot behind a compose profile.
+  # Coolify's deploy runs plain `docker compose up`, which would skip a
+  # profiled service — `profiles` is what keeps a service out of that command
+  # — and the deploy-time `build` skips it too, so its image would never be
+  # built and a manual `run` would have nothing to start. Staying up costs
+  # one idle container and removes that whole class of problem: the image is
+  # built by every deploy, and the container is restarted by one.
+  #
+  # It holds no credentials beyond DATABASE_URL and the Inngest *event* key,
+  # and no signing key, LM Studio, or storage access — because it does no
+  # categorization itself. A job here selects unstamped receipt ids and sends
+  # `receipt/extracted`; the work happens in the `app` container's Inngest
+  # worker. Keeping the event key alongside the database URL is the point:
+  # they come from the same Coolify resource, so a prod key cannot be aimed at
+  # the staging database by accident.
+  toolbox:
+    build:
+      context: .
+      target: toolbox
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${SERVICE_PASSWORD_64_POSTGRES:?}@postgres:5432/${POSTGRES_DB:?}
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:?}
+    # Reports ready as soon as the toolchain is in place. This container runs
+    # no server, so there is no port to probe and nothing to assert beyond
+    # "can it still run a job" — which is exactly what a missing tsx or
+    # backfill script would silently break.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''fs'').accessSync(''node_modules/.bin/tsx'',require(''fs'').X_OK);require(''fs'').accessSync(''scripts/backfill-categorization.ts'')"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
   postgres:
     image: postgres:18-alpine
     environment:
@@ -130,6 +185,11 @@ services:
       # and its declared VOLUME to /var/lib/postgresql; mounting that root
       # makes the named volume actually hold the database.
       - postgres-data:/var/lib/postgresql
+      # Dump target for the `pg-dump` Coolify Scheduled Task (see AGENTS.md).
+      # A separate volume on purpose: keeping dumps out of `postgres-data`
+      # means a restore of the database can never be polluted by them, and
+      # the retention prune below can never eat into the database's own disk.
+      - backups-data:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -264,5 +324,6 @@ services:
 
 volumes:
   postgres-data:
+  backups-data:
   rustfs-data:
   rustfs-logs:
