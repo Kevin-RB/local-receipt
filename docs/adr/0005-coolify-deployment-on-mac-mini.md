@@ -40,6 +40,22 @@ The `backup` container (T12) was removed from the compose stack. It crash-looped
 
 Backups are being reworked as a separate task (cron-based, likely off-box); until then **no automatic backups run in production**.
 
+## Update (2026-10-02): backups restored, two mechanisms
+
+The "no automatic backups run in production" gap left by the 2026-09-08 removal above is closed. Backups are now configured per-environment and run from the Coolify UI, so — unlike the container that caused the original incident — nothing in the compose stack can crash-loop and trip Coolify's aggregate restart limit.
+
+**1. Volume backup.** Coolify's storage backup on `postgres-data`, written to `/data/coolify/backups/volumes/…` as a `tar.gz` of the data directory. Restores by untarring over a fresh volume on the same `postgres:18-alpine` image; not portable across major versions. Configured **without** "stop the container" — stopping makes the archive consistent but costs service interruption, so the archive is a live-database copy.
+
+**2. `pg_dump`.** A Coolify Scheduled Task on the `postgres` container, writing to a new `backups-data` volume mounted at `/backups`, with a 14-day prune and `pg_dumpall --globals-only` alongside so a logical restore has its roles. The exact command is in AGENTS.md.
+
+Both are **same-host**, which is the same trade-off the original design accepted and that ADR-0005 line 30 already flagged as an accepted risk: they cover a bad deploy, a deleted volume, or a mistake, not losing the mini. Off-box storage remains the planned destination and is deliberately deferred until this pipeline is trusted.
+
+The two mechanisms are kept despite overlapping, because they fail differently. `pg_dump` takes an MVCC snapshot and is therefore consistent against a running database. A `tar` of PGDATA from a live database is not: files are read at different moments, so the archive is a combination that never existed. This is _not_ the same as surviving an abrupt kill — WAL replay can rescue a crash because a crashed cluster is still a consistent prefix of history, which a torn copy is not — so declining "stop the container" is only safe while a snapshot-consistent second artifact exists.
+
+Coolify's own scheduled _database_ backup is not an option for this stack and should not be revisited: the feature was proposed upstream (coollabsio/coolify#9019, #9721) but never merged, and `ServiceDatabase` has no `application_id` column, so a Git-based Compose Application cannot register a database resource. Only the storage/volume backup path applies.
+
+Known gap: `rustfs-data` (receipt images) is not covered by either mechanism, so a database-only restore leaves receipts whose images are missing.
+
 ## Update (T16–T20, 2026-09): dashboard domain, git-backed deploy, merge-gate CD, headless LM Studio
 
 - **T16 — dashboard domain (issue #71).** The Coolify instance (dashboard) domain is `http://coolbox.tribi.dev`, served through the same tunnel → Traefik path and fronted by a Cloudflare Access application whose policy is tied to the owner's account — only the owner reaches the Coolify login page. The ticket originally named `coolify.tribi.dev`; that hostname (like `minio.` and `console.tribi.dev`) still resolves through the wildcard but answers with a Cloudflare Access login redirect — not the dashboard and not a proxy 404, so the earlier "proxy 404" expectation is superseded. Routing the dashboard through the proxy is also what makes the GitHub App webhook URLs (`/webhooks/source/github/…`) publicly reachable for T18.

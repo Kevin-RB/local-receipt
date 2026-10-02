@@ -22,6 +22,9 @@
 #                compose network (service name `app`, not host.docker.internal).
 #   rustfs-init - one-shot job: bucket + bucket-notification event.
 #
+# Backups: two independent mechanisms, both same-host. See the `backups-data`
+# mount on `postgres` and the Backups section of AGENTS.md.
+#
 # Host ports exist on postgres/rustfs solely for private admin (LAN and
 # Tailscale tailnet): Postgres on ${POSTGRES_HOST_PORT:-55432} (psql/Studio
 # tunnels), the RustFS console UI on ${STORAGE_CONSOLE_HOST_PORT:-59001}, and —
@@ -132,6 +135,11 @@ services:
       # and its declared VOLUME to /var/lib/postgresql; mounting that root
       # makes the named volume actually hold the database.
       - postgres-data:/var/lib/postgresql
+      # Dump target for the `pg-dump` Coolify Scheduled Task (see AGENTS.md).
+      # A separate volume on purpose: keeping dumps out of `postgres-data`
+      # means a restore of the database can never be polluted by them, and
+      # the retention prune below can never eat into the database's own disk.
+      - backups-data:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -266,5 +274,6 @@ services:
 
 volumes:
   postgres-data:
+  backups-data:
   rustfs-data:
   rustfs-logs:
