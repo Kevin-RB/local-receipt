@@ -1,7 +1,12 @@
-# Multi-stage production image. Two deployable targets (from
+# Multi-stage production image. Three deployable targets (from
 # docker-compose.coolify.yml):
 #   runner  - minimal, non-root Next.js standalone server (the app)
 #   migrator- full toolchain for `pnpm db:migrate` (one-shot deploy step)
+#   toolbox - full toolchain, kept alive purely to be exec'd into for
+#             on-demand jobs (see its own stage below)
+#
+# `migrator` and `toolbox` are the same image contents, so they share the
+# `tooling` stage rather than duplicating the install + COPY list.
 
 ARG NODE_VERSION=26-slim
 
@@ -81,13 +86,41 @@ CMD ["sh", "./scripts/start-production.sh"]
 
 
 # ============================================
-# Stage 4: Migrator - one-shot deploy step
+# Stage 4: Tooling - full toolchain + sources
 # ============================================
-FROM base AS migrator
+# Everything needed to run a repo script against the deployed database:
+# dependencies (tsx is a devDependency, so no --prod install), the `@/*` path
+# mapping from tsconfig.json, the `lib/` sources the scripts import, and
+# `drizzle/` + drizzle.config.ts for the migrate target.
+FROM base AS tooling
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json drizzle.config.ts ./
 COPY drizzle ./drizzle
 COPY lib ./lib
+COPY scripts ./scripts
+
+# ============================================
+# Stage 5: Migrator - one-shot deploy step
+# ============================================
+FROM tooling AS migrator
 
 ENTRYPOINT ["pnpm", "db:migrate"]
+
+# ============================================
+# Stage 6: Toolbox - long-lived container for ad-hoc work
+# ============================================
+# Holds nothing but a toolchain and stays up so that jobs needing one have
+# somewhere to run. The `app` container cannot host them: the standalone
+# server ships no `node_modules` and no `tsx`, so there is no `package.json`
+# to run a script with. Jobs are exec'd in via Coolify (Terminal or a
+# Scheduled Task), which is also where they get the resource's env vars —
+# see the `toolbox` service in docker-compose.coolify.yml.
+#
+# CMD is a sleep rather than a job because this container must never do work
+# on its own; a deploy should only restart it. A Scheduled Task supplies the
+# command. (`CMD`, not `ENTRYPOINT`, so `docker compose run --rm toolbox
+# pnpm …` can override it for a one-off.)
+FROM tooling AS toolbox
+
+CMD ["sleep", "infinity"]
