@@ -121,12 +121,12 @@ services:
   # there is nothing there to run a script with.
   #
   # Deliberately long-lived rather than a one-shot behind a compose profile.
-  # Coolify's deploy runs plain `docker compose up`, which would start a
-  # profiled service only if it opted out via `profiles` — but a profiled
-  # service is also skipped by the deploy-time `build`, so its image would
-  # never be built and a manual `run` would have nothing to start. Staying up
-  # costs one idle container and removes that whole class of problem: the
-  # image is built by every deploy, and the container is restarted by one.
+  # Coolify's deploy runs plain `docker compose up`, which would skip a
+  # profiled service — `profiles` is what keeps a service out of that command
+  # — and the deploy-time `build` skips it too, so its image would never be
+  # built and a manual `run` would have nothing to start. Staying up costs
+  # one idle container and removes that whole class of problem: the image is
+  # built by every deploy, and the container is restarted by one.
   #
   # It holds no credentials beyond DATABASE_URL and the Inngest *event* key,
   # and no signing key, LM Studio, or storage access — because it does no
@@ -147,8 +147,8 @@ services:
       INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:?}
     # Reports ready as soon as the toolchain is in place. This container runs
     # no server, so there is no port to probe and nothing to assert beyond
-    # "can it still run a job" — which is exactly what a missing tsx or lib/
-    # would silently break.
+    # "can it still run a job" — which is exactly what a missing tsx or
+    # backfill script would silently break.
     healthcheck:
       test:
         [
