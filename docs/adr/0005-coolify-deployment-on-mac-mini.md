@@ -50,7 +50,9 @@ The "no automatic backups run in production" gap left by the 2026-09-08 removal 
 
 Each run ends with `pg_restore -l … && echo dump-ok`, which validates the archive just written. That ordering is deliberate and must not change: Coolify only marks an execution failed when the command exits non-zero, and a `;`-separated shell returns the status of its last command. Ending on the `find` prune — which exits 0 even when it cannot read the directory — left every failure reporting green, so the task's own status could not be trusted and the output message was the only usable signal. Ending on the validation makes the exit code the health check, so the task list and the message now agree. The prune stays `;`-chained so retention still runs when a dump fails.
 
-`pg_restore -l` reads the table of contents without a database and fails on a bad or truncated archive, including the zero-byte file a failed `pg_dump` leaves behind. An actual `pg_restore` into a database has still not been performed.
+`pg_restore -l` reads the table of contents without a database and fails on a bad or truncated archive, including the zero-byte file a failed `pg_dump` leaves behind.
+
+Restoring has since been verified end to end on staging: the dump was restored into a scratch database and returned the same receipt count as live, with all seven tables present, `drizzle.__drizzle_migrations` included — so a restore carries the migration history with it. A restore into a fresh database emits zero errors. `errors ignored on restore: 46` appears only when restoring into a database that already has the schema, where every error is an `already exists` and all data still loads; judge a restore by row count, not error count. The `.sql` roles file remains unexercised, since roles are cluster-wide and a real test needs a throwaway Postgres container.
 
 Both are **same-host**, which is the same trade-off the original design accepted and that ADR-0005 line 30 already flagged as an accepted risk: they cover a bad deploy, a deleted volume, or a mistake, not losing the mini. Off-box storage remains the planned destination and is deliberately deferred until this pipeline is trusted.
 
