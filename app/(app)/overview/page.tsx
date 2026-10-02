@@ -2,13 +2,16 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { CategorySpendingChart } from "@/components/overview/category-spending-chart";
 import { IntegrityChart } from "@/components/overview/integrity-chart";
 import { MerchantSpendingChart } from "@/components/overview/merchant-spending-chart";
 import { SpendingChart } from "@/components/overview/spending-chart";
 import { auth } from "@/lib/auth";
-import { listDoneReceipts } from "@/lib/db";
+import { listDoneReceipts, spendByCategoryByDay } from "@/lib/db";
 import { receiptSelectSchema } from "@/lib/db/schema/receipt";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
+
+const CATEGORY_HISTORY_DAYS = 95;
 
 const getReceipts = async (ownerId: string): Promise<ReceiptSelect[]> => {
   const receipts = await listDoneReceipts(ownerId);
@@ -26,7 +29,10 @@ const OverviewPage = async () => {
     redirect("/sign-in");
   }
 
-  const receipts = await getReceipts(session.user.id);
+  const [receipts, categorySpend] = await Promise.all([
+    getReceipts(session.user.id),
+    spendByCategoryByDay(session.user.id, CATEGORY_HISTORY_DAYS),
+  ]);
 
   return (
     <main className="container mx-auto flex flex-col gap-6 p-6">
@@ -37,6 +43,7 @@ const OverviewPage = async () => {
           transactionDateTime,
         }))}
       />
+      <CategorySpendingChart rows={categorySpend} />
       <div className="grid gap-6 lg:grid-cols-2">
         <MerchantSpendingChart
           receipts={receipts.map(

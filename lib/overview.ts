@@ -78,3 +78,36 @@ export const sumSpendingByMerchant = (
     .map(([label, total]) => ({ label, total: roundToCents(total) }))
     .toSorted((a, b) => b.total - a.total);
 };
+
+export interface CategorySpendInput {
+  categoryName: string;
+  date: string;
+  total: number;
+}
+
+export const sumSpendingByCategory = (
+  rows: CategorySpendInput[],
+  days: number,
+  today = Temporal.Now.plainDateISO()
+): SpendingBucket[] => {
+  const start = today.subtract({ days: days - 1 });
+  const totals = new Map<string, number>();
+
+  for (const row of rows) {
+    const date = Temporal.PlainDate.from(row.date);
+    if (Temporal.PlainDate.compare(date, start) < 0) {
+      continue;
+    }
+    if (Temporal.PlainDate.compare(date, today) > 0) {
+      continue;
+    }
+    totals.set(
+      row.categoryName,
+      (totals.get(row.categoryName) ?? 0) + row.total
+    );
+  }
+
+  return [...totals.entries()]
+    .map(([label, total]) => ({ label, total: roundToCents(total) }))
+    .toSorted((a, b) => b.total - a.total);
+};

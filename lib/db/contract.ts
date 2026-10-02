@@ -7,7 +7,7 @@ import {
 } from "@/lib/db/schema/receipt-item";
 
 export const receiptExtractionItemSchema = receiptItemInsertSchema
-  .omit({ id: true, receiptId: true })
+  .omit({ categoryId: true, id: true, receiptId: true })
   .extend({
     kind: lineItemKindEnum.default("product"),
     quantity: z.number().nullable().default(1),

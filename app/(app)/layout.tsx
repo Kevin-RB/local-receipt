@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   SidebarInset,
   SidebarProvider,
@@ -28,7 +29,8 @@ const AppLayout = async ({ children }: { children: React.ReactNode }) => {
         <SidebarInset>
           <header className="flex h-12 shrink-0 items-center gap-2 px-4">
             <SidebarTrigger />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <ThemeToggle />
               <SignOutButton />
             </div>
           </header>

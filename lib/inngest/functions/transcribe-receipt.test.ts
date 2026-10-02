@@ -44,6 +44,8 @@ const mockExtraction: ReceiptInformationExtraction = {
 
 const mockPublish = vi.fn<() => Promise<void>>();
 
+const mockSendEvent = vi.fn<() => Promise<void>>().mockResolvedValue();
+
 const baseSteps = [
   {
     handler: () => ({
@@ -103,6 +105,9 @@ const createEngine = (
             if (prop === "realtime") {
               return { publish: mockPublish };
             }
+            if (prop === "sendEvent") {
+              return mockSendEvent;
+            }
             return Reflect.get(target, prop, target);
           },
         });
@@ -116,6 +121,7 @@ describe("transcribeReceipt function", () => {
   beforeEach(() => {
     mockSet.mockClear();
     mockUpdate.mockClear();
+    mockSendEvent.mockClear();
   });
 
   it("runs extracting → parsing → storing and returns the extraction", async () => {
@@ -332,5 +338,21 @@ describe("transcribeReceipt function", () => {
     await engine.execute().catch(() => {});
 
     expect(mockSet).toHaveBeenCalledWith({ transcript: "FAKE OCR TRANSCRIPT" });
+  });
+
+  it("emits receipt/extracted once the receipt is stored", async () => {
+    const engine = createEngine();
+    await engine.execute();
+
+    expect(mockSendEvent).toHaveBeenCalledWith(
+      "emit-extracted",
+      expect.objectContaining({
+        data: {
+          receiptId: "00000000-0000-0000-0000-000000000001",
+          userId: "user-1",
+        },
+        name: "receipt/extracted",
+      })
+    );
   });
 });

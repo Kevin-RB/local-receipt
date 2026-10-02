@@ -1,13 +1,20 @@
+import { and, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { relations } from "@/lib/db/relations";
+import { categories as categoriesTable } from "@/lib/db/schema/category";
+import { receipts as receiptsTable } from "@/lib/db/schema/receipt";
+import { receiptItems as receiptItemsTable } from "@/lib/db/schema/receipt-item";
+import { RECEIPT_TIMEZONE } from "@/lib/receipt/datetime";
 
 import { DEFAULT_DATABASE_URL } from "./constants";
 
+export { categories } from "./schema/category";
+export type { CategorySelect } from "./schema/category";
+export { receiptItems } from "./schema/receipt-item";
 export { receipts } from "./schema/receipt";
 export type { ProcessingStatus } from "./schema/receipt";
-export { receiptItems } from "./schema/receipt-item";
 
 const createDb = (connectionString: string) => {
   const pool = new Pool({
@@ -46,7 +53,7 @@ export const findReceiptByObjectKey = (objectKey: string) =>
 
 export const listReceipts = (ownerId: string) =>
   db.query.receipts.findMany({
-    orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
+    orderBy: (table, { desc: orderDesc }) => [orderDesc(table.createdAt)],
     where: { userId: ownerId },
     with: {
       receiptItems: true,
@@ -55,8 +62,80 @@ export const listReceipts = (ownerId: string) =>
 
 export const listDoneReceipts = (ownerId: string) =>
   db.query.receipts.findMany({
-    orderBy: (receipts, { desc }) => [desc(receipts.createdAt)],
+    orderBy: (table, { desc: orderDesc }) => [orderDesc(table.createdAt)],
     where: { status: "done", userId: ownerId },
   });
+
+export interface CategoryOption {
+  id: string;
+  name: string;
+  parentName: string | null;
+  slug: string;
+}
+
+export const listCategoryOptions = async (): Promise<CategoryOption[]> => {
+  const all = await db.select().from(categoriesTable);
+  const byId = new Map(all.map((category) => [category.id, category]));
+  const parentIds = new Set(
+    all
+      .map((category) => category.parentId)
+      .filter((id): id is string => id !== null)
+  );
+
+  return all
+    .filter((category) => !parentIds.has(category.id))
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      parentName: category.parentId
+        ? (byId.get(category.parentId)?.name ?? null)
+        : null,
+      slug: category.slug,
+    }));
+};
+
+export interface CategorySpendDay {
+  categoryName: string;
+  date: string;
+  slug: string;
+  total: number;
+}
+
+const categoryDayExpression = sql`(${receiptsTable.transactionDateTime} at time zone ${sql.raw(`'${RECEIPT_TIMEZONE}'`)})::date`;
+
+export const spendByCategoryByDay = async (
+  ownerId: string,
+  days: number
+): Promise<CategorySpendDay[]> => {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  return await db
+    .select({
+      categoryName: sql<string>`coalesce(${categoriesTable.name}, 'Uncategorised')`,
+      date: sql<string>`${categoryDayExpression}`,
+      slug: sql<string>`coalesce(${categoriesTable.slug}, 'uncategorised')`,
+      total: sql<number>`sum(${receiptItemsTable.lineTotal})::double precision`,
+    })
+    .from(receiptItemsTable)
+    .innerJoin(receiptsTable, eq(receiptItemsTable.receiptId, receiptsTable.id))
+    .leftJoin(
+      categoriesTable,
+      eq(receiptItemsTable.categoryId, categoriesTable.id)
+    )
+    .where(
+      and(
+        eq(receiptsTable.userId, ownerId),
+        eq(receiptsTable.status, "done"),
+        eq(receiptItemsTable.kind, "product"),
+        gte(receiptsTable.transactionDateTime, since)
+      )
+    )
+    .groupBy(
+      categoriesTable.id,
+      categoriesTable.name,
+      categoriesTable.slug,
+      categoryDayExpression
+    );
+};
 
 export { drizzle } from "drizzle-orm/node-postgres";

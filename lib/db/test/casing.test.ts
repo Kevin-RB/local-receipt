@@ -8,6 +8,7 @@ describe("receipt_items snake_case casing", () => {
     const config = getTableConfig(receiptItems);
     expect(config.name).toBe("receipt_items");
     expect(config.columns.map((c) => c.name)).toStrictEqual([
+      "category_id",
       "id",
       "kind",
       "line_total",

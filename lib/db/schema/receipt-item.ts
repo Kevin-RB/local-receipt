@@ -1,4 +1,4 @@
-import { numeric, snakeCase, text, uuid } from "drizzle-orm/pg-core";
+import { index, numeric, snakeCase, text, uuid } from "drizzle-orm/pg-core";
 import {
   createInsertSchema,
   createSelectSchema,
@@ -6,23 +6,34 @@ import {
 } from "drizzle-orm/zod";
 import { z } from "zod";
 
+import { categories } from "@/lib/db/schema/category";
 import { receipts } from "@/lib/db/schema/receipt";
 
 export const lineItemKindEnum = z.enum(["product", "surcharge", "discount"]);
 
 export type LineItemKind = z.infer<typeof lineItemKindEnum>;
 
-export const receiptItems = snakeCase.table("receipt_items", {
-  id: uuid().primaryKey().defaultRandom(),
-  kind: text().$type<LineItemKind>().notNull().default("product"),
-  lineTotal: numeric({ mode: "number", precision: 10, scale: 2 }).notNull(),
-  name: text().notNull(),
-  quantity: numeric({ mode: "number" }),
-  receiptId: uuid()
-    .notNull()
-    .references(() => receipts.id, { onDelete: "cascade" }),
-  unitPrice: numeric({ mode: "number", precision: 10, scale: 2 }),
-});
+export const receiptItems = snakeCase.table(
+  "receipt_items",
+  {
+    categoryId: uuid().references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    id: uuid().primaryKey().defaultRandom(),
+    kind: text().$type<LineItemKind>().notNull().default("product"),
+    lineTotal: numeric({ mode: "number", precision: 10, scale: 2 }).notNull(),
+    name: text().notNull(),
+    quantity: numeric({ mode: "number" }),
+    receiptId: uuid()
+      .notNull()
+      .references(() => receipts.id, { onDelete: "cascade" }),
+    unitPrice: numeric({ mode: "number", precision: 10, scale: 2 }),
+  },
+  (table) => [
+    index("receipt_items_category_id_index").on(table.categoryId),
+    index("receipt_items_receipt_id_index").on(table.receiptId),
+  ]
+);
 
 export const receiptItemSelectSchema = createSelectSchema(receiptItems, {
   kind: lineItemKindEnum,
