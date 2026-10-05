@@ -536,13 +536,20 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 <Button
                   className={cn(fields.length === 0 && "w-full")}
                   onClick={() =>
-                    append({
-                      kind: "product",
-                      lineTotal: 0,
-                      name: "",
-                      quantity: undefined,
-                      unitPrice: undefined,
-                    })
+                    append(
+                      {
+                        kind: "product",
+                        lineTotal: 0,
+                        name: "",
+                        quantity: undefined,
+                        unitPrice: undefined,
+                      },
+                      // Name the field explicitly rather than relying on append's
+                      // default focus, which targets the first field registered
+                      // under the new line item — that is line total, since
+                      // ReceiptItemRow registers it before rendering name.
+                      { focusName: `items.${fields.length}.name` }
+                    )
                   }
                   type="button"
                   variant="outline"
