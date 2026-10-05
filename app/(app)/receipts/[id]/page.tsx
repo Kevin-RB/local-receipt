@@ -87,7 +87,7 @@ const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
         <Link
           aria-label="Back to receipts"
           className="text-muted-foreground hover:text-foreground"
-          href="/"
+          href="/receipts"
         >
           <ArrowLeft className="size-5" />
         </Link>
