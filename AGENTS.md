@@ -191,7 +191,7 @@ Key properties:
 ## Database
 
 - Drizzle ORM (`1.0.0-rc.4`) with `pg` and Postgres.
-- Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`, `lib/db/schema/category.ts`. Relations: `lib/db/relations.ts`. Line items carry a nullable `category_id` (leaf category); receipts carry `categorized_at`.
+- Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`, `lib/db/schema/category.ts`. Relations: `lib/db/relations.ts`. Line items carry a nullable `category_id` (leaf category) and a `category_source` (`ai` | `user`); receipts carry `categorized_at`.
 - Migrations live in `drizzle/` and are generated with `pnpm db:generate`.
 - For local dev you can either run `pnpm db:migrate` after generating or use `pnpm db:push`.
 - `pnpm db:seed` writes demo data through the `drizzle-seed` library (reset + seed) to a dedicated `receipts_seed` database — never the app's `receipts` database. Point it elsewhere with `SEED_DATABASE_URL`. One-time setup per dev machine: create the database and migrate it, then run the app against it to view the data:

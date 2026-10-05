@@ -9,6 +9,7 @@ const {
   mockGetSession,
   mockInsert,
   mockInsertValues,
+  mockListCategoryOptions,
   mockRevalidatePath,
   mockReceiptDateTimeToDate,
   mockSet,
@@ -53,8 +54,38 @@ const {
     .mockImplementation((fn) => fn(tx));
 
   const findFirst = vi
-    .fn<() => Promise<{ status: string } | null>>()
-    .mockResolvedValue({ status: "done" });
+    .fn<
+      () => Promise<{
+        receiptItems: {
+          categoryId: string | null;
+          categorySource: "ai" | "user";
+          id: string;
+        }[];
+        status: string;
+      } | null>
+    >()
+    .mockResolvedValue({ receiptItems: [], status: "done" });
+
+  const listCategoryOptions = vi
+    .fn<
+      () => Promise<
+        { id: string; name: string; parentName: string | null; slug: string }[]
+      >
+    >()
+    .mockResolvedValue([
+      {
+        id: "123e4567-e89b-12d3-a456-426614174010",
+        name: "Dairy & Eggs",
+        parentName: "Groceries",
+        slug: "dairy-eggs",
+      },
+      {
+        id: "123e4567-e89b-12d3-a456-426614174011",
+        name: "Other",
+        parentName: null,
+        slug: "other",
+      },
+    ]);
 
   const revalidatePath = vi.fn<(path: string) => undefined>();
   const receiptDateTimeToDate = vi
@@ -71,6 +102,7 @@ const {
     mockGetSession: getSession,
     mockInsert: insertTable,
     mockInsertValues: insertValues,
+    mockListCategoryOptions: listCategoryOptions,
     mockReceiptDateTimeToDate: receiptDateTimeToDate,
     mockRevalidatePath: revalidatePath,
     mockSet: setValue,
@@ -86,6 +118,7 @@ vi.mock(import("@/lib/db"), () => ({
     query: { receipts: { findFirst: mockFindFirst } },
     transaction: mockTransaction,
   },
+  listCategoryOptions: mockListCategoryOptions,
   receiptItems: {},
   receipts: {},
 }));
@@ -112,6 +145,11 @@ vi.mock(import("@/lib/receipt/datetime"), () => ({
 const { updateReceipt } = await import("./actions");
 
 const receiptId = "123e4567-e89b-12d3-a456-426614174000";
+const itemOneId = "123e4567-e89b-12d3-a456-426614174001";
+const itemTwoId = "123e4567-e89b-12d3-a456-426614174002";
+const otherReceiptsItemId = "123e4567-e89b-12d3-a456-426614174003";
+const dairyId = "123e4567-e89b-12d3-a456-426614174010";
+const otherId = "123e4567-e89b-12d3-a456-426614174011";
 
 const validInput: UpdateReceiptInput = {
   items: [
@@ -149,7 +187,8 @@ describe(updateReceipt, () => {
     mockGetSession.mockClear();
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockFindFirst.mockClear();
-    mockFindFirst.mockResolvedValue({ status: "done" });
+    mockFindFirst.mockResolvedValue({ receiptItems: [], status: "done" });
+    mockListCategoryOptions.mockClear();
     mockSetWhere.mockClear();
     mockSet.mockClear();
     mockUpdate.mockClear();
@@ -200,6 +239,39 @@ describe(updateReceipt, () => {
     expect(result).toStrictEqual({ success: true });
   });
 
+  it("never lets a submitted itemId decide which row it writes to", async () => {
+    // An id that is not among the receipt's own items must be treated as a new
+    // row, never as an update against a line item on another receipt.
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [{ categoryId: null, categorySource: "ai", id: itemOneId }],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          itemId: otherReceiptsItemId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
+      ],
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        categoryId: null,
+        categorySource: "ai",
+        name: "Milk",
+        receiptId,
+      }),
+    ]);
+    expect(JSON.stringify(mockSetWhere.mock.calls)).not.toContain(
+      otherReceiptsItemId
+    );
+  });
+
   it("round-trips each line's kind through the save path", async () => {
     const items: UpdateReceiptInput["items"] = [
       {
@@ -224,7 +296,12 @@ describe(updateReceipt, () => {
     });
 
     expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith(
-      items.map((item) => ({ ...item, receiptId }))
+      items.map((item) => ({
+        ...item,
+        categoryId: null,
+        categorySource: "ai",
+        receiptId,
+      }))
     );
   });
 
@@ -267,7 +344,7 @@ describe(updateReceipt, () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("updates the receipt and fully replaces all items in a transaction", async () => {
+  it("updates the receipt and its items in one transaction", async () => {
     const result = await updateReceipt(validInput);
 
     expect(result).toStrictEqual({ success: true });
@@ -285,11 +362,6 @@ describe(updateReceipt, () => {
         total: 15.5,
       })
     );
-    expect(mockDeleteWhere).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryChunks: expect.arrayContaining([receiptId]),
-      })
-    );
   });
 
   it("inserts the new items array into the receipt items table", async () => {
@@ -297,8 +369,214 @@ describe(updateReceipt, () => {
 
     expect(mockInsert).toHaveBeenCalledOnce();
     expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith(
-      validInput.items.map((item) => ({ ...item, receiptId }))
+      validInput.items.map((item) => ({
+        ...item,
+        categoryId: null,
+        categorySource: "ai",
+        receiptId,
+      }))
     );
+  });
+
+  it("updates stored items in place instead of deleting them", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "ai", id: itemOneId },
+        { categoryId: null, categorySource: "ai", id: itemTwoId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: dairyId,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
+        { itemId: itemTwoId, kind: "product", lineTotal: 5.5, name: "Bread" },
+      ],
+    });
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: dairyId, name: "Milk" })
+    );
+  });
+
+  it("deletes only the stored items the user removed", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: null, categorySource: "ai", id: itemOneId },
+        { categoryId: null, categorySource: "ai", id: itemTwoId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        { itemId: itemOneId, kind: "product", lineTotal: 10, name: "Milk" },
+      ],
+    });
+
+    expect(mockDelete).toHaveBeenCalledOnce();
+    expect(JSON.stringify(mockDeleteWhere.mock.calls)).toContain(itemTwoId);
+    expect(JSON.stringify(mockDeleteWhere.mock.calls)).not.toContain(itemOneId);
+  });
+
+  it("stores a user-set category as the user's decision", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "ai", id: itemOneId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: otherId,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
+      ],
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: otherId,
+        categorySource: "user",
+      })
+    );
+  });
+
+  it("keeps a user-set category when other fields change", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "user", id: itemOneId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: dairyId,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Whole Milk",
+        },
+      ],
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: dairyId,
+        categorySource: "user",
+        name: "Whole Milk",
+      })
+    );
+  });
+
+  it("keeps an ai category when the user changes only the name", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "ai", id: itemOneId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: dairyId,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Whole Milk",
+        },
+      ],
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: dairyId,
+        categorySource: "ai",
+      })
+    );
+  });
+
+  it("rejects a category that is not in the taxonomy", async () => {
+    const result = await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: "123e4567-e89b-12d3-a456-426614174099",
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({
+      error: "Validation failed",
+      success: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("accepts clearing a category, which is a user decision", async () => {
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "user", id: itemOneId },
+      ],
+      status: "done",
+    });
+
+    const result = await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: null,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
+      ],
+    });
+
+    expect(result).toStrictEqual({ success: true });
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null, categorySource: "user" })
+    );
+  });
+
+  it("rejects a line item id that is not a uuid", async () => {
+    const result = await updateReceipt({
+      ...validInput,
+      items: [
+        { itemId: "not-a-uuid", kind: "product", lineTotal: 10, name: "Milk" },
+      ],
+    } as UpdateReceiptInput);
+
+    expect(result).toStrictEqual({
+      error: "Validation failed",
+      success: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it("syncs the transactionDateTime from the transaction datetime string", async () => {
@@ -376,7 +654,10 @@ describe(updateReceipt, () => {
   });
 
   it("rejects updates to a receipt that is not in done status", async () => {
-    mockFindFirst.mockResolvedValueOnce({ status: "processing" });
+    mockFindFirst.mockResolvedValueOnce({
+      receiptItems: [],
+      status: "processing",
+    });
 
     const result = await updateReceipt(validInput);
 
@@ -430,6 +711,7 @@ describe(updateReceipt, () => {
 
     expect(mockFindFirst).toHaveBeenCalledExactlyOnceWith({
       where: { id: receiptId, userId: "user-1" },
+      with: { receiptItems: true },
     });
   });
 
