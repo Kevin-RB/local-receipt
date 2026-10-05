@@ -54,9 +54,7 @@ export const receiptDateToISODateString = (
  */
 
 const LOCAL_STRING_PATTERN =
-  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T(?<hour>\d{2}):(?<minute>\d{2}))?/u;
-
-const TIME_PATTERN = /^(?<hour>\d{2}):(?<minute>\d{2})$/u;
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T(?<hour>\d{2}):(?<minute>\d{2})(?::\d{2})?)?$/u;
 
 const parseLocalString = (localString: string | undefined) =>
   LOCAL_STRING_PATTERN.exec(localString ?? "")?.groups;
@@ -93,23 +91,36 @@ export const receiptLocalStringToDay = (
   return new Date(year, month - 1, day);
 };
 
+const HOUR_MINUTE_PATTERN = /^(?<hour>\d{2}):(?<minute>\d{2})$/u;
+
+const MAX_HOUR = 23;
+const MAX_MINUTE = 59;
+
+/** Reads a time of day, rejecting `99:99` and anything else off the clock. */
+const normalizeTimeOfDay = (time: string | undefined) => {
+  const match = HOUR_MINUTE_PATTERN.exec(time ?? "");
+  const { hour, minute } = match?.groups ?? {};
+
+  return Number(hour) <= MAX_HOUR && Number(minute) <= MAX_MINUTE
+    ? `${hour}:${minute}`
+    : undefined;
+};
+
 export const receiptLocalStringToTime = (
   localString: string | undefined
 ): string | undefined => {
   const { hour, minute } = parseLocalString(localString) ?? {};
-  return hour && minute ? `${hour}:${minute}` : undefined;
+  return normalizeTimeOfDay(hour && minute ? `${hour}:${minute}` : undefined);
 };
 
 const dayToISODate = (day: Date): string =>
   `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
 
 /**
- * Combines a calendar day with a time of day. A time that is absent or not
- * exactly `HH:mm` falls back to midnight: both inputs come from a date or time
- * input, so anything else is malformed and midnight beats emitting an
+ * Combines a calendar day with a time of day. A time that is absent or not a
+ * valid time of day falls back to midnight: both inputs come from a date or
+ * time input, so anything else is malformed and midnight beats emitting an
  * unparseable value.
  */
-export const receiptDayToLocalString = (day: Date, time?: string): string => {
-  const { hour, minute } = TIME_PATTERN.exec(time ?? "")?.groups ?? {};
-  return `${dayToISODate(day)}T${hour ?? "00"}:${minute ?? "00"}`;
-};
+export const receiptDayToLocalString = (day: Date, time?: string): string =>
+  `${dayToISODate(day)}T${normalizeTimeOfDay(time) ?? "00:00"}`;

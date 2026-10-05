@@ -409,7 +409,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                     name="transaction.datetime"
                     render={({ field: datetimeField }) => (
                       <TransactionDateTimeField
-                        handleChange={datetimeField.onChange}
+                        onValueChange={(value) => datetimeField.onChange(value)}
                         value={datetimeField.value}
                       />
                     )}

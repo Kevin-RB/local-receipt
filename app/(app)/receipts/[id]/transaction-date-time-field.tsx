@@ -3,6 +3,7 @@
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 
+import { getToday } from "@/components/receipts/table";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-AU", {
 });
 
 interface TransactionDateTimeFieldProps {
-  handleChange: (value: string) => void;
+  onValueChange: (value: string) => void;
   value: string | undefined;
 }
 
@@ -42,7 +43,7 @@ interface TransactionDateTimeFieldProps {
  * input rewrites the time and leaves the day alone.
  */
 export const TransactionDateTimeField = ({
-  handleChange,
+  onValueChange,
   value,
 }: TransactionDateTimeFieldProps) => {
   const [open, setOpen] = useState(false);
@@ -60,7 +61,6 @@ export const TransactionDateTimeField = ({
         <PopoverTrigger
           aria-label={`Transaction date and time: ${label}`}
           className="justify-start"
-          data-slot="transaction-date-trigger"
           id="transaction-datetime"
           render={
             <Button variant="outline">
@@ -72,17 +72,30 @@ export const TransactionDateTimeField = ({
         <PopoverContent align="start" className="w-auto">
           <Calendar
             defaultMonth={day}
-            disabled={{ after: new Date() }}
+            disabled={{ after: getToday() }}
             mode="single"
             onSelect={(next) => {
-              if (!next) {
-                return;
-              }
-              handleChange(receiptDayToLocalString(next, time));
+              // Selecting the selected day again clears it, so an already-chosen
+              // date can be undone from the calendar itself.
+              onValueChange(next ? receiptDayToLocalString(next, time) : "");
               setOpen(false);
             }}
             selected={day}
           />
+          {day ? (
+            <div className="border-t p-1">
+              <Button
+                onClick={() => {
+                  onValueChange("");
+                  setOpen(false);
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                Clear date
+              </Button>
+            </div>
+          ) : null}
         </PopoverContent>
       </Popover>
       <Input
@@ -90,7 +103,7 @@ export const TransactionDateTimeField = ({
         disabled={!day}
         onChange={(event) => {
           if (day) {
-            handleChange(receiptDayToLocalString(day, event.target.value));
+            onValueChange(receiptDayToLocalString(day, event.target.value));
           }
         }}
         step="60"

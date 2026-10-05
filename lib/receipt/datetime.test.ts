@@ -76,6 +76,13 @@ describe(receiptLocalStringToTime, () => {
     expect(receiptLocalStringToTime("2026-06-15")).toBeUndefined();
     expect(receiptLocalStringToTime("28/07/2026 6:51pm")).toBeUndefined();
   });
+
+  it("rejects an out-of-range time rather than passing it through", () => {
+    expect(receiptLocalStringToTime("2026-06-15T99:99")).toBeUndefined();
+    expect(
+      receiptLocalStringToTime("2026-06-15T14:32 trailing")
+    ).toBeUndefined();
+  });
 });
 
 describe(receiptDayToLocalString, () => {
