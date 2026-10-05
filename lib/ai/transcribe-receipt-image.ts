@@ -20,7 +20,7 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **items**: Array of line items. Each item must have a **name** (string), a **lineTotal** (number, in dollars), and a **kind**:
   - **"product"** for a normal product or service line.
   - **"surcharge"** for a fee the merchant adds for the payment method (for example a "CREDIT SURCHARGE" or card fee, often a percentage of the total). A surcharge is its own line; never fold it into another item or omit it.
-  - **"discount"** for a deduction. Its **lineTotal** must be negative, and so must its **unitPrice** — a discount removes from the total, so report the deduction as a negative amount rather than as a positive one to be subtracted later.
+  - **"discount"** for a deduction. Its **lineTotal** must be negative, and so must its **unitPrice** — a discount removes from the total, so report the deduction as a negative amount rather than as a positive one to be subtracted later. A negative **lineTotal** is read as a discount whichever kind you label it, so label it "discount".
   Each item may also have **quantity** (number) and **unitPrice** (number):
   - **quantity**: the number of units stated on the receipt. If the receipt prints no quantity for a line, use **1**. Never leave it out and never invent a quantity.
   - **unitPrice**: only when the receipt prints a unit price. Never compute it from lineTotal ÷ quantity; omit it when the receipt does not print it. For a discount, report it negative to match the line total.

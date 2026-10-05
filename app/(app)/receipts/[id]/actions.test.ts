@@ -228,12 +228,12 @@ describe(updateReceipt, () => {
     ]);
   });
 
-  it("reads a negative line total as a discount when saving", async () => {
+  it("keeps a product the user chose, even with a negative line total", async () => {
     await updateReceipt({
       ...validInput,
       items: [
         { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
-        { kind: "product", lineTotal: -2, name: "SPECIAL", quantity: 1 },
+        { kind: "product", lineTotal: -2, name: "RETURN", quantity: 1 },
       ],
       totals: { gst: 0, subtotal: 8, total: 8 },
     });
@@ -247,9 +247,9 @@ describe(updateReceipt, () => {
         receiptId,
       },
       {
-        kind: "discount",
+        kind: "product",
         lineTotal: -2,
-        name: "SPECIAL",
+        name: "RETURN",
         quantity: 1,
         receiptId,
       },
@@ -269,6 +269,25 @@ describe(updateReceipt, () => {
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({ hasIntegrityWarning: false })
     );
+  });
+
+  it("re-saves a stored discount, whose unit price is already negative", async () => {
+    const result = await updateReceipt({
+      ...validInput,
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        {
+          kind: "discount",
+          lineTotal: -2,
+          name: "SPECIAL",
+          quantity: 2,
+          unitPrice: -1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(result).toStrictEqual({ success: true });
   });
 
   it("negates a discount's unit price when saving", async () => {

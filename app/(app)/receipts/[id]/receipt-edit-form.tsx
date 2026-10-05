@@ -15,7 +15,6 @@ import type z from "zod";
 import {
   LineReconciliationHints,
   ReconciliationBar,
-  formatAmount,
 } from "@/components/receipts/reconciliation-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -51,7 +50,7 @@ import type {
   ReceiptItemSelect,
 } from "@/lib/db/schema/receipt-item";
 import { reconcile } from "@/lib/receipt/integrity";
-import { normalizeLineItems } from "@/lib/receipt/line-item";
+import { coerceLineItem, normalizeLineItems } from "@/lib/receipt/line-item";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -157,11 +156,15 @@ interface ReceiptItemRowProps {
 
 /**
  * Explains the sign the save will apply, so a discount typed as a positive
- * amount does not look like it was quietly reinterpreted.
+ * amount does not look like it was quietly reinterpreted. The input already
+ * shows the amount, so the hint only has to name the rule.
  */
-const DiscountSignHint = ({ lineTotal }: { lineTotal: number }) => (
+const willBeStoredAsTyped = (kind: LineItemKind, lineTotal: number): boolean =>
+  coerceLineItem({ kind, lineTotal }).lineTotal === lineTotal;
+
+const DiscountSignHint = () => (
   <FieldDescription>
-    Stored as −{formatAmount(lineTotal)} — a discount is always a deduction.
+    A discount is stored as a deduction, so this amount will be negated on save.
   </FieldDescription>
 );
 
@@ -181,7 +184,9 @@ const LineTotalField = ({
   lineTotalField,
 }: LineTotalFieldProps) => {
   const lineTotal = toFiniteAmount(item?.lineTotal);
-  const negated = item?.kind === "discount" && lineTotal > 0;
+  // Ask the coercion what it will store rather than restating the rule here, so
+  // the hint cannot drift from what the save actually does.
+  const asTyped = willBeStoredAsTyped(item?.kind ?? "product", lineTotal);
 
   return (
     <Field data-invalid={!!error}>
@@ -199,7 +204,7 @@ const LineTotalField = ({
             }
           }}
         />
-        {negated ? <DiscountSignHint lineTotal={lineTotal} /> : null}
+        {asTyped ? null : <DiscountSignHint />}
         <FormFieldError error={error} />
       </FieldContent>
     </Field>
@@ -294,7 +299,8 @@ const ReceiptItemRow = ({
         <FieldLabel>Unit Price</FieldLabel>
         <FieldContent>
           <Input
-            min="0"
+            // No `min`: a discount's unit price is negative, and the input must
+            // not refuse a value the save is about to store.
             step="0.01"
             type="number"
             {...register(`items.${index}.unitPrice` as const, {

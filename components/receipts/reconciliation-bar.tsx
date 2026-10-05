@@ -27,7 +27,7 @@ const currency = new Intl.NumberFormat("en-AU", {
   style: "currency",
 });
 
-export const formatAmount = (value: number) =>
+const formatAmount = (value: number) =>
   Number.isFinite(value) ? currency.format(value) : "—";
 
 const roundCents = (value: number) => Math.round(value * 100) / 100;

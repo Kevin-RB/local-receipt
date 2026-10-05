@@ -19,11 +19,20 @@ const item = (
 });
 
 describe(normalizeLineItems, () => {
-  it("does not make an unparseable line total a discount", () => {
-    const result = normalizeLineItems([item({ lineTotal: Number.NaN })]);
+  it("leaves a product's amount alone, sign included", () => {
+    const result = normalizeLineItems([item({ lineTotal: -2 })]);
 
     expect(result[0].kind).toBe("product");
+    expect(result[0].lineTotal).toBe(-2);
+  });
+
+  it("leaves an unparseable discount amount unparseable, not a second flavour of NaN", () => {
+    const result = normalizeLineItems([
+      item({ kind: "discount", lineTotal: Number.NaN, unitPrice: Number.NaN }),
+    ]);
+
     expect(result[0].lineTotal).toBeNaN();
+    expect(result[0].unitPrice).toBeNaN();
   });
 
   it("leaves a positive product untouched", () => {
@@ -62,12 +71,6 @@ describe(normalizeLineItems, () => {
     const once = normalizeLineItems([item({ kind: "discount", lineTotal: 2 })]);
 
     expect(normalizeLineItems(once)).toStrictEqual(once);
-  });
-
-  it("makes a negative line total a discount", () => {
-    const result = normalizeLineItems([item({ lineTotal: -2 })]);
-
-    expect(result[0].kind).toBe("discount");
   });
 
   it("keeps a zero discount at zero rather than negative zero", () => {
