@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  RECEIPT_TIMEZONE,
   receiptDayToLocalString,
   receiptLocalStringToDay,
   receiptLocalStringToTime,
+  receiptToday,
 } from "@/lib/receipt/datetime";
 import { simulateBrowserWithPolyfilledTemporal } from "@/test/polyfilled-temporal";
+
+const dayKey = (day: Date) =>
+  `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+
+/** The calendar-local date at an instant, read independently of the app's own helpers. */
+const isoDayIn = (instant: number, timezone: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: timezone,
+    year: "numeric",
+  }).format(new Date(instant));
 
 /**
  * The manual edit form stores the transaction datetime as a bare local
@@ -82,6 +96,51 @@ describe(receiptLocalStringToTime, () => {
     expect(
       receiptLocalStringToTime("2026-06-15T14:32 trailing")
     ).toBeUndefined();
+  });
+});
+
+describe(receiptToday, () => {
+  it("is today in the receipt timezone, carried as a local midnight", () => {
+    const today = receiptToday();
+    const expected = Temporal.Now.plainDateISO(RECEIPT_TIMEZONE);
+
+    expect([
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    ]).toStrictEqual([expected.year, expected.month - 1, expected.day]);
+    expect(today.getHours()).toBe(0);
+  });
+
+  it("resolves the day in the given timezone, not the browser's", () => {
+    // The bug this pins: the calendar compares its cells (receipt-local days)
+    // against this bound, so deriving the bound from a browser-local `new Date()`
+    // made receipt-today read as tomorrow for any browser west of Brisbane during
+    // the first hours of the receipt-local day, disabling the very day a receipt
+    // was bought.
+    //
+    // Asserted by passing a timezone on either side of the date line: a browser
+    // in Sydney is a day behind Brisbane, so reading "today" from the browser's
+    // own clock cannot produce both answers.
+    const sydney = "Australia/Sydney";
+    const instant = Temporal.Now.instant().epochMilliseconds;
+
+    const brisbaneDay = receiptToday(RECEIPT_TIMEZONE);
+    const sydneyDay = receiptToday(sydney);
+
+    expect(dayKey(brisbaneDay)).toBe(isoDayIn(instant, RECEIPT_TIMEZONE));
+    expect(dayKey(sydneyDay)).toBe(isoDayIn(instant, sydney));
+
+    // Both carry the browser-local midnight of their own receipt-local day, which
+    // is what keeps the calendar's comparison on a single frame of reference.
+    expect(brisbaneDay.getHours()).toBe(0);
+    expect(sydneyDay.getHours()).toBe(0);
+  });
+
+  it("matches the day a stored datetime resolves to", () => {
+    const stored = `${dayKey(receiptToday())}T09:00`;
+
+    expect(receiptLocalStringToDay(stored)).toStrictEqual(receiptToday());
   });
 });
 

@@ -3,7 +3,6 @@
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 
-import { getToday } from "@/components/receipts/table";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,7 @@ import {
   receiptDayToLocalString,
   receiptLocalStringToDay,
   receiptLocalStringToTime,
+  receiptToday,
 } from "@/lib/receipt/datetime";
 
 // Formatted in the receipt's own timezone, since the stored value is the
@@ -72,7 +72,7 @@ export const TransactionDateTimeField = ({
         <PopoverContent align="start" className="w-auto">
           <Calendar
             defaultMonth={day}
-            disabled={{ after: getToday() }}
+            disabled={{ after: receiptToday() }}
             mode="single"
             onSelect={(next) => {
               // Selecting the selected day again clears it, so an already-chosen

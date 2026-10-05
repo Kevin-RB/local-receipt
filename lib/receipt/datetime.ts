@@ -117,6 +117,22 @@ const dayToISODate = (day: Date): string =>
   `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
 
 /**
+ * The last day a receipt transaction datetime may fall on: today in the
+ * receipt's own timezone, carried the same way `receiptLocalStringToDay`
+ * carries a day — a `Date` at the browser's local midnight holding the
+ * receipt-local year/month/day.
+ *
+ * This must be built in the receipt timezone rather than from `new Date()`.
+ * A calendar compares its cells (receipt-local days) against this bound, so a
+ * browser whose own clock is behind Brisbane reads "today" as tomorrow and
+ * would disable the very day a receipt was bought.
+ */
+export const receiptToday = (timezone = RECEIPT_TIMEZONE): Date => {
+  const { day, month, year } = Temporal.Now.plainDateISO(timezone);
+  return new Date(year, month - 1, day);
+};
+
+/**
  * Combines a calendar day with a time of day. A time that is absent or not a
  * valid time of day falls back to midnight: both inputs come from a date or
  * time input, so anything else is malformed and midnight beats emitting an
