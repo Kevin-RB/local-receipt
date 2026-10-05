@@ -32,7 +32,7 @@ A local-first web app that turns photos of paper receipts into structured, persi
 
 **Totals**: The money amounts stated on a receipt. The total is the amount paid and is required. The subtotal is the receipt's printed subtotal — the sum of the line items, GST-inclusive — and is present only when the receipt prints one. GST is the tax component included within the total, never an amount added to it, and is present only when the receipt states it. _Avoid_: Sum, grand total, amount.
 
-**Line item**: A single charge on a receipt, with a name, quantity, unit price, line total, and a kind of `product`, `surcharge`, or `discount`. A discount has a negative line total; a surcharge is a positive line item distinct from a product. _Avoid_: Item, entry, row.
+**Line item**: A single charge on a receipt, with a name, quantity, unit price, line total, and a kind of `product`, `surcharge`, or `discount`. A discount always has a negative line total (the sign follows the kind, never the other way round); a surcharge is a positive line item distinct from a product. _Avoid_: Item, entry, row.
 
 **Card surcharge**: A fee a merchant adds for a payment method (e.g. a 0.50% credit-card fee). Modelled as a line item of kind `surcharge`, so it is included in the total. _Avoid_: Payment fee, GST surcharge.
 

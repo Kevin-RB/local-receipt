@@ -228,6 +228,30 @@ describe("transcribeReceipt function", () => {
     expect(output.integrityWarning).toBeFalsy();
   });
 
+  it("negates a discount the model reported as positive", async () => {
+    const positiveDiscount = {
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "discount", lineTotal: 2, name: "SPECIAL", quantity: 1 },
+      ],
+      merchant: { name: "Coles" },
+      payment: { method: "card" },
+      totals: { total: 8 },
+      transaction: {},
+    } as unknown as ReceiptInformationExtraction;
+
+    const engine = createEngine({
+      handler: () => positiveDiscount,
+      id: "parsing",
+    });
+    const { result } = await engine.execute();
+    const output = result as FunctionOutput;
+
+    expect(output.extraction.items[1].kind).toBe("discount");
+    expect(output.extraction.items[1].lineTotal).toBe(-2);
+    expect(output.integrityWarning).toBeFalsy();
+  });
+
   it("defaults a missing kind and quantity on an extracted line", async () => {
     const sparse = {
       items: [{ lineTotal: 10, name: "Product" }],

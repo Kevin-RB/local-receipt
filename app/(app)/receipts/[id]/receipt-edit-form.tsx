@@ -4,12 +4,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
-import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
+import type {
+  Control,
+  FieldErrors,
+  UseFormRegister,
+  UseFormRegisterReturn,
+} from "react-hook-form";
 import type z from "zod";
 
 import {
   LineReconciliationHints,
   ReconciliationBar,
+  formatAmount,
 } from "@/components/receipts/reconciliation-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -45,6 +51,7 @@ import type {
   ReceiptItemSelect,
 } from "@/lib/db/schema/receipt-item";
 import { reconcile } from "@/lib/receipt/integrity";
+import { normalizeLineItems } from "@/lib/receipt/line-item";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
@@ -134,7 +141,9 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
   };
 };
 
-const FormFieldError = ({ error }: { error?: { message?: string } }) =>
+type FormFieldErrorProps = { message?: string } | undefined;
+
+const FormFieldError = ({ error }: { error?: FormFieldErrorProps }) =>
   error?.message ? <FieldError errors={[{ message: error.message }]} /> : null;
 
 interface ReceiptItemRowProps {
@@ -145,6 +154,57 @@ interface ReceiptItemRowProps {
   onRemove: (index: number) => void;
   register: UseFormRegister<FormValues>;
 }
+
+/**
+ * Explains the sign the save will apply, so a discount typed as a positive
+ * amount does not look like it was quietly reinterpreted.
+ */
+const DiscountSignHint = ({ lineTotal }: { lineTotal: number }) => (
+  <FieldDescription>
+    Stored as −{formatAmount(lineTotal)} — a discount is always a deduction.
+  </FieldDescription>
+);
+
+interface LineTotalFieldProps {
+  error: FormFieldErrorProps;
+  item: FormValues["items"][number] | undefined;
+  lineTotalField: UseFormRegisterReturn;
+}
+
+/**
+ * The line total, plus the sign the save will apply: a discount is stored as a
+ * deduction, so a positive amount typed for one is negated on the way in.
+ */
+const LineTotalField = ({
+  error,
+  item,
+  lineTotalField,
+}: LineTotalFieldProps) => {
+  const lineTotal = toFiniteAmount(item?.lineTotal);
+  const negated = item?.kind === "discount" && lineTotal > 0;
+
+  return (
+    <Field data-invalid={!!error}>
+      <FieldLabel>Line Total</FieldLabel>
+      <FieldContent>
+        <Input
+          aria-invalid={!!error}
+          step="0.01"
+          type="number"
+          {...lineTotalField}
+          onBlur={(event) => {
+            lineTotalField.onBlur(event);
+            if (event.target.value === "") {
+              event.target.value = "0";
+            }
+          }}
+        />
+        {negated ? <DiscountSignHint lineTotal={lineTotal} /> : null}
+        <FormFieldError error={error} />
+      </FieldContent>
+    </Field>
+  );
+};
 
 const ReceiptItemRow = ({
   control,
@@ -249,24 +309,11 @@ const ReceiptItemRow = ({
           />
         </FieldContent>
       </Field>
-      <Field data-invalid={!!errors.items?.[index]?.lineTotal}>
-        <FieldLabel>Line Total</FieldLabel>
-        <FieldContent>
-          <Input
-            aria-invalid={!!errors.items?.[index]?.lineTotal}
-            step="0.01"
-            type="number"
-            {...lineTotalField}
-            onBlur={(event) => {
-              lineTotalField.onBlur(event);
-              if (event.target.value === "") {
-                event.target.value = "0";
-              }
-            }}
-          />
-          <FormFieldError error={errors.items?.[index]?.lineTotal} />
-        </FieldContent>
-      </Field>
+      <LineTotalField
+        error={errors.items?.[index]?.lineTotal}
+        item={item}
+        lineTotalField={lineTotalField}
+      />
     </FieldGroup>
   );
 };
@@ -298,10 +345,12 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
   const reconciliation = useMemo(
     () =>
       reconcile(
-        (watchedItems ?? []).map((item) => ({
-          kind: item.kind ?? "product",
-          lineTotal: toFiniteAmount(item.lineTotal),
-        })),
+        normalizeLineItems(
+          (watchedItems ?? []).map((item) => ({
+            kind: item.kind ?? "product",
+            lineTotal: toFiniteAmount(item.lineTotal),
+          }))
+        ),
         { total: statedTotal }
       ),
     [watchedItems, statedTotal]

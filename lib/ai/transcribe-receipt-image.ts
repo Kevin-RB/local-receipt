@@ -20,10 +20,10 @@ export const PARSE_PROMPT = `You are a receipt data extraction expert. Given the
 - **items**: Array of line items. Each item must have a **name** (string), a **lineTotal** (number, in dollars), and a **kind**:
   - **"product"** for a normal product or service line.
   - **"surcharge"** for a fee the merchant adds for the payment method (for example a "CREDIT SURCHARGE" or card fee, often a percentage of the total). A surcharge is its own line; never fold it into another item or omit it.
-  - **"discount"** for a deduction. Its **lineTotal** must be negative.
+  - **"discount"** for a deduction. Its **lineTotal** must be negative, and so must its **unitPrice** — a discount removes from the total, so report the deduction as a negative amount rather than as a positive one to be subtracted later.
   Each item may also have **quantity** (number) and **unitPrice** (number):
   - **quantity**: the number of units stated on the receipt. If the receipt prints no quantity for a line, use **1**. Never leave it out and never invent a quantity.
-  - **unitPrice**: only when the receipt prints a unit price. Never compute it from lineTotal ÷ quantity; omit it when the receipt does not print it.
+  - **unitPrice**: only when the receipt prints a unit price. Never compute it from lineTotal ÷ quantity; omit it when the receipt does not print it. For a discount, report it negative to match the line total.
 - **totals.total**: The final total amount paid (number, in dollars). Always required.
 - **totals.subtotal**: The subtotal **exactly as printed** on the receipt, GST-inclusive (number, in dollars). Only include it when the receipt prints a subtotal line. Never compute or back-solve a subtotal (for example, never calculate total − GST).
 - **totals.gst**: The GST amount **exactly as printed**, representing tax already included within the total (number, in dollars). Only include it when the receipt states a GST amount. GST is a component of the total, never an amount added on top of it.
@@ -54,6 +54,7 @@ Rules for folding:
 - All amounts are in dollars (e.g. "$12.50" → 12.50).
 - Remove currency symbols, parse as numbers.
 - Negative amounts are discounts: keep the negative value in **lineTotal** and set **kind** to "discount".
+- A printed discount is a negative amount whichever way the receipt prints it: report **lineTotal** (and **unitPrice**, if printed) as negative for kind "discount", never as a positive amount that stands for a reduction.
 
 ## Fallback rules
 

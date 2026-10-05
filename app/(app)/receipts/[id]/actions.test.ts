@@ -200,6 +200,112 @@ describe(updateReceipt, () => {
     expect(result).toStrictEqual({ success: true });
   });
 
+  it("negates a discount saved with a positive line total", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "discount", lineTotal: 2, name: "SPECIAL", quantity: 1 },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      {
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+        quantity: 1,
+        receiptId,
+      },
+      {
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        quantity: 1,
+        receiptId,
+      },
+    ]);
+  });
+
+  it("reads a negative line total as a discount when saving", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "product", lineTotal: -2, name: "SPECIAL", quantity: 1 },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      {
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+        quantity: 1,
+        receiptId,
+      },
+      {
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        quantity: 1,
+        receiptId,
+      },
+    ]);
+  });
+
+  it("stores no integrity warning when a positive discount makes the items sum to the total", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        { kind: "discount", lineTotal: 2, name: "SPECIAL", quantity: 1 },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ hasIntegrityWarning: false })
+    );
+  });
+
+  it("negates a discount's unit price when saving", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
+        {
+          kind: "discount",
+          lineTotal: 2,
+          name: "SPECIAL",
+          quantity: 2,
+          unitPrice: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      {
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+        quantity: 1,
+        receiptId,
+      },
+      {
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        quantity: 2,
+        receiptId,
+        unitPrice: -1,
+      },
+    ]);
+  });
+
   it("round-trips each line's kind through the save path", async () => {
     const items: UpdateReceiptInput["items"] = [
       {
