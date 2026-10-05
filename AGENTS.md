@@ -149,7 +149,7 @@ Key properties:
 
 ## App architecture
 
-- **UI**: Next.js App Router, React 19, Tailwind CSS v4, shadcn/ui `base-lyra` style.
+- **UI**: Next.js App Router, React 19, Tailwind CSS v4, shadcn/ui `base-nova` style.
 - **Upload flow**: `POST /api/upload` creates a receipt row with `status = uploading` and returns a presigned storage URL. The browser uploads directly to RustFS. RustFS sends a bucket-notification `POST /api/storage-events`, which promotes the row to `status = pending` and sends `receipt/uploaded` to Inngest.
 - **Extraction workflow**: `lib/inngest/functions/transcribe-receipt.ts` runs in the Inngest dev server:
   1. Mark `processing`.
@@ -178,7 +178,7 @@ Key properties:
 
 - Use existing **shadcn/ui** primitives from `components/ui/` before building a custom component. The project already has button, card, dialog, input, label, table, toast, etc.
 - Add new shadcn components via the shadcn CLI; generated files land in `components/ui/` and are ignored by the linter/formatter.
-- Use the theme tokens in `app/globals.css` (Tailwind CSS v4, CSS variables, `base-lyra` style). Do not introduce one-off color/spacing values or duplicate the theme elsewhere.
+- Use the theme tokens in `app/globals.css` (Tailwind CSS v4, CSS variables, `base-nova` style). Do not introduce one-off color/spacing values or duplicate the theme elsewhere.
 
 ## Types
 

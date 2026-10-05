@@ -8,7 +8,7 @@ import { isoDateRange } from "./date-range";
 export const search_line_items = (ownerId: string) =>
   tool({
     description:
-      "Search the user's receipt line items by product-name keyword, optionally within a date range. Returns the matching items and their summed total.",
+      "Search the user's receipt line items by product-name keyword, optionally within a date range. Returns the matching items and their summed total, counting products only.",
     execute: ({ from, query, to }) =>
       searchLineItems(ownerId, { from, query, to }),
     inputSchema: z.object({
