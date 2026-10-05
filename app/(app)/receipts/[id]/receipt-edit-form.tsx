@@ -155,13 +155,17 @@ interface ReceiptItemRowProps {
 }
 
 /**
- * Explains the sign the save will apply, so a discount typed as a positive
- * amount does not look like it was quietly reinterpreted. The input already
- * shows the amount, so the hint only has to name the rule.
+ * Whether the save will store this amount as typed. Asks the coercion rather
+ * than restating the rule, so the hint cannot drift from what a save does.
  */
-const willBeStoredAsTyped = (kind: LineItemKind, lineTotal: number): boolean =>
+const storedAsTyped = (kind: LineItemKind, lineTotal: number): boolean =>
   coerceLineItem({ kind, lineTotal }).lineTotal === lineTotal;
 
+/**
+ * Explains the sign the save will apply, so a discount typed as a positive
+ * amount does not look like it was quietly reinterpreted. The input keeps
+ * showing what was typed — the negation happens on save, not as you type.
+ */
 const DiscountSignHint = () => (
   <FieldDescription>
     A discount is stored as a deduction, so this amount will be negated on save.
@@ -184,9 +188,7 @@ const LineTotalField = ({
   lineTotalField,
 }: LineTotalFieldProps) => {
   const lineTotal = toFiniteAmount(item?.lineTotal);
-  // Ask the coercion what it will store rather than restating the rule here, so
-  // the hint cannot drift from what the save actually does.
-  const asTyped = willBeStoredAsTyped(item?.kind ?? "product", lineTotal);
+  const asTyped = storedAsTyped(item?.kind ?? "product", lineTotal);
 
   return (
     <Field data-invalid={!!error}>
