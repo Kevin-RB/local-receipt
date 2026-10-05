@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { updateReceipt } from "./actions";
 import { updateReceiptSchema } from "./schema";
 import type { UpdateReceiptInput } from "./schema";
+import { TransactionDateTimeField } from "./transaction-date-time-field";
 
 export type ReceiptWithItems = ReceiptSelect & {
   receiptItems: ReceiptItemSelect[];
@@ -403,9 +404,15 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
               <Field>
                 <FieldLabel>Date &amp; Time</FieldLabel>
                 <FieldContent>
-                  <Input
-                    type="datetime-local"
-                    {...register("transaction.datetime")}
+                  <Controller
+                    control={control}
+                    name="transaction.datetime"
+                    render={({ field: datetimeField }) => (
+                      <TransactionDateTimeField
+                        handleChange={datetimeField.onChange}
+                        value={datetimeField.value}
+                      />
+                    )}
                   />
                 </FieldContent>
               </Field>
