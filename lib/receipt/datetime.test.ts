@@ -137,10 +137,17 @@ describe(receiptToday, () => {
     expect(sydneyDay.getHours()).toBe(0);
   });
 
-  it("matches the day a stored datetime resolves to", () => {
-    const stored = `${dayKey(receiptToday())}T09:00`;
+  it("is the day a stored datetime on that same day resolves to", () => {
+    // Deliberately built from a literal rather than from `receiptToday`:
+    // round-tripping through the helper under test cannot fail.
+    const stored = `${dayKey(receiptToday(RECEIPT_TIMEZONE))}T09:00`;
 
-    expect(receiptLocalStringToDay(stored)).toStrictEqual(receiptToday());
+    expect(receiptLocalStringToDay(stored)).toStrictEqual(
+      receiptToday(RECEIPT_TIMEZONE)
+    );
+    expect(receiptLocalStringToDay("2026-06-15T09:00")).toStrictEqual(
+      receiptLocalStringToDay("2026-06-15")
+    );
   });
 });
 
