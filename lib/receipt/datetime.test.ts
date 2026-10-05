@@ -137,17 +137,56 @@ describe(receiptToday, () => {
     expect(sydneyDay.getHours()).toBe(0);
   });
 
-  it("is the day a stored datetime on that same day resolves to", () => {
-    // Deliberately built from a literal rather than from `receiptToday`:
-    // round-tripping through the helper under test cannot fail.
-    const stored = `${dayKey(receiptToday(RECEIPT_TIMEZONE))}T09:00`;
+  it("bounds the calendar on the receipt-local day, at a fixed instant", () => {
+    // The regression this pins, at an instant where the two disagree by a whole
+    // day: 2026-01-01T14:00Z is already 2026-01-02 in Brisbane (UTC+10) and still
+    // 2026-01-01 in Tokyo (UTC+9). A browser-clock bound answers 2026-01-01 here,
+    // putting the calendar a day behind the cells it draws, so a receipt bought on
+    // the 2nd cannot be selected on the 2nd.
+    //
+    // The instant is passed in rather than read from the clock, so this cannot
+    // pass by the suite happening to run inside Brisbane's local day. Faking the
+    // clock is not an option: `Temporal.Now` comes from the polyfill, which reads
+    // its own clock rather than the one `vi.setSystemTime` replaces.
+    //
+    // Tokyo rather than Sydney, deliberately: Sydney observes daylight saving and
+    // is UTC+11 in January, so it sits a day ahead like Brisbane and produces no
+    // divergence.
+    const now = Temporal.Instant.from("2026-01-01T14:00:00Z");
+    const behind = "Asia/Tokyo";
 
-    expect(receiptLocalStringToDay(stored)).toStrictEqual(
-      receiptToday(RECEIPT_TIMEZONE)
+    expect(dayKey(receiptToday(RECEIPT_TIMEZONE, now))).toBe("2026-01-02");
+    expect(dayKey(receiptToday(behind, now))).toBe("2026-01-01");
+
+    // Both carry the browser-local midnight of their own receipt-local day, which
+    // is what keeps the calendar's comparison on one frame of reference.
+    expect(receiptToday(RECEIPT_TIMEZONE, now).getHours()).toBe(0);
+    expect(receiptToday(behind, now).getHours()).toBe(0);
+  });
+
+  it("agrees with the calendar cell for a receipt bought that day", () => {
+    // The bound and the cells the calendar draws must land on the same day, or
+    // the day a receipt was bought is unreachable. At the fixed instant above,
+    // Brisbane is on the 2nd, so a cell for a 09:00 purchase must be the 2nd.
+    const cell = receiptLocalStringToDay("2026-01-02T09:00");
+
+    expect(cell).toBeDefined();
+    expect(dayKey(cell as Date)).toBe(
+      dayKey(
+        receiptToday(
+          RECEIPT_TIMEZONE,
+          Temporal.Instant.from("2026-01-01T14:00:00Z")
+        )
+      )
     );
-    expect(receiptLocalStringToDay("2026-06-15T09:00")).toStrictEqual(
-      receiptLocalStringToDay("2026-06-15")
-    );
+  });
+
+  it("accepts a Date as well as an Instant for the current moment", () => {
+    const instant = Temporal.Instant.from("2026-01-01T14:00:00Z");
+
+    expect(
+      receiptToday(RECEIPT_TIMEZONE, new Date(instant.epochMilliseconds))
+    ).toStrictEqual(receiptToday(RECEIPT_TIMEZONE, instant));
   });
 });
 

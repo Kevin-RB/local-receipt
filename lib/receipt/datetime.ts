@@ -127,8 +127,17 @@ const dayToISODate = (day: Date): string =>
  * browser whose own clock is behind Brisbane reads "today" as tomorrow and
  * would disable the very day a receipt was bought.
  */
-export const receiptToday = (timezone = RECEIPT_TIMEZONE): Date => {
-  const { day, month, year } = Temporal.Now.plainDateISO(timezone);
+export const receiptToday = (
+  timezone = RECEIPT_TIMEZONE,
+  now: Temporal.Instant | Date = Temporal.Now.instant()
+): Date => {
+  const instant =
+    now instanceof Date
+      ? Temporal.Instant.fromEpochMilliseconds(now.getTime())
+      : now;
+  const { day, month, year } = instant
+    .toZonedDateTimeISO(timezone)
+    .toPlainDate();
   return new Date(year, month - 1, day);
 };
 
