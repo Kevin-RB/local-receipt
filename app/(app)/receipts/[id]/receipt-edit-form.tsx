@@ -315,6 +315,16 @@ export const ReceiptEditForm = ({
     resolver: zodResolver(updateReceiptSchema),
   });
 
+  // The category each stored line item started with, so a submit can tell a
+  // deliberate change from a value that merely looks stale.
+  const mountedCategoryByItemId = useMemo(
+    () =>
+      new Map(
+        receipt.receiptItems.map((item) => [item.id, item.categoryId ?? null])
+      ),
+    [receipt.receiptItems]
+  );
+
   const { append, fields, remove } = useFieldArray({
     control,
     name: "items",
@@ -345,8 +355,24 @@ export const ReceiptEditForm = ({
     (statedTotal !== undefined && Number.isFinite(statedTotal));
 
   const onSubmit = async (data: UpdateReceiptInput) => {
+    // The submitted category is the value the item had when the page loaded,
+    // which says nothing about intent: a categorization run may have filled the
+    // item in the meantime, and overwriting it with the stale form value would
+    // record a clear the user never made. Only a category that differs from the
+    // value the page started with is treated as a decision — compared by item id
+    // rather than by row index, so removing a row cannot shift the comparison.
+    // A line the user added has no entry here, and the insert path derives its
+    // source from whatever category it carries.
+    const items = data.items.map((item) => ({
+      ...item,
+      categoryTouched:
+        item.itemId !== undefined &&
+        item.categoryId !== mountedCategoryByItemId.get(item.itemId),
+    }));
+
     const result = await updateReceipt({
       ...data,
+      items,
       transaction: {
         ...data.transaction,
         datetime: normalizeDatetime(data.transaction.datetime),

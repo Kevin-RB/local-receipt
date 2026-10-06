@@ -4,10 +4,14 @@ import type { LineItemKind } from "@/lib/db/schema/receipt-item";
 
 import { planLineItemChanges } from "./line-items";
 
+// The form only claims a category was touched in the tests that are about a
+// category decision; the default mirrors a user who opened the page and edited
+// something else.
 const item = (
   overrides: Partial<Parameters<typeof planLineItemChanges>[1][number]> = {}
 ) => ({
   categoryId: null,
+  categoryTouched: false,
   kind: "product" as LineItemKind,
   lineTotal: 10,
   name: "Milk",
@@ -37,8 +41,6 @@ describe(planLineItemChanges, () => {
         {
           id: "item-1",
           values: {
-            categoryId: null,
-            categorySource: "ai",
             kind: "product",
             lineTotal: 10,
             name: "Whole Milk",
@@ -84,7 +86,13 @@ describe(planLineItemChanges, () => {
   it("marks a changed category as user-set so a re-run preserves it", () => {
     const plan = planLineItemChanges(
       [stored({ categoryId: "cat-dairy", categorySource: "ai" })],
-      [item({ categoryId: "cat-bakery", itemId: "item-1" })]
+      [
+        item({
+          categoryId: "cat-bakery",
+          categoryTouched: true,
+          itemId: "item-1",
+        }),
+      ]
     );
 
     expect(plan.updates[0].values).toMatchObject({
@@ -96,7 +104,13 @@ describe(planLineItemChanges, () => {
   it("keeps the ai marker when the user re-saves an unchanged ai category", () => {
     const plan = planLineItemChanges(
       [stored({ categoryId: "cat-dairy", categorySource: "ai" })],
-      [item({ categoryId: "cat-dairy", itemId: "item-1" })]
+      [
+        item({
+          categoryId: "cat-dairy",
+          categoryTouched: true,
+          itemId: "item-1",
+        }),
+      ]
     );
 
     expect(plan.updates[0].values).toMatchObject({
@@ -105,22 +119,54 @@ describe(planLineItemChanges, () => {
     });
   });
 
-  it("keeps a user-set category when the user edits other fields", () => {
+  it("records clearing a category as a user decision", () => {
     const plan = planLineItemChanges(
       [stored({ categoryId: "cat-dairy", categorySource: "user" })],
-      [item({ categoryId: "cat-dairy", itemId: "item-1", name: "Milk 2L" })]
+      [item({ categoryId: null, categoryTouched: true, itemId: "item-1" })]
     );
 
     expect(plan.updates[0].values).toMatchObject({
-      categoryId: "cat-dairy",
+      categoryId: null,
       categorySource: "user",
     });
   });
 
-  it("records clearing a category as a user decision", () => {
+  it("leaves the stored category alone when the user did not touch it", () => {
+    // Categorization can fill an item after the edit form loaded. The submitted
+    // value is then stale (null) while the stored value is not (cat-a), and
+    // treating that difference as a user decision would record a permanent
+    // clear — the exact clobber a category_source marker exists to prevent.
     const plan = planLineItemChanges(
-      [stored({ categoryId: "cat-dairy", categorySource: "user" })],
-      [item({ categoryId: null, itemId: "item-1" })]
+      [stored({ categoryId: "cat-a", categorySource: "ai" })],
+      [item({ categoryId: null, categoryTouched: false, itemId: "item-1" })]
+    );
+
+    expect(plan.updates[0].values).not.toHaveProperty("categoryId");
+    expect(plan.updates[0].values).not.toHaveProperty("categorySource");
+    expect(plan.updates[0].values).toMatchObject({ name: "Milk" });
+  });
+
+  it("keeps a user-set category when the user edits other fields", () => {
+    const plan = planLineItemChanges(
+      [stored({ categoryId: "cat-a", categorySource: "user" })],
+      [
+        item({
+          categoryId: "cat-a",
+          categoryTouched: false,
+          itemId: "item-1",
+          name: "Milk 2L",
+        }),
+      ]
+    );
+
+    expect(plan.updates[0].values).not.toHaveProperty("categoryId");
+    expect(plan.updates[0].values).not.toHaveProperty("categorySource");
+  });
+
+  it("still records a clear as a user decision when the field was touched", () => {
+    const plan = planLineItemChanges(
+      [stored({ categoryId: "cat-a", categorySource: "ai" })],
+      [item({ categoryId: null, categoryTouched: true, itemId: "item-1" })]
     );
 
     expect(plan.updates[0].values).toMatchObject({

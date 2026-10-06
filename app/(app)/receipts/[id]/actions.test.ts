@@ -154,6 +154,7 @@ const otherId = "123e4567-e89b-12d3-a456-426614174011";
 const validInput: UpdateReceiptInput = {
   items: [
     {
+      categoryTouched: false,
       kind: "product",
       lineTotal: 10,
       name: "Milk",
@@ -161,6 +162,7 @@ const validInput: UpdateReceiptInput = {
       unitPrice: 10,
     },
     {
+      categoryTouched: false,
       kind: "product",
       lineTotal: 5.5,
       name: "Bread",
@@ -230,8 +232,20 @@ describe(updateReceipt, () => {
     const result = await updateReceipt({
       ...validInput,
       items: [
-        { kind: "product", lineTotal: 10, name: "Groceries", quantity: 1 },
-        { kind: "discount", lineTotal: -2, name: "SPECIAL", quantity: 1 },
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "discount",
+          lineTotal: -2,
+          name: "SPECIAL",
+          quantity: 1,
+        },
       ],
       totals: { gst: 0, subtotal: 8, total: 8 },
     });
@@ -251,6 +265,7 @@ describe(updateReceipt, () => {
       ...validInput,
       items: [
         {
+          categoryTouched: false,
           itemId: otherReceiptsItemId,
           kind: "product",
           lineTotal: 10,
@@ -275,18 +290,26 @@ describe(updateReceipt, () => {
   it("round-trips each line's kind through the save path", async () => {
     const items: UpdateReceiptInput["items"] = [
       {
+        categoryTouched: false,
         kind: "surcharge",
         lineTotal: 0.37,
         name: "CREDIT SURCHARGE",
         quantity: 1,
       },
       {
+        categoryTouched: false,
         kind: "discount",
         lineTotal: -2,
         name: "SPECIAL",
         quantity: 1,
       },
-      { kind: "product", lineTotal: 12, name: "Milk", quantity: 2 },
+      {
+        categoryTouched: false,
+        kind: "product",
+        lineTotal: 12,
+        name: "Milk",
+        quantity: 2,
+      },
     ];
 
     await updateReceipt({
@@ -295,8 +318,10 @@ describe(updateReceipt, () => {
       totals: { gst: 0, subtotal: 10.37, total: 10.37 },
     });
 
+    // `categoryTouched` is a signal about intent, not a column, so it never
+    // reaches the insert.
     expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith(
-      items.map((item) => ({
+      items.map(({ categoryTouched: _touched, ...item }) => ({
         ...item,
         categoryId: null,
         categorySource: "ai",
@@ -369,7 +394,7 @@ describe(updateReceipt, () => {
 
     expect(mockInsert).toHaveBeenCalledOnce();
     expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith(
-      validInput.items.map((item) => ({
+      validInput.items.map(({ categoryTouched: _touched, ...item }) => ({
         ...item,
         categoryId: null,
         categorySource: "ai",
@@ -392,19 +417,31 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: dairyId,
+          categoryTouched: false,
           itemId: itemOneId,
           kind: "product",
           lineTotal: 10,
           name: "Milk",
         },
-        { itemId: itemTwoId, kind: "product", lineTotal: 5.5, name: "Bread" },
+        {
+          categoryTouched: false,
+          itemId: itemTwoId,
+          kind: "product",
+          lineTotal: 5.5,
+          name: "Bread",
+        },
       ],
     });
 
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
+    // No category columns: the user did not touch them, so the stored ones
+    // stand.
     expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({ categoryId: dairyId, name: "Milk" })
+      expect.objectContaining({ name: "Milk" })
+    );
+    expect(mockSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: expect.anything() })
     );
   });
 
@@ -420,7 +457,13 @@ describe(updateReceipt, () => {
     await updateReceipt({
       ...validInput,
       items: [
-        { itemId: itemOneId, kind: "product", lineTotal: 10, name: "Milk" },
+        {
+          categoryTouched: false,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Milk",
+        },
       ],
     });
 
@@ -442,6 +485,7 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: otherId,
+          categoryTouched: true,
           itemId: itemOneId,
           kind: "product",
           lineTotal: 10,
@@ -471,6 +515,7 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: dairyId,
+          categoryTouched: false,
           itemId: itemOneId,
           kind: "product",
           lineTotal: 10,
@@ -479,12 +524,13 @@ describe(updateReceipt, () => {
       ],
     });
 
+    // Untouched, so the update carries no category columns and the stored
+    // `user` decision stands.
     expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categoryId: dairyId,
-        categorySource: "user",
-        name: "Whole Milk",
-      })
+      expect.objectContaining({ name: "Whole Milk" })
+    );
+    expect(mockSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ categorySource: expect.anything() })
     );
   });
 
@@ -501,6 +547,7 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: dairyId,
+          categoryTouched: false,
           itemId: itemOneId,
           kind: "product",
           lineTotal: 10,
@@ -510,10 +557,10 @@ describe(updateReceipt, () => {
     });
 
     expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        categoryId: dairyId,
-        categorySource: "ai",
-      })
+      expect.objectContaining({ name: "Whole Milk" })
+    );
+    expect(mockSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ categorySource: expect.anything() })
     );
   });
 
@@ -523,6 +570,7 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: "123e4567-e89b-12d3-a456-426614174099",
+          categoryTouched: true,
           kind: "product",
           lineTotal: 10,
           name: "Milk",
@@ -550,6 +598,7 @@ describe(updateReceipt, () => {
       items: [
         {
           categoryId: null,
+          categoryTouched: true,
           itemId: itemOneId,
           kind: "product",
           lineTotal: 10,
@@ -561,6 +610,39 @@ describe(updateReceipt, () => {
     expect(result).toStrictEqual({ success: true });
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({ categoryId: null, categorySource: "user" })
+    );
+  });
+
+  it("does not let a categorization run be undone by an unrelated save", async () => {
+    // The form was loaded while this item was uncategorised. Categorization
+    // then filled it in, and the user saved having touched only the name. The
+    // stale form value must not be written back as a user clear.
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [
+        { categoryId: dairyId, categorySource: "ai", id: itemOneId },
+      ],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryId: null,
+          categoryTouched: false,
+          itemId: itemOneId,
+          kind: "product",
+          lineTotal: 10,
+          name: "Whole Milk",
+        },
+      ],
+    });
+
+    expect(mockSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: null })
+    );
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Whole Milk" })
     );
   });
 
@@ -605,6 +687,7 @@ describe(updateReceipt, () => {
       ...validInput,
       items: [
         {
+          categoryTouched: false,
           kind: "product",
           lineTotal: 10,
           name: "Milk",

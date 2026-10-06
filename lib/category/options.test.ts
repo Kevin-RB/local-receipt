@@ -5,6 +5,7 @@ import {
   groupCategoryOptions,
   UNCATEGORISED_CATEGORY,
   UNCATEGORISED_LABEL,
+  UNGROUPED_LABEL,
 } from "./options";
 
 const option = (overrides = {}) => ({
@@ -40,10 +41,22 @@ describe(groupCategoryOptions, () => {
 
     expect(groups).toStrictEqual([
       {
-        label: UNCATEGORISED_LABEL,
+        label: UNGROUPED_LABEL,
         options: [{ label: "Other", value: "other" }],
       },
     ]);
+  });
+
+  it("does not call the parentless group the same as the uncategorised option", () => {
+    const groups = groupCategoryOptions([
+      option({ id: "other", name: "Other", parentName: null, slug: "other" }),
+    ]);
+
+    // In one popup, the same word must not mean both "this item has no
+    // category" and "these are real leaves".
+    expect(groups.map((group) => group.label)).not.toContain(
+      UNCATEGORISED_LABEL
+    );
   });
 
   it("sorts the groups by label", () => {
