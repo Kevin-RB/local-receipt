@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LineItemKind } from "@/lib/db/schema/receipt-item";
-import { normalizeLineItems } from "@/lib/receipt/line-item";
+import { normalizeLineItems } from "@/lib/receipt/line-item-money";
 
 const item = (
   overrides: Partial<{

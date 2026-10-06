@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { db, listCategoryOptions, receiptItems, receipts } from "@/lib/db";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import { reconcile } from "@/lib/receipt/integrity";
-import { normalizeLineItems } from "@/lib/receipt/line-item";
+import { normalizeLineItems } from "@/lib/receipt/line-item-money";
 import { planLineItemChanges } from "@/lib/receipt/line-items";
 
 import { updateReceiptSchema } from "./schema";

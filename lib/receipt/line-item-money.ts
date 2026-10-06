@@ -1,3 +1,11 @@
+/**
+ * The money model for a line item: the sign of its amounts follows its kind.
+ *
+ * Named for its subject rather than its shape because `./line-items` already
+ * exists and means something else entirely — that one plans how a submitted
+ * line item updates its stored category. Two modules differing by one letter
+ * are a trap for the next reader, so this one says "money".
+ */
 import type { ReceiptItemSelect } from "@/lib/db/schema/receipt-item";
 
 /**

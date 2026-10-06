@@ -52,7 +52,10 @@ import type {
   ReceiptItemSelect,
 } from "@/lib/db/schema/receipt-item";
 import { reconcile } from "@/lib/receipt/integrity";
-import { coerceLineItem, normalizeLineItems } from "@/lib/receipt/line-item";
+import {
+  coerceLineItem,
+  normalizeLineItems,
+} from "@/lib/receipt/line-item-money";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";

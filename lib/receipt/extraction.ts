@@ -1,6 +1,6 @@
 import type { ReceiptInformationExtraction } from "@/lib/db/contract";
-import { coerceLineItem } from "@/lib/receipt/line-item";
-import type { LineItemMoney } from "@/lib/receipt/line-item";
+import { coerceLineItem } from "@/lib/receipt/line-item-money";
+import type { LineItemMoney } from "@/lib/receipt/line-item-money";
 
 export type ExtractedItems = ReceiptInformationExtraction["items"];
 
