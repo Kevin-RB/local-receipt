@@ -1,0 +1,2994 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>possum — receipts, structured</title>
+    <meta
+      name="description"
+      content="possum turns a photo of a paper receipt into line items, totals, and categories you can query — extracted and categorized on local models, then answered in plain language."
+    />
+
+    <!-- The project's two faces, from app/layout.tsx: Geist for headings,
+         IBM Plex Sans for everything else. System fallbacks carry the page
+         if these fail to load. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* ===============================================================
+         Tokens. Copied from app/globals.css — the same oklch values, the
+         same radius. Light is the default, `.dark` is the dark palette.
+         =============================================================== */
+      :root {
+        color-scheme: light;
+
+        --font-heading:
+          "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --font-sans:
+          "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --font-mono:
+          "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+        --background: oklch(1 0 0);
+        --foreground: oklch(0.148 0.004 228.8);
+        --card: oklch(1 0 0);
+        --card-2: oklch(0.975 0.002 197.1);
+        --muted: oklch(0.963 0.002 197.1);
+        --muted-foreground: oklch(0.56 0.021 213.5);
+        --border: oklch(0.925 0.005 214.3);
+        --primary: oklch(0.841 0.238 128.85);
+        --primary-foreground: oklch(0.405 0.101 131.063);
+        --primary-dim: oklch(0.937 0.086 128.85);
+        --destructive: oklch(0.577 0.245 27.325);
+        --ring: oklch(0.723 0.014 214.4);
+        --radius: 0.45rem;
+
+        /* Isometric scene tones. Each is a hue the boxes are shaded from. */
+        /* Ground plates read as ground only if they sit near the page's own
+           value — a mid-grey slab on white looks like a hole. */
+        --t-host: oklch(0.93 0.004 228);
+        --t-vm: oklch(0.9 0.012 265);
+
+        --t-app: oklch(0.66 0.16 128.85);
+        --t-data: oklch(0.6 0.1 197);
+        --t-model: oklch(0.6 0.17 340);
+        --t-edge: oklch(0.56 0.13 265);
+        --t-tool: oklch(0.66 0.13 68);
+        --t-client: oklch(0.52 0.02 228);
+
+        /* Face shading. `color-mix` rejects negative percentages, so each side
+           declares its own mix target rather than sharing one value. */
+        --shade-top: white 14%;
+        --shade-near: black 20%;
+        --shade-right: black 7%;
+
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease: cubic-bezier(0.22, 0.68, 0.32, 1);
+      }
+
+      :root[data-theme="dark"],
+      :root[data-theme="auto"] {
+        color-scheme: light;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root[data-theme="auto"] {
+          color-scheme: dark;
+
+          --background: oklch(0.148 0.004 228.8);
+          --foreground: oklch(0.987 0.002 197.1);
+          --card: oklch(0.218 0.008 223.9);
+          --card-2: oklch(0.26 0.01 223.9);
+          --muted: oklch(0.275 0.011 216.9);
+          --muted-foreground: oklch(0.723 0.014 214.4);
+          --border: oklch(1 0 0 / 12%);
+          --primary: oklch(0.768 0.233 130.85);
+          --primary-foreground: oklch(0.274 0.072 132.109);
+          --primary-dim: oklch(0.35 0.09 132);
+          --destructive: oklch(0.704 0.191 22.216);
+          --ring: oklch(0.56 0.021 213.5);
+
+          --t-host: oklch(0.27 0.008 228);
+          --t-vm: oklch(0.31 0.014 265);
+
+          --t-app: oklch(0.72 0.19 128.85);
+          --t-data: oklch(0.62 0.12 197);
+          --t-model: oklch(0.66 0.18 340);
+          --t-edge: oklch(0.58 0.14 265);
+          --t-tool: oklch(0.72 0.13 68);
+          --t-client: oklch(0.5 0.02 228);
+
+          --shade-top: white 12%;
+          --shade-near: black 24%;
+          --shade-right: black 10%;
+        }
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+
+        --background: oklch(0.148 0.004 228.8);
+        --foreground: oklch(0.987 0.002 197.1);
+        --card: oklch(0.218 0.008 223.9);
+        --card-2: oklch(0.26 0.01 223.9);
+        --muted: oklch(0.275 0.011 216.9);
+        --muted-foreground: oklch(0.723 0.014 214.4);
+        --border: oklch(1 0 0 / 12%);
+        --primary: oklch(0.768 0.233 130.85);
+        --primary-foreground: oklch(0.274 0.072 132.109);
+        --primary-dim: oklch(0.35 0.09 132);
+        --destructive: oklch(0.704 0.191 22.216);
+        --ring: oklch(0.56 0.021 213.5);
+
+        --t-host: oklch(0.27 0.008 228);
+        --t-vm: oklch(0.31 0.014 265);
+
+        --t-app: oklch(0.72 0.19 128.85);
+        --t-data: oklch(0.62 0.12 197);
+        --t-model: oklch(0.66 0.18 340);
+        --t-edge: oklch(0.58 0.14 265);
+        --t-tool: oklch(0.72 0.13 68);
+        --t-client: oklch(0.5 0.02 228);
+
+        --shade-top: white 12%;
+        --shade-near: black 24%;
+        --shade-right: black 10%;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 5rem;
+      }
+
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        text-wrap: balance;
+      }
+
+      h1 {
+        font-size: clamp(2.2rem, 5.6vw, 3.8rem);
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+      }
+
+      h2 {
+        font-size: clamp(1.55rem, 3.2vw, 2.15rem);
+        letter-spacing: -0.03em;
+      }
+
+      p {
+        margin: 0;
+        text-wrap: pretty;
+      }
+
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        background: var(--muted);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      /* ===============================================================
+         Reveal + stagger
+         ---------------------------------------------------------------
+         Elements with .reveal start slightly below and transparent, then
+         settle as they enter the viewport. Native scroll-driven
+         animations are used when available; otherwise an
+         IntersectionObserver adds .is-visible and CSS handles the rest.
+         =============================================================== */
+      .reveal {
+        opacity: 0;
+        transform: translateY(44px) scale(0.98);
+        will-change: transform, opacity;
+        transition:
+          opacity 700ms var(--ease-out),
+          transform 700ms var(--ease-out);
+        transition-delay: var(--delay, 0ms);
+      }
+
+      .reveal.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      .stagger > :nth-child(1) {
+        --delay: 0ms;
+      }
+      .stagger > :nth-child(2) {
+        --delay: 100ms;
+      }
+      .stagger > :nth-child(3) {
+        --delay: 200ms;
+      }
+      .stagger > :nth-child(4) {
+        --delay: 300ms;
+      }
+      .stagger > :nth-child(5) {
+        --delay: 400ms;
+      }
+      .stagger > :nth-child(6) {
+        --delay: 500ms;
+      }
+
+      /* Scroll-linked fade on the hero action row. */
+      @supports (animation-timeline: scroll()) {
+        .hero__row {
+          animation: hero-drift 1s linear both;
+          animation-timeline: scroll(root);
+          animation-range: 0 25vh;
+        }
+
+        @keyframes hero-drift {
+          to {
+            opacity: 0.45;
+            transform: translateY(18px);
+          }
+        }
+      }
+
+      .wrap {
+        width: min(1140px, 100% - 2.5rem);
+        margin-inline: auto;
+      }
+
+      .eyebrow {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+      }
+
+      .lede {
+        max-width: 60ch;
+        font-size: 1.08rem;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      /* ===============================================================
+         Nav
+         =============================================================== */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: color-mix(in srgb, var(--background) 82%, transparent);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav__inner {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 3.5rem;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .brand svg {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 0.5rem;
+      }
+
+      .nav__links {
+        display: flex;
+        gap: 0.15rem;
+        margin-left: auto;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+        mask-image: linear-gradient(
+          90deg,
+          #000 calc(100% - 1.5rem),
+          transparent
+        );
+      }
+
+      .nav__links::-webkit-scrollbar {
+        display: none;
+      }
+
+      @media (width >= 62rem) {
+        .nav__links {
+          mask-image: none;
+        }
+      }
+
+      .nav__links a {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.85rem;
+        color: var(--muted-foreground);
+        text-decoration: none;
+        white-space: nowrap;
+        border-radius: calc(var(--radius) * 1.4);
+        transition:
+          color 180ms var(--ease),
+          background-color 180ms var(--ease);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .nav__links a:hover {
+          color: var(--foreground);
+          background: var(--muted);
+        }
+      }
+
+      /* Theme toggle — a clean three-segment pill. The active segment
+         gets a filled background; the whole button cycles on click. */
+      .toggle {
+        position: relative;
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 5.4rem;
+        height: 2.25rem;
+        padding: 3px;
+        color: var(--foreground);
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        cursor: pointer;
+        scale: 1;
+        transition:
+          border-color 200ms var(--ease),
+          scale 140ms var(--ease-out);
+      }
+
+      .toggle:active {
+        scale: 0.96;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .toggle:hover {
+          border-color: var(--ring);
+        }
+      }
+
+      .toggle__track {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
+        height: 100%;
+      }
+
+      /* The sliding active pill. It always sits under the segment that
+         matches the explicit state, so "auto" looks like auto — not
+         borrowing the dark or light position. */
+      .toggle__track::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        width: 33.333%;
+        background: var(--primary);
+        border-radius: 999px;
+        box-shadow: 0 1px 2px
+          color-mix(in srgb, var(--foreground) 10%, transparent);
+        transition: translate 280ms var(--ease-out);
+      }
+
+      :root[data-theme="light"] .toggle__track::before {
+        translate: 0 0;
+      }
+
+      :root[data-theme="auto"] .toggle__track::before {
+        translate: 100% 0;
+      }
+
+      :root[data-theme="dark"] .toggle__track::before {
+        translate: 200% 0;
+      }
+
+      .toggle__option {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        font-size: 0.8rem;
+        color: var(--muted-foreground);
+        transition: color 200ms var(--ease);
+      }
+
+      :root[data-theme="light"] .toggle__option.is-light,
+      :root[data-theme="auto"] .toggle__option.is-auto,
+      :root[data-theme="dark"] .toggle__option.is-dark {
+        color: var(--primary-foreground);
+      }
+
+      /* ===============================================================
+         Hero
+         =============================================================== */
+      .hero {
+        padding: clamp(3.5rem, 9vw, 7rem) 0 clamp(2.5rem, 5vw, 4rem);
+      }
+
+      .hero h1 {
+        max-width: 18ch;
+        margin: 1rem 0 1.25rem;
+      }
+
+      .hero .lede {
+        font-size: 1.15rem;
+        line-height: 1.6;
+      }
+
+      .hero h1 em {
+        font-style: normal;
+        color: var(--primary);
+      }
+
+      .hero__row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem 2.5rem;
+        margin-top: 2.25rem;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "copy"
+          "actions"
+          "visual";
+        gap: 2.5rem;
+        align-items: center;
+      }
+
+      .hero .stagger {
+        grid-area: copy;
+      }
+
+      .hero__row {
+        grid-area: actions;
+      }
+
+      .hero__visual {
+        grid-area: visual;
+        margin: 0;
+        justify-self: center;
+      }
+
+      @media (width >= 62rem) {
+        .hero {
+          grid-template-columns: 1.1fr 0.9fr;
+          grid-template-areas:
+            "copy visual"
+            "actions visual";
+        }
+
+        .hero__visual {
+          justify-self: end;
+          align-self: center;
+        }
+      }
+
+      .hero__visual svg {
+        width: min(100%, 280px);
+        height: auto;
+        filter: drop-shadow(
+          0 18px 40px color-mix(in srgb, var(--foreground) 8%, transparent)
+        );
+      }
+
+      @media (width >= 62rem) {
+        .hero__visual svg {
+          width: 320px;
+        }
+      }
+
+      /* Subtle float on the receipt. */
+      @media (prefers-reduced-motion: no-preference) {
+        .hero__visual svg {
+          animation: receipt-float 5s ease-in-out infinite;
+        }
+
+        @keyframes receipt-float {
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-8px) rotate(0.5deg);
+          }
+        }
+      }
+
+      .hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.55rem 1.1rem;
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        border-radius: calc(var(--radius) * 1.6);
+        border: 1px solid transparent;
+        cursor: pointer;
+        scale: 1;
+        transition:
+          background-color 200ms var(--ease),
+          border-color 200ms var(--ease),
+          color 200ms var(--ease),
+          scale 140ms var(--ease-out);
+      }
+
+      .btn:active {
+        scale: 0.97;
+      }
+
+      .btn--primary {
+        color: var(--primary-foreground);
+        background: var(--primary);
+      }
+
+      .btn--ghost {
+        color: var(--foreground);
+        background: var(--card);
+        border-color: var(--border);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .btn--ghost:hover {
+          border-color: var(--ring);
+        }
+
+        .btn--primary:hover {
+          filter: brightness(1.05);
+        }
+      }
+
+      /* ===============================================================
+         Sections
+         =============================================================== */
+      section {
+        padding-block: clamp(3rem, 6vw, 5rem);
+      }
+
+      /* Sections are separated by whitespace, not rules. */
+
+      .sec-head {
+        max-width: 62ch;
+        margin-bottom: 2rem;
+      }
+
+      .sec-head h2 {
+        margin: 0.6rem 0 0.75rem;
+      }
+
+      /* ---- capability list (no cards) ---- */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) * 2);
+        overflow: hidden;
+      }
+
+      .feature {
+        padding: 1.6rem;
+        border-right: 1px solid var(--border);
+      }
+
+      .feature:last-child {
+        border-right: none;
+      }
+
+      .feature__head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+      }
+
+      .feature__icon {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        color: var(--primary-foreground);
+        background: var(--primary);
+        border-radius: calc(var(--radius) * 1.4);
+        flex: none;
+      }
+
+      .feature__icon svg {
+        width: 1rem;
+        height: 1rem;
+      }
+
+      .feature h3 {
+        font-size: 1.05rem;
+      }
+
+      .feature p {
+        font-size: 0.92rem;
+        color: var(--muted-foreground);
+        line-height: 1.55;
+      }
+
+      @media (width < 720px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+
+        .feature {
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .feature:last-child {
+          border-bottom: none;
+        }
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .feature:hover .feature__icon {
+          filter: brightness(1.05);
+        }
+      }
+
+      /* ---- the flow strip (no cards) ---- */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        border-top: 1px solid var(--border);
+        counter-reset: step;
+      }
+
+      .step {
+        position: relative;
+        padding: 1.4rem 1.2rem;
+        border-left: 1px solid var(--border);
+      }
+
+      .step:first-child {
+        border-left: none;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step, decimal-leading-zero);
+        display: block;
+        margin-bottom: 0.8rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        color: var(--primary);
+      }
+
+      .step b {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .step span {
+        display: block;
+        font-size: 0.88rem;
+        color: var(--muted-foreground);
+        line-height: 1.55;
+      }
+
+      @media (width < 860px) {
+        .steps {
+          grid-template-columns: 1fr;
+          border-top: none;
+          border-left: 1px solid var(--border);
+        }
+
+        .step {
+          border-left: none;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .step:last-child {
+          border-bottom: none;
+        }
+      }
+
+      /* ===============================================================
+         Isometric diagram
+         ---------------------------------------------------------------
+         Drawn as one SVG rather than a stack of 3D-transformed divs.
+         Everything lives on a single ground plane, so the geometry is
+         just a projection function and the result is exact — rounded
+         corners, hairline strokes and icons on the top faces all behave,
+         none of which survive nested CSS transforms.
+         =============================================================== */
+      /* No panel and no border: the figure is part of the page, and the
+         grid fading out at its edges is what stops it needing a frame. */
+      .scene {
+        position: relative;
+      }
+
+      /* The diagram gets a slightly more theatrical entrance than text. */
+      .scene--dramatic.reveal {
+        transform: translateY(48px) scale(0.96);
+      }
+
+      .scene--dramatic.reveal.is-visible {
+        transform: translateY(0) scale(1);
+      }
+
+      .stage {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .diagram {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      /* Only relevant once the figure stops fitting. */
+      .hint--scroll {
+        display: none;
+      }
+
+      @media (width <= 720px) {
+        .hint--scroll {
+          display: inline;
+        }
+      }
+
+      /* Below this width the figure cannot shrink any further without the
+         names becoming unreadable, so it scrolls sideways instead. The
+         SVG carries its own width in pixels, which is the size the
+         geometry was fitted at. */
+      @media (width <= 720px) {
+        .stage {
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+        }
+
+        .diagram {
+          width: max-content;
+          max-width: none;
+        }
+      }
+
+      /* ---- Figure styling -------------------------------------------
+         A technical figure: hairline edges, three tones per surface, and
+         exactly one accent — the project's lime — reserved for the thing
+         you have selected. Quiet everywhere else, so the accent reads as
+         focus rather than as decoration.
+         -------------------------------------------------------------- */
+      .diagram text {
+        font-family: var(--font-heading);
+        fill: var(--foreground);
+      }
+
+      .diagram .name {
+        font-size: 13px;
+        font-weight: 500;
+        text-anchor: middle;
+        /* Names sit over the grid, so they carry a halo in the page
+           colour or they dissolve into it. */
+        paint-order: stroke;
+        stroke: var(--background);
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+
+      .diagram .flow-label {
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        letter-spacing: 0.06em;
+        text-anchor: middle;
+        paint-order: stroke;
+        stroke: var(--background);
+        stroke-width: 4px;
+        stroke-linejoin: round;
+        fill: var(--muted-foreground);
+      }
+
+      /* Ground. An open isometric mesh — no outline, so the plates sit on
+         open space rather than inside a box. */
+      .diagram .grid {
+        fill: none;
+        stroke: var(--border);
+        stroke-width: 1;
+      }
+
+      .diagram .grid--major {
+        stroke: var(--ring);
+        opacity: 0.3;
+      }
+
+      /* Contact shadow: blurred, so it reads as shadow rather than as a
+         second plate offset underneath this one. */
+      .diagram .contact {
+        fill: var(--foreground);
+        opacity: 0.12;
+        stroke: none;
+        filter: url(#contactBlur);
+      }
+
+      /* The Mac mini, as a boundary lying flat on the ground rather than
+         a box standing up from it. */
+      .diagram .zone__fill {
+        fill: var(--foreground);
+        opacity: 0.035;
+        stroke: none;
+      }
+
+      .diagram .zone__line {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1.25;
+        stroke-dasharray: 7 6;
+        opacity: 0.75;
+      }
+
+      /* A plate: the roof catches the light, the two walls step away from
+         it. Three tones derived from one token, so the ramp holds in both
+         themes — mixing toward white lifts the roof, toward black drops
+         the walls. No gradients: gradients are for light. */
+      .diagram .face-t {
+        fill: color-mix(in srgb, var(--card) 94%, white);
+        stroke: none;
+      }
+
+      .diagram .face-l {
+        fill: color-mix(in srgb, var(--card) 97%, black);
+        stroke: none;
+      }
+
+      .diagram .face-r {
+        fill: color-mix(in srgb, var(--card) 90%, black);
+        stroke: none;
+      }
+
+      /* The silhouette. One continuous stroke round the whole object —
+         this is the line that has to be unbroken for a plate to read as
+         one solid rather than three stacked shapes. */
+      .diagram .edge {
+        fill: none;
+        stroke: var(--muted-foreground);
+        stroke-width: 1.25;
+        stroke-linejoin: round;
+      }
+
+      /* The chamfer line inset into the roof. Dimmer, not thinner — a
+         machined edge, not a wireframe. */
+      .diagram .edge-inset {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1;
+        opacity: 0.5;
+      }
+
+      /* The groove down each wall: the third line weight, dimmer again. */
+      .diagram .edge-groove {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1;
+        opacity: 0.4;
+      }
+
+      /* A screw head reads as a recessed disc, so it is filled, and a
+         slot across it reads as a cut, so it is a hairline. */
+      .diagram .screw-head ellipse {
+        fill: color-mix(in srgb, var(--foreground) 26%, transparent);
+        stroke: var(--ring);
+        stroke-width: 1;
+      }
+
+      .diagram .screw-slot {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1;
+        opacity: 0.8;
+      }
+
+      /* The two top-front edges get the brightest hairline in the
+         figure; that one line is what sells the material. */
+      .diagram .edge-hi {
+        fill: none;
+        stroke: var(--foreground);
+        stroke-width: 1.5;
+        opacity: 0.6;
+        stroke-linecap: round;
+      }
+
+      .diagram .icon {
+        fill: none;
+        stroke: var(--foreground);
+        stroke-width: 0.06;
+        opacity: 0.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .diagram .leader {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1;
+        opacity: 0.5;
+      }
+
+      .diagram .caption {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        text-anchor: middle;
+        paint-order: stroke;
+        stroke: var(--background);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+        fill: var(--muted-foreground);
+      }
+
+      .diagram .link {
+        fill: none;
+        stroke: var(--ring);
+        stroke-width: 1.5;
+        stroke-dasharray: 5 5;
+        opacity: 0.8;
+      }
+
+      /* ---- Focus ----------------------------------------------------
+         Everything outside the selection recedes. Applied to a group
+         so a whole node dims as one thing.
+         -------------------------------------------------------------- */
+      /* Dimming is split: fills recede hard, strokes much less. Dropping the
+   whole element's opacity in light mode washes the hairlines out to
+   nothing and the figure loses its structure entirely. */
+      .is-focused .box:not(.is-on) .face-t,
+      .is-focused .box:not(.is-on) .face-l,
+      .is-focused .box:not(.is-on) .face-r {
+        opacity: 0.35;
+      }
+
+      .is-focused .box:not(.is-on) .edge,
+      .is-focused .box:not(.is-on) .edge-inset,
+      .is-focused .box:not(.is-on) .edge-groove,
+      .is-focused .box:not(.is-on) .screw-head,
+      .is-focused .box:not(.is-on) .screw-slot,
+      .is-focused .box:not(.is-on) .edge-hi,
+      .is-focused .box:not(.is-on) .icon,
+      .is-focused .box:not(.is-on) .leader,
+      .is-focused .box:not(.is-on) .name {
+        opacity: 0.3;
+      }
+
+      .is-focused .link:not(.is-on) {
+        opacity: 0.22;
+      }
+
+      .is-focused .flow-label:not(.is-on) {
+        opacity: 0.25;
+      }
+
+      .is-focused .grid--fine {
+        opacity: 0.55;
+      }
+
+      .is-focused .grid--major {
+        opacity: 0.18;
+      }
+
+      .is-focused .contact {
+        opacity: 0.04;
+      }
+
+      .is-focused .zone {
+        opacity: 0.3;
+      }
+
+      .diagram .box {
+        cursor: pointer;
+        transition: transform 220ms var(--ease-out);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .diagram .box:hover {
+          transform: translateY(-4px);
+        }
+      }
+
+      .diagram .box:active {
+        transform: translateY(-1px) scale(0.99);
+        transition-duration: 120ms;
+      }
+
+      .box.is-on .face-t {
+        fill: color-mix(in srgb, var(--primary) 14%, var(--card));
+      }
+
+      .box.is-on .face-l,
+      .box.is-on .face-r {
+        fill: color-mix(in srgb, var(--primary) 10%, var(--muted));
+      }
+
+      .box.is-on .edge,
+      .box.is-on .edge-groove,
+      .box.is-on .screw-head,
+      .box.is-on .screw-slot,
+      .box.is-on .edge-inset {
+        stroke: var(--primary);
+      }
+
+      .box.is-on .contact {
+        opacity: 0.22;
+      }
+
+      .box.is-on .edge-hi {
+        stroke: var(--primary);
+        opacity: 1;
+      }
+
+      .box.is-on .icon {
+        stroke: var(--primary);
+      }
+
+      .link.is-on {
+        stroke: var(--primary);
+        stroke-width: 2;
+        opacity: 1;
+      }
+
+      .flow-label.is-on {
+        fill: var(--primary);
+      }
+
+      .box:focus-visible {
+        outline: none;
+      }
+
+      .box:focus-visible .edge {
+        stroke: var(--primary);
+        stroke-width: 2.5;
+      }
+
+      /* Focus is a transition, not an instant swap — you are meant to
+         be able to track what lit up. */
+      .diagram .box path,
+      .diagram .box text,
+      .diagram .link,
+      .diagram .leader,
+      .diagram .flow-label,
+      .diagram .caption,
+      .diagram .grid path,
+      .diagram .zone path,
+      .diagram .contact {
+        transition:
+          opacity 260ms var(--ease),
+          fill 260ms var(--ease),
+          stroke 260ms var(--ease);
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        .link.is-on {
+          animation: dash 1.1s linear infinite;
+        }
+      }
+
+      @keyframes dash {
+        to {
+          stroke-dashoffset: -20;
+        }
+      }
+
+      /* ===============================================================
+         Legend + inspector
+         =============================================================== */
+      .below {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+        gap: 1.5rem;
+        align-items: start;
+        margin-top: 1.5rem;
+      }
+
+      @media (width < 62rem) {
+        .below {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 0.4rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .legend li {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.6rem 0.25rem 0.45rem;
+        font-size: 0.78rem;
+        color: var(--muted-foreground);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        cursor: pointer;
+        transition:
+          border-color 200ms var(--ease),
+          color 200ms var(--ease),
+          scale 140ms var(--ease-out);
+      }
+
+      .legend li:active {
+        scale: 0.97;
+      }
+
+      .legend li[aria-pressed="true"] {
+        color: var(--foreground);
+        border-color: var(--ring);
+      }
+
+      .legend i {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 3px;
+        background: var(--tone);
+        box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 55%, black);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .legend li:hover {
+          color: var(--foreground);
+        }
+      }
+
+      .inspect {
+        padding: 1.1rem 1.25rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) * 2);
+        min-height: 8.5rem;
+      }
+
+      .inspect__kind {
+        margin: 0 0 0.3rem;
+        font-family: var(--font-mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--tone, var(--primary));
+      }
+
+      .inspect h3 {
+        margin-bottom: 0.4rem;
+        font-size: 1.05rem;
+      }
+
+      .inspect p {
+        font-size: 0.9rem;
+        color: var(--muted-foreground);
+      }
+
+      .inspect__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin-top: 0.7rem;
+      }
+
+      .tag {
+        padding: 0.1rem 0.45rem;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--muted-foreground);
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+      }
+
+      /* Inspector content swaps on selection. A transition rather than a
+         keyframe, so fast clicking retargets instead of restarting. */
+      .inspect__inner {
+        transition:
+          opacity 220ms var(--ease-out),
+          translate 220ms var(--ease-out);
+
+        @starting-style {
+          opacity: 0;
+          translate: 0 8px;
+        }
+      }
+
+      .hint {
+        margin-top: 0.6rem;
+        font-size: 0.8rem;
+        color: var(--muted-foreground);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <nav class="nav">
+      <div class="wrap nav__inner">
+        <span class="brand">
+          <!-- The possum mark, from components/brand/possum-mark.tsx: seven
+               shapes, no strokes, no gradients. ground is the tile. -->
+          <svg viewBox="0 0 40 40" aria-hidden="true">
+            <rect
+              fill="var(--primary)"
+              height="38.76"
+              rx="7.929"
+              width="38.76"
+              x=".6362"
+              y=".583"
+            />
+            <path
+              fill="var(--background)"
+              d="m28.84 18.16c-0.4-1.21-0.89-2.34-1.36-3.1 0.79-0.95 1.22-2.11 1.22-3.28 0-1.41-0.72-2.7-2.07-2.7-1.27 0-3.02 1.16-3.7 2.31-0.84-0.24-1.89-0.32-2.77-0.28-0.64-1.96-2.39-3.43-4.19-3.43-1.87 0-3.68 2.06-3.68 4.33 0 1.18 0.47 2.26 1.14 2.87-2.72 1.77-4.69 4.96-4.69 7.85 0 5.25 5.75 9.54 11.87 9.54 1.34 0 2.69-0.22 2.88-0.38 0.07-0.11 0.13-0.63 0.13-1.24 0-3.07-2.03-6.09-5.43-6.93-0.12-0.03-0.06-0.1 0.03-0.13 0.47-0.15 1-0.21 1.44-0.21 2.59 0.04 5.08 1.57 7.98 1.57 2.78 0 4.09-1.04 4.08-2.28-0.01-0.98-2.03-2.24-2.88-4.51z"
+            />
+            <path
+              fill="var(--primary)"
+              d="m16.08 8.94c-0.98 0-1.57 1.03-1.57 2.3 0 1.36 0.71 2.66 1.62 3.14 0.79-0.78 1.72-1.41 2.6-1.84 0.01-1.92-1.32-3.6-2.65-3.6z"
+            />
+            <path
+              fill="var(--primary)"
+              d="m26.95 10.4c-0.79 0.04-1.74 1.04-1.98 2 0.8 0.56 1.52 1.28 2.03 1.99 0.58-0.68 0.9-1.61 0.9-2.56 0.01-0.93-0.38-1.43-0.95-1.43z"
+            />
+            <ellipse
+              cx="24.53"
+              cy="18.91"
+              fill="var(--primary)"
+              rx="1.805"
+              ry="1.856"
+            />
+            <ellipse
+              cx="24.97"
+              cy="18.52"
+              fill="var(--background)"
+              rx=".7659"
+              ry=".7659"
+            />
+            <ellipse
+              cx="30.64"
+              cy="23.08"
+              fill="var(--primary)"
+              rx=".6618"
+              ry=".8528"
+              transform="rotate(39.09 30.64 23.08)"
+            />
+          </svg>
+          possum
+        </span>
+
+        <nav class="nav__links" aria-label="Sections">
+          <a href="#what">What it does</a>
+          <a href="#how">How it works</a>
+          <a href="#architecture">Architecture</a>
+        </nav>
+
+        <button
+          class="toggle"
+          id="toggle"
+          type="button"
+          aria-label="Colour theme: system"
+        >
+          <span class="toggle__track" aria-hidden="true">
+            <span class="toggle__option is-light">☀</span>
+            <span class="toggle__option is-auto">A</span>
+            <span class="toggle__option is-dark">☾</span>
+          </span>
+        </button>
+      </div>
+    </nav>
+
+    <main>
+      <!-- ============================================================ -->
+      <header class="hero wrap">
+        <div class="stagger">
+          <p class="eyebrow reveal">Receipts, structured</p>
+          <h1 class="reveal">
+            Photograph a receipt. Then <em>ask about it.</em>
+          </h1>
+          <p class="lede reveal">
+            possum reads the photo with a local vision model, parses it into
+            line items, totals and categories, and keeps the image. Everything
+            lands in one place you can query in plain language — no cloud
+            account, no receipt-tracking subscription.
+          </p>
+        </div>
+
+        <div class="hero__row reveal">
+          <div class="hero__actions">
+            <a class="btn btn--primary" href="#architecture"
+              >See the architecture</a
+            >
+            <a class="btn btn--ghost" href="#how">How a receipt becomes data</a>
+          </div>
+        </div>
+
+        <figure class="hero__visual reveal" aria-hidden="true">
+          <svg viewBox="0 0 320 420" fill="none">
+            <!-- Receipt body with torn top edge -->
+            <path
+              d="M20 40
+                 L20 380
+                 Q20 400 40 400
+                 L280 400
+                 Q300 400 300 380
+                 L300 40
+                 L285 52 270 40 255 52 240 40 225 52 210 40 195 52 180 40
+                 165 52 150 40 135 52 120 40 105 52 90 40 75 52 60 40 45 52 30 40
+                 Z"
+              fill="var(--background)"
+              stroke="var(--border)"
+              stroke-width="1.5"
+            />
+            <!-- Header -->
+            <text
+              x="160"
+              y="78"
+              text-anchor="middle"
+              font-family="var(--font-heading)"
+              font-size="18"
+              font-weight="600"
+              fill="var(--foreground)"
+            >
+              GROCERIES
+            </text>
+            <text
+              x="160"
+              y="102"
+              text-anchor="middle"
+              font-family="var(--font-mono)"
+              font-size="10"
+              letter-spacing="0.08em"
+              fill="var(--muted-foreground)"
+            >
+              2026-10-06 · 14:32
+            </text>
+            <!-- Divider -->
+            <line
+              x1="40"
+              y1="122"
+              x2="280"
+              y2="122"
+              stroke="var(--border)"
+              stroke-width="1"
+              stroke-dasharray="4 4"
+            />
+            <!-- Line items -->
+            <g
+              font-family="var(--font-sans)"
+              font-size="13"
+              fill="var(--foreground)"
+            >
+              <text x="48" y="154">Organic oat milk</text>
+              <text x="272" y="154" text-anchor="end">4.49</text>
+              <text x="48" y="184">Sourdough loaf</text>
+              <text x="272" y="184" text-anchor="end">5.20</text>
+              <text x="48" y="214">Free-range eggs</text>
+              <text x="272" y="214" text-anchor="end">6.80</text>
+              <text x="48" y="244">Arborio rice</text>
+              <text x="272" y="244" text-anchor="end">3.15</text>
+              <text x="48" y="274">Ground coffee</text>
+              <text x="272" y="274" text-anchor="end">8.99</text>
+            </g>
+            <!-- Divider -->
+            <line
+              x1="40"
+              y1="298"
+              x2="280"
+              y2="298"
+              stroke="var(--border)"
+              stroke-width="1"
+              stroke-dasharray="4 4"
+            />
+            <!-- Total -->
+            <text
+              x="48"
+              y="328"
+              font-family="var(--font-heading)"
+              font-size="14"
+              font-weight="600"
+              fill="var(--foreground)"
+            >
+              Total
+            </text>
+            <text
+              x="272"
+              y="328"
+              text-anchor="end"
+              font-family="var(--font-heading)"
+              font-size="18"
+              font-weight="600"
+              fill="var(--primary)"
+            >
+              28.63
+            </text>
+            <!-- Category pills -->
+            <rect
+              x="48"
+              y="352"
+              width="58"
+              height="22"
+              rx="11"
+              fill="var(--primary-dim)"
+            />
+            <text
+              x="77"
+              y="367"
+              text-anchor="middle"
+              font-family="var(--font-mono)"
+              font-size="9"
+              fill="var(--primary-foreground)"
+            >
+              food
+            </text>
+            <rect
+              x="114"
+              y="352"
+              width="70"
+              height="22"
+              rx="11"
+              fill="var(--muted)"
+            />
+            <text
+              x="149"
+              y="367"
+              text-anchor="middle"
+              font-family="var(--font-mono)"
+              font-size="9"
+              fill="var(--muted-foreground)"
+            >
+              grocery
+            </text>
+            <!-- Lime accent corner -->
+            <circle cx="280" cy="370" r="18" fill="var(--primary)" />
+            <path
+              d="M272 370h16M280 362v16"
+              stroke="var(--primary-foreground)"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </figure>
+      </header>
+
+      <!-- ============================================================ -->
+      <section class="wrap" id="what">
+        <div class="sec-head stagger">
+          <p class="eyebrow reveal">What it does</p>
+          <h2 class="reveal">Three surfaces, one pile of receipts</h2>
+          <p class="lede reveal">
+            The chat is the front door. Receipts and Overview are there when you
+            want to see the data rather than ask for it.
+          </p>
+        </div>
+
+        <div class="features stagger">
+          <article class="feature reveal">
+            <div class="feature__head">
+              <span class="feature__icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 12a8 8 0 1 1 16 0" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+              </span>
+              <h3>Chat</h3>
+            </div>
+            <p>
+              "What did I spend on groceries last month?" The agent calls
+              owner-scoped tools over your receipts and answers in a sentence,
+              with the numbers it actually found.
+            </p>
+          </article>
+
+          <article class="feature reveal">
+            <div class="feature__head">
+              <span class="feature__icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+                  />
+                  <path d="M8 7h8M8 11h5M8 15h7" />
+                  <path d="M16 17l2 2 4-4" stroke="var(--primary)" />
+                </svg>
+              </span>
+              <h3>Receipts</h3>
+            </div>
+            <p>
+              Every receipt with its image, its line items and where it was
+              bought. Edit anything the extraction got wrong; the correction is
+              stored.
+            </p>
+          </article>
+
+          <article class="feature reveal">
+            <div class="feature__head">
+              <span class="feature__icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 3v18h18" />
+                  <path d="M7 16l4-6 4 4 5-9" />
+                  <circle
+                    cx="7"
+                    cy="16"
+                    r="1.5"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="11"
+                    cy="10"
+                    r="1.5"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="15"
+                    cy="14"
+                    r="1.5"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="20"
+                    cy="5"
+                    r="1.5"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+              </span>
+              <h3>Overview</h3>
+            </div>
+            <p>
+              Spending over time, by merchant, and by category — all read off
+              the same rows the chat queries.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="wrap" id="how">
+        <div class="sec-head stagger">
+          <p class="eyebrow reveal">How it works</p>
+          <h2 class="reveal">Upload, extract, categorize, ask</h2>
+          <p class="lede reveal">
+            Each stage is durable and re-runnable, so a failure resumes where it
+            stopped instead of starting the whole thing again.
+          </p>
+        </div>
+
+        <div class="steps stagger">
+          <div class="step reveal">
+            <b>Upload</b>
+            <span
+              >Your browser writes the image straight to storage over a
+              presigned URL.</span
+            >
+          </div>
+          <div class="step reveal">
+            <b>Extract</b>
+            <span
+              >A vision model transcribes it; a second pass parses that into a
+              fixed contract.</span
+            >
+          </div>
+          <div class="step reveal">
+            <b>Categorize</b>
+            <span
+              >Each line item gets a leaf category from a shared taxonomy.
+              Derived, so it can be redone.</span
+            >
+          </div>
+          <div class="step reveal">
+            <b>Ask</b>
+            <span
+              >The chat agent reads it back through owner-scoped tools.</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="wrap" id="architecture">
+        <div class="sec-head stagger">
+          <p class="eyebrow reveal">Architecture</p>
+          <h2 class="reveal">Every moving part, on one host</h2>
+          <p class="lede reveal">
+            Select any block to isolate it and see what it talks to. The app,
+            the database, object storage and the model server all run on a
+            single Mac mini behind one tunnel. Two things do not: the workflow
+            runner, which is hosted, and the image bytes, which go
+            browser-to-storage without passing through anything here.
+          </p>
+        </div>
+
+        <div class="scene scene--dramatic reveal" id="scene">
+          <div class="stage">
+            <svg
+              class="diagram"
+              id="diagram"
+              role="img"
+              aria-label="Isometric diagram of the possum stack: a browser and a Cloudflare tunnel in front of a Next.js app, with Postgres, object storage, a durable workflow runner, the local model server, and backups, all on one Mac mini."
+            ></svg>
+          </div>
+
+          <div class="below">
+            <div>
+              <ul class="legend" id="legend"></ul>
+              <p class="hint">
+                Hover or tap a block to trace it. Escape, or click empty space,
+                to see the whole system again.<span class="hint--scroll">
+                  Scroll the diagram sideways to see the whole plane.</span
+                >
+              </p>
+            </div>
+            <div class="inspect" id="inspect" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      const root = document.documentElement;
+      const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+
+      /* Reveal on scroll. Every .reveal element gets .is-visible once it
+         enters the viewport; the CSS transition handles the actual motion.
+         This is more reliable than CSS scroll-driven animations, which are
+         still uneven across browsers, and it gives us stagger for free. */
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add("is-visible");
+          });
+        },
+        { threshold: 0.08, rootMargin: "0px 0px -120px 0px" }
+      );
+      document
+        .querySelectorAll(".reveal")
+        .forEach((el) => revealObserver.observe(el));
+
+      /* ==============================================================
+         Theme
+      =============================================================== */
+      const toggle = document.getElementById("toggle");
+      const THEME_KEY = "possum:theme";
+      const THEME_ORDER = ["auto", "light", "dark"];
+      const THEME_LABEL = { auto: "system", light: "light", dark: "dark" };
+
+      const setTheme = (value) => {
+        root.dataset.theme = value;
+        const next =
+          THEME_ORDER[(THEME_ORDER.indexOf(value) + 1) % THEME_ORDER.length];
+        toggle.setAttribute(
+          "aria-label",
+          `Colour theme: ${THEME_LABEL[value]}. Activate to switch to ${THEME_LABEL[next]}.`
+        );
+        try {
+          localStorage.setItem(THEME_KEY, value);
+        } catch {
+          // storage may be blocked; the toggle still works for this page view
+        }
+      };
+
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (THEME_ORDER.includes(saved)) setTheme(saved);
+        else setTheme("auto");
+      } catch {
+        setTheme("auto");
+      }
+
+      toggle.addEventListener("click", () => {
+        setTheme(
+          THEME_ORDER[
+            (THEME_ORDER.indexOf(root.dataset.theme) + 1) % THEME_ORDER.length
+          ]
+        );
+      });
+
+      /* ==============================================================
+         The diagram
+         --------------------------------------------------------------
+         True isometric, 30°: x runs right-down, y left-down, z
+         straight up. Every point goes through one iso(), so the
+         plates, the ground and the links all line
+         up — nothing here is eyeballed.
+         =============================================================== */
+      const ISO_C = Math.cos(Math.PI / 6);
+      const ISO_S = 0.5;
+
+      /* One unit in px. Chosen per render so the figure fills the
+         stage; set before anything is measured. */
+      let S = 40;
+
+      const iso = (x, y, z = 0) => [
+        (x - y) * ISO_C * S,
+        ((x + y) * ISO_S - z) * S,
+      ];
+
+      const n2 = (v) => String(Math.round(v * 100) / 100);
+
+      /** World points → an SVG path. */
+      const poly = (pts3, close = true) =>
+        `M${pts3
+          .map((p) => {
+            const [x, y] = iso(p[0], p[1], p[2]);
+            return `${n2(x)} ${n2(y)}`;
+          })
+          .join("L")}${close ? "Z" : ""}`;
+
+      /**
+       * The three visible faces of a box, as world-point quads. The
+       * two side faces share the corner nearest the viewer, which is
+       * what makes them meet cleanly.
+       */
+      /* Rounded corners: one ring of points in the xy plane. The order is
+         fixed and the index arithmetic below depends on it, so it is
+         worth stating once — starting at the front of the right edge
+         and running right → front → left → back. */
+      const SEG = 5;
+
+      /* Corner radius of every plate, in world units. */
+      const RADIUS = 0.42;
+
+      /* Chamfer inset, and the screw head that sits inside it. Both scale
+         with the plate, so one set of numbers works for the big chips and
+         the shallow edge ones. */
+      const CHAMFER = 0.4;
+      const SCREW_R = 0.13;
+
+      function ring(x, y, w, d, r, z = 0) {
+        const pts = [];
+        const corners = [
+          [x + w - r, y + d - r, 0],
+          [x + r, y + d - r, 1],
+          [x + r, y + r, 2],
+          [x + w - r, y + r, 3],
+        ];
+        for (const [cx, cy, q] of corners) {
+          for (let i = 0; i <= SEG; i++) {
+            const a = ((q + i / SEG) * Math.PI) / 2;
+            pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a), z]);
+          }
+        }
+        return pts;
+      }
+
+      /**
+       * A circle lying in the xy plane projects to an ellipse of
+       * rx : ry = √3 : 1 — the same foreshortening that makes the icon on
+       * a roof sit flat rather than stand up. The ratio is the skill's,
+       * from `cylinder()` at height 0, which is what a screw head reduces
+       * to.
+       *
+       * Emitted as an `<ellipse>` rather than as the skill's two-arc path:
+       * the two endpoints of that path are diametrically opposite, which
+       * is a degenerate arc, and Chrome silently renders nothing for it.
+       */
+      const disc = (cx, cy, z, r) => {
+        // Scaled by S like everything else. The centre comes from iso(),
+        // which is in projected units; leaving the radii in world units
+        // made each head 0.32 projected units — under half a screen pixel,
+        // so it drew nothing at all.
+        const rx = r * Math.SQRT2 * ISO_C * S;
+        const [x, y] = iso(cx, cy, z);
+        return `<ellipse cx="${n2(x)}" cy="${n2(y)}" rx="${n2(rx)}" ry="${n2(
+          rx / Math.sqrt(3)
+        )}"/>`;
+      };
+
+      /* The two stretches of that ring a viewer can see: everything at
+         max x is the right wall, everything at max y the left wall. */
+      const RIGHT_CHAIN = [
+        4 * SEG + 3,
+        ...Array.from({ length: SEG + 1 }, (_, i) => i),
+      ];
+      const LEFT_CHAIN = Array.from(
+        { length: SEG + 2 },
+        (_, i) => 2 * SEG + 1 - i
+      );
+
+      /**
+       * A plate, built to the skill's own `plinth()`: the rounded loft for
+       * the mass, a contact shadow, a chamfer line, a groove down each
+       * visible wall, and two screws at opposite corners. Rounding the
+       * plan rather than only the roof is what makes the silhouette
+       * read as a machined edge rather than a square block.
+       *
+       * The silhouette is the whole top ring, then the visible part of
+       * the bottom ring — the top-front edges are interior chords of
+       * that loop, not part of it, exactly as on a plain hexagon.
+       */
+      function plaque(b, r) {
+        const top = ring(b.x, b.y, b.w, b.d, r, b.h);
+        const bot = ring(b.x, b.y, b.w, b.d, r, 0);
+
+        // Where the screw heads go. The skill's `plinth` puts them 1.5
+        // units in from two edges of a 15 unit plate; that number does
+        // not transfer, because a screw's distance from the centre *on
+        // screen* is ((w+d)/2 − 2·inset)·cos30. Oversize the inset and
+        // they move inwards, straight under the icon. So: just inside
+        // the chamfer ring, which is the relationship the skill's own
+        // plate has.
+        const inset = CHAMFER + 0.22;
+        const screws = [
+          [b.x + b.w - inset, b.y + inset],
+          [b.x + inset, b.y + b.d - inset],
+        ];
+
+        // The side of the plate is ONE surface, not two: a flat face, a
+        // cylindrical fillet, another flat face, tangent throughout. The
+        // two wall tones are split here because the light is, but there is
+        // no edge between them to stroke — the tone change is the whole
+        // division. An earlier version drew a vertical line at the front
+        // corner and it read as a leg hanging off the roof.
+        const wall = (chain) => [
+          ...chain.map((i) => top[i]),
+          ...chain
+            .slice()
+            .reverse()
+            .map((i) => bot[i]),
+        ];
+
+        // Start at the back of the left wall, run round the back edges,
+        // drop down the far corner, then come forward along the bottom
+        // of both walls. It ends under where it started, so the last
+        // edge closes as the wall's own vertical.
+        const silhouette = [
+          top[LEFT_CHAIN[0]],
+          ...top.slice(LEFT_CHAIN[0] + 1),
+          ...RIGHT_CHAIN.map((i) => bot[i]),
+          ...LEFT_CHAIN.slice()
+            .reverse()
+            .slice(1)
+            .map((i) => bot[i]),
+        ];
+
+        return {
+          roof: poly(top),
+          left: poly(wall(LEFT_CHAIN)),
+          right: poly(wall(RIGHT_CHAIN)),
+          outline: poly(silhouette),
+          // The brightest line in the figure: the two top-front edges.
+          highlight: poly(top.slice(0, LEFT_CHAIN[0] + 1), false),
+          // The chamfer line inset into the roof. It has to sit far enough
+          // in to read as a machined recess rather than as a second
+          // outline of the same shape — and far enough out to leave the
+          // roof's corners free for the screws.
+          inset: poly(
+            ring(
+              b.x + CHAMFER,
+              b.y + CHAMFER,
+              b.w - CHAMFER * 2,
+              b.d - CHAMFER * 2,
+              Math.max(0.1, r - CHAMFER * 0.75),
+              b.h
+            )
+          ),
+
+          // A groove down each visible wall at mid height, splitting it
+          // into two bands. This is what makes the skill's plinth read as
+          // a plinth rather than a slab: the wall stops being one blank
+          // face. It stops short of each corner, because a rounded wall
+          // has no flat to carry a line that far out.
+          groove:
+            poly(
+              [
+                [b.x + r, b.y + b.d, b.h / 2],
+                [b.x + b.w - r, b.y + b.d, b.h / 2],
+              ],
+              false
+            ) +
+            poly(
+              [
+                [b.x + b.w, b.y + b.d - r, b.h / 2],
+                [b.x + b.w, b.y + r, b.h / 2],
+              ],
+              false
+            ),
+
+          // Two screws at opposite corners, each a disc lying in the roof
+          // plane with a slot across it. Corners, not all four: the icon
+          // already owns the middle of the roof, and four heads would
+          // crowd it off the plate.
+          heads: screws.map(([x, y]) => disc(x, y, b.h, SCREW_R)).join(""),
+          slots: screws
+            .map(([x, y]) =>
+              poly(
+                [
+                  [x - SCREW_R * 0.62, y, b.h],
+                  [x + SCREW_R * 0.62, y, b.h],
+                ],
+                false
+              )
+            )
+            .join(""),
+        };
+      }
+
+      /* ---- Icons ----------------------------------------------------
+         Authored in a 0..1 square and mapped into the plane of the top
+         face, so they sit *on* the roof at the correct foreshortening
+         rather than standing upright on it.
+         -------------------------------------------------------------- */
+      const ICONS = {
+        browser:
+          '<rect x=".08" y=".18" width=".84" height=".62" rx=".08"/><path d="M.08.38h.84"/><circle cx=".19" cy=".28" r=".035" fill="currentColor"/>',
+        cloudflare:
+          '<path d="M.26.8h.48a.18.18 0 0 0 .02-.36.25.25 0 0 0-.44-.1A.2.2 0 0 0 .26.8Z"/>',
+        // A retry loop, not another card: the one thing Inngest is for
+        // that nothing else on this diagram is.
+        inngest:
+          '<rect x=".09" y=".09" width=".82" height=".82" rx=".14"/><path d="M.66.38A.21.21 0 1 1 .45.3"/><path d="M.45.3h.1M.45.3v.1"/>',
+        traefik:
+          '<path d="M.5.1v.3"/><path d="M.5.4 0.2.72"/><path d="M.5.4l.3.32"/><circle cx=".5" cy=".12" r=".08"/><circle cx=".2" cy=".74" r=".08"/><circle cx=".8" cy=".74" r=".08"/>',
+        app: '<rect x=".08" y=".14" width=".84" height=".7" rx=".08"/><path d="M.08.32h.84"/><path d="M.2.48h.34"/><path d="M.2.64h.24"/>',
+        postgres:
+          '<ellipse cx=".5" cy=".22" rx=".34" ry=".14"/><path d="M.16.22v.54c0 .08.15.14.34.14s.34-.06.34-.14V.22"/><path d="M.16.49c0 .08.15.14.34.14s.34-.06.34-.14"/>',
+        rustfs:
+          '<rect x=".08" y=".18" width=".84" height=".26" rx=".07"/><rect x=".08" y=".54" width=".84" height=".26" rx=".07"/><path d="M.2.31h.03M.2.67h.03"/>',
+        lmstudio:
+          '<rect x=".26" y=".26" width=".48" height=".48" rx=".08"/><path d="M.38.1v.16M.62.1v.16M.38.74v.16M.62.74v.16M.1.38h.16M.1.62h.16M.74.38h.16M.74.62h.16"/>',
+      };
+
+      /**
+       * An icon painted on a box's top face. The affine matrix maps the
+       * face's own (x, y) into screen space, so the glyph foreshortens
+       * with the roof — the same reason a vent on a side wall slants.
+       */
+      const iconOnFace = (box, markup) => {
+        // Held to 40% of the plate. Any wider and its corners run under
+        // the screw heads, which is how a roof ends up with lines
+        // crossing over each other.
+        const k = Math.min(box.w, box.d) * 0.4;
+
+        const o = iso(box.x + box.w / 2, box.y + box.d / 2, box.h);
+        const bx = iso(box.x + box.w / 2 + 1, box.y + box.d / 2, box.h);
+        const by = iso(box.x + box.w / 2, box.y + box.d / 2 + 1, box.h);
+
+        // The face's own axes, scaled so one glyph unit is `k` world units, then
+        // shifted by half so the 0..1 glyph lands centred on the roof.
+        const ux = (bx[0] - o[0]) * k;
+        const uy = (bx[1] - o[1]) * k;
+        const vx = (by[0] - o[0]) * k;
+        const vy = (by[1] - o[1]) * k;
+
+        return `<g transform="matrix(${n2(ux)} ${n2(uy)} ${n2(vx)} ${n2(vy)} ${n2(
+          o[0] - (ux + vx) / 2
+        )} ${n2(o[1] - (uy + vy) / 2)})"><g class="icon">${markup}</g></g>`;
+      };
+
+      /* ---- Scene ----------------------------------------------------
+         Seven plates on an open mesh. Four run on the Mac mini; the
+         browser and the edge sit off the grid's far side, because that
+         is the whole point of the diagram — one machine, and everything
+         that isn't on it.
+         -------------------------------------------------------------- */
+
+      /* The Mac mini. A slab larger than the footprint, which is what
+         makes "these four are on this machine" legible. */
+
+      const NODES = [
+        {
+          id: "app",
+          label: "Next.js app",
+          kind: "Application",
+          icon: "app",
+          x: 8.6,
+          y: 0.6,
+          w: 3,
+          d: 2.8,
+          h: 0.5,
+          text: "The whole product: the chat stream, the receipts table, the overview charts, and the Inngest worker that runs extraction. It mints presigned upload URLs, receives storage notifications, and downloads each image back before OCR.",
+          tags: ["App Router", "route handlers", "Inngest worker"],
+        },
+        {
+          id: "postgres",
+          label: "Postgres",
+          kind: "Data",
+          icon: "postgres",
+          x: 0.6,
+          y: 0.6,
+          w: 2.8,
+          d: 2.6,
+          h: 0.44,
+          text: "Receipts, line items and the category taxonomy. The schema is the source of truth — domain types are derived from it rather than written by hand.",
+          tags: ["Drizzle", "derived types"],
+        },
+        {
+          id: "rustfs",
+          label: "RustFS",
+          kind: "Data",
+          icon: "rustfs",
+          x: 0.6,
+          y: 10.4,
+          w: 2.8,
+          d: 2.8,
+          h: 0.44,
+          text: "Object storage for receipt images, and the hinge of the whole flow: the browser writes here directly, its bucket notification is the authoritative signal that the write finished, and the worker later reads the same image back for OCR.",
+          tags: ["S3 API", "bucket notification"],
+        },
+        {
+          id: "lmstudio",
+          label: "LM Studio",
+          kind: "Models",
+          icon: "lmstudio",
+          x: 8.6,
+          y: 10.4,
+          w: 3.1,
+          d: 3,
+          h: 0.54,
+          text: "An OpenAI-compatible server on the host, reached by containers over the internal bridge. A vision model transcribes the receipt; a second parses and categorizes it. Nothing leaves the machine.",
+          tags: ["OCR", "parse", "categorize"],
+        },
+        {
+          id: "inngest",
+          label: "Inngest Cloud",
+          kind: "Orchestration",
+          icon: "inngest",
+          x: 16.6,
+          y: 1.6,
+          w: 2.9,
+          d: 2.6,
+          h: 0.44,
+          text: "The durable-execution server, and the one part of this stack that is not on the machine. The app publishes receipt/uploaded and receipt/extracted; Inngest calls back into the app's own worker to run the steps, and retries them for as long as it takes. A model call that fails at 3am is retried, not dropped.",
+          tags: ["hosted", "durable retries", "retries off the request"],
+        },
+        // The edge is one row along constant y: Browser, then the tunnel,
+        // then the proxy. Reading it left to right, the request travels
+        // that way too and then drops into the app, instead of doubling
+        // back on itself.
+        {
+          id: "cloudflare",
+          label: "Cloudflare",
+          kind: "Edge",
+          icon: "cloudflare",
+          x: 5.9,
+          y: -5.4,
+          w: 2.7,
+          d: 2.2,
+          h: 0.4,
+          text: "The only public way in. One wildcard route forwards every hostname to the proxy — nothing else on the machine is reachable from the internet.",
+          tags: ["*.tribi.dev", "zero open ports"],
+        },
+        {
+          id: "traefik",
+          label: "Traefik",
+          kind: "Edge",
+          icon: "traefik",
+          x: 11.2,
+          y: -5.4,
+          w: 2.7,
+          d: 2.2,
+          h: 0.4,
+          text: "Routes each hostname to the right container. The admin UI sits behind an extra Cloudflare Access gate.",
+          tags: ["per-domain routing"],
+        },
+        {
+          id: "browser",
+          label: "Browser",
+          kind: "Client",
+          icon: "browser",
+          x: 0.6,
+          y: -5.4,
+          w: 2.7,
+          d: 2.2,
+          h: 0.4,
+          text: "Asks the app for a presigned URL, then PUTs the image straight to storage with it. The app mints the key and hands it over; the bytes never pass through it. It only learns the upload finished when storage says so.",
+          tags: ["presigned PUT", "chat UI"],
+        },
+      ];
+
+      /* ---- Orthogonal routing -----------------------------------------
+         Every link is axis-aligned in the plane: a segment changes only
+         x, or only y, never both. In a 30 degree isometric that reads as
+         two families of parallel lines meeting at right angles, which is
+         what makes wiring look like wiring instead of spaghetti — and it
+         is the only way to *guarantee* a route exists that never passes
+         under a plate, rather than hoping a hand-drawn elbow misses.
+
+         Routes come from A* over a coarse world grid whose occupied cells
+         are the plates inflated by CLEAR. Two plates joined both ways
+         would otherwise collapse onto one identical path, so a link may
+         name a `lane` — a world x or y it prefers — and cells cost more
+         the further they stray from it. That is enough to separate them
+         onto separate corridors without hand-drawing either.
+         -------------------------------------------------------------- */
+      const CELL = 0.25;
+      const CLEAR = 0.55;
+
+      const router = (() => {
+        const X0 = Math.min(...NODES.map((n) => n.x)) - 2;
+        const Y0 = Math.min(...NODES.map((n) => n.y)) - 2;
+        const X1 = Math.max(...NODES.map((n) => n.x + n.w)) + 2;
+        const Y1 = Math.max(...NODES.map((n) => n.y + n.d)) + 2;
+        const W = Math.max(2, Math.ceil((X1 - X0) / CELL));
+        const H = Math.max(2, Math.ceil((Y1 - Y0) / CELL));
+
+        const blocked = new Uint8Array(W * H);
+        for (const n of NODES) {
+          const ix0 = Math.floor((n.x - CLEAR - X0) / CELL);
+          const ix1 = Math.ceil((n.x + n.w + CLEAR - X0) / CELL);
+          const iy0 = Math.floor((n.y - CLEAR - Y0) / CELL);
+          const iy1 = Math.ceil((n.y + n.d + CLEAR - Y0) / CELL);
+          for (let iy = iy0; iy <= iy1; iy++) {
+            for (let ix = ix0; ix <= ix1; ix++) {
+              if (ix >= 0 && ix < W && iy >= 0 && iy < H)
+                blocked[iy * W + ix] = 1;
+            }
+          }
+        }
+
+        // A minimal binary heap; A* on this grid runs per link per resize.
+        const heap = (cmp) => {
+          const a = [];
+          return {
+            push: (v) => {
+              a.push(v);
+              let i = a.length - 1;
+              while (i > 0) {
+                const p = (i - 1) >> 1;
+                if (cmp(a[i], a[p]) >= 0) break;
+                [a[i], a[p]] = [a[p], a[i]];
+                i = p;
+              }
+            },
+            pop: () => {
+              const top = a[0];
+              const last = a.pop();
+              if (a.length) {
+                a[0] = last;
+                let i = 0;
+                for (;;) {
+                  const l = 2 * i + 1;
+                  const r = l + 1;
+                  let m = i;
+                  if (l < a.length && cmp(a[l], a[m]) < 0) m = l;
+                  if (r < a.length && cmp(a[r], a[m]) < 0) m = r;
+                  if (m === i) break;
+                  [a[i], a[m]] = [a[m], a[i]];
+                  i = m;
+                }
+              }
+              return top;
+            },
+            get size() {
+              return a.length;
+            },
+          };
+        };
+
+        /** Shortest orthogonal route, or null if the grid is shut. */
+        const find = (from, to, lane) => {
+          const sx = Math.round((from[0] - X0) / CELL);
+          const sy = Math.round((from[1] - Y0) / CELL);
+          const tx = Math.round((to[0] - X0) / CELL);
+          const ty = Math.round((to[1] - Y0) / CELL);
+          if (sx < 0 || sy < 0 || sx >= W || sy >= H) return null;
+          if (tx < 0 || ty < 0 || tx >= W || ty >= H) return null;
+
+          // The two endpoints are legal wherever they land: an anchor is
+          // snapped to a cell centre, and that centre can fall back
+          // inside the plate's own inflated footprint. Without this the
+          // search reports failure and the caller silently falls back to
+          // a straight diagonal, which is what it was doing before.
+          const startBlocked = blocked[sy * W + sx];
+          const goalBlocked = blocked[ty * W + tx];
+          blocked[sy * W + sx] = 0;
+          blocked[ty * W + tx] = 0;
+
+          const at = (ix, iy) => X0 + (ix + 0.5) * CELL;
+          const laneCost = (ix, iy) => {
+            if (!lane) return 0;
+            const v = lane.axis === "x" ? at(ix, iy) : iy;
+            return Math.abs(v - lane.at) * 0.22;
+          };
+
+          const dist = new Float32Array(W * H).fill(Infinity);
+          const prev = new Int32Array(W * H).fill(-1);
+          const start = sy * W + sx;
+          const goal = ty * W + tx;
+          dist[start] = 0;
+
+          const open = heap((p, q) => p.f - q.f);
+          open.push({ i: start, f: Math.abs(tx - sx) + Math.abs(ty - sy) });
+          const seen = new Uint8Array(W * H);
+
+          while (open.size) {
+            const { i } = open.pop();
+            if (i === goal) break;
+            if (seen[i]) continue;
+            seen[i] = 1;
+            const ix = i % W;
+            const iy = (i - ix) / W;
+
+            for (const [dx, dy] of [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ]) {
+              const nx = ix + dx;
+              const ny = iy + dy;
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+              const ni = ny * W + nx;
+              if (blocked[ni] || seen[ni]) continue;
+              // A gentle bias against turning, so routes prefer long runs.
+              const turn =
+                prev[i] >= 0 &&
+                ni - prev[i] !== W &&
+                ni - prev[i] !== 1 &&
+                ni - prev[i] !== -W &&
+                ni - prev[i] !== -1
+                  ? 2
+                  : 0;
+              const nd = dist[i] + CELL + turn + laneCost(nx, ny);
+              if (nd < dist[ni]) {
+                dist[ni] = nd;
+                prev[ni] = i;
+                open.push({
+                  i: ni,
+                  f: nd + Math.abs(tx - nx) + Math.abs(ty - ny),
+                });
+              }
+            }
+          }
+
+          if (!Number.isFinite(dist[goal])) {
+            if (startBlocked) blocked[sy * W + sx] = 1;
+            if (goalBlocked) blocked[ty * W + tx] = 1;
+            return null;
+          }
+          if (startBlocked) blocked[sy * W + sx] = 1;
+          if (goalBlocked) blocked[ty * W + tx] = 1;
+
+          const cells = [];
+          for (let i = goal; i >= 0; i = prev[i]) {
+            cells.push(i);
+            if (i === start) break;
+          }
+          cells.reverse();
+
+          // Cell centres to world points, then drop collinear runs.
+          const pts = cells.map((i) => {
+            const ix = i % W;
+            return [X0 + (ix + 0.5) * CELL, Y0 + ((i - ix) / W + 0.5) * CELL];
+          });
+          // Collapse collinear runs. A grid cell centre is never exactly
+          // on the same coordinate as its neighbour, so this compares
+          // direction rather than equality: if the incoming and outgoing
+          // steps point the same way, the vertex between them is noise.
+          const out = [pts[0]];
+          for (let i = 1; i < pts.length - 1; i++) {
+            const a = out[out.length - 1];
+            const b = pts[i];
+            const c = pts[i + 1];
+            const d1 = [Math.sign(b[0] - a[0]), Math.sign(b[1] - a[1])];
+            const d2 = [Math.sign(c[0] - b[0]), Math.sign(c[1] - b[1])];
+            if (d1[0] !== d2[0] || d1[1] !== d2[1]) out.push(b);
+          }
+          out.push(pts[pts.length - 1]);
+          return out;
+        };
+
+        return { find };
+      })();
+
+      /**
+       * The point on a plate's edge that faces the other plate, pushed
+       * clear of its own inflated footprint so the search can start.
+       */
+      const anchor = (n, toward, push) => {
+        const cx = n.x + n.w / 2;
+        const cy = n.y + n.d / 2;
+        const dx = toward.x + toward.w / 2 - cx;
+        const dy = toward.y + toward.d / 2 - cy;
+        const best = [
+          [dx, [n.x + n.w, cy], [1, 0]],
+          [-dx, [n.x, cy], [-1, 0]],
+          [dy, [cx, n.y + n.d], [0, 1]],
+          [-dy, [cx, n.y], [0, -1]],
+        ].sort((a, b) => b[0] - a[0])[0];
+        const off = push ?? CLEAR + 0.2;
+        return [best[1][0] + best[2][0] * off, best[1][1] + best[2][1] * off];
+      };
+
+      /* The upload is the interesting one. The browser PUTs the image
+         straight to storage with a presigned URL, so those bytes never
+         touch the app — then storage notifies the app, the app publishes
+         an event, and the worker that Inngest calls back into downloads
+         the very same image again before OCR. Storage is a round trip,
+         not a dead end.
+
+         `lane` is the corridor a link prefers, so that two links between
+         the same pair take visibly different routes instead of drawing
+         over each other. */
+      const LINKS = [
+        // Ingress. Every browser request reaches the app the same way, and
+        // these three chips exist only to show that path — dropping them
+        // left the edge looking disconnected.
+        {
+          id: "tls",
+          from: "browser",
+          to: "cloudflare",
+          lane: { axis: "y", at: -8.2 },
+        },
+        { id: "tunnel", from: "cloudflare", to: "traefik" },
+        {
+          id: "serve",
+          from: "traefik",
+          to: "app",
+          label: "presigned url",
+          lane: { axis: "y", at: -1.6 },
+        },
+        {
+          id: "put",
+          from: "browser",
+          to: "rustfs",
+          label: "put image",
+          lane: { axis: "x", at: -1.6 },
+        },
+        {
+          id: "hook",
+          from: "rustfs",
+          to: "app",
+          label: "storage event",
+          lane: { axis: "x", at: 5.6 },
+        },
+        {
+          id: "event",
+          from: "app",
+          to: "inngest",
+          label: "event / run",
+          lane: { axis: "y", at: -1.8 },
+        },
+        { id: "run", from: "inngest", to: "app", lane: { axis: "y", at: 5.2 } },
+        {
+          id: "fetch",
+          from: "app",
+          to: "rustfs",
+          label: "fetch image",
+          lane: { axis: "y", at: 8.4 },
+        },
+        {
+          id: "sql",
+          from: "app",
+          to: "postgres",
+          label: "sql",
+          lane: { axis: "y", at: 2.2 },
+        },
+        {
+          id: "models",
+          from: "app",
+          to: "lmstudio",
+          label: "models",
+          lane: { axis: "x", at: 13.2 },
+        },
+      ];
+
+      const byId = new Map(NODES.map((n) => [n.id, n]));
+
+      /** Painter's algorithm: far solids first, so nearer ones overlap. */
+      const depthKey = (b) => b.x + b.y + b.w + b.d + b.h * 1e-3;
+
+      /* ---- Fit and draw --------------------------------------------- */
+
+      const PAD = 30;
+      const stage = document.querySelector(".stage");
+
+      /** Everything the figure draws, as world points. */
+      const BOUNDS = (() => {
+        const x0 = Math.min(...NODES.map((n) => n.x));
+        const y0 = Math.min(...NODES.map((n) => n.y));
+        const x1 = Math.max(...NODES.map((n) => n.x + n.w));
+        const y1 = Math.max(...NODES.map((n) => n.y + n.d));
+        return { x0: x0 - 1.4, y0: y0 - 1.8, x1: x1 + 1.4, y1: y1 + 1.4 };
+      })();
+
+      const allPoints = () => {
+        const out = [];
+        for (const b of NODES) {
+          for (const sx of [0, 1]) {
+            for (const sy of [0, 1]) {
+              for (const sz of [0, b.h]) {
+                out.push([b.x + sx * b.w, b.y + sy * b.d, sz]);
+              }
+            }
+          }
+        }
+        for (const sx of [0, 1]) {
+          for (const sy of [0, 1]) {
+            out.push([
+              BOUNDS.x0 + sx * (BOUNDS.x1 - BOUNDS.x0),
+              BOUNDS.y0 + sy * (BOUNDS.y1 - BOUNDS.y0),
+              0,
+            ]);
+          }
+        }
+        return out;
+      };
+
+      const measure = (unit) => {
+        S = unit;
+        const pts = allPoints().map(([x, y, z]) => iso(x, y, z));
+        const xs = pts.map((p) => p[0]);
+        const ys = pts.map((p) => p[1]);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        return {
+          minX: minX - PAD,
+          minY: minY - PAD,
+          w: Math.max(...xs) - minX + PAD * 2,
+          h: Math.max(...ys) - minY + PAD * 2,
+        };
+      };
+
+      const ARIA =
+        "Isometric diagram of the possum stack. A browser and a Cloudflare tunnel sit off to one side of a Mac mini; the Next.js app, Postgres, object storage and a local model server sit on it, connected by dashed links.";
+
+      const render = () => {
+        const stageW = stage.clientWidth || 1000;
+
+        // Fit to the stage, clamped so the figure never becomes too
+        // small for the names beside it to read.
+        const unit = Math.max(
+          20,
+          Math.min(46, (stageW - PAD * 2) / measure(1).w)
+        );
+        const view = measure(unit);
+
+        const parts = [
+          `<svg class="diagram" viewBox="${n2(view.minX)} ${n2(view.minY)} ${n2(
+            view.w
+          )} ${n2(view.h)}" width="${Math.round(view.w)}" height="${Math.round(
+            view.h
+          )}" role="img" aria-label="${ARIA}">`,
+
+          gridSVG(view),
+
+          zoneSVG(),
+
+          // Links first, so every plaque covers its own ends.
+          ...LINKS.map(linkSVG),
+
+          // Then solids, far to near.
+          ...NODES.slice()
+            .sort((a, b) => depthKey(a) - depthKey(b))
+            .map(plateSVG),
+
+          // The container box is gone, so these two labels are what tell
+          // you which plates are on the machine and which are not.
+          caption(
+            "outside the mini",
+            ["cloudflare", "traefik", "browser"],
+            "above"
+          ),
+          caption(
+            "mac mini · m4",
+            ["app", "postgres", "rustfs", "lmstudio"],
+            "below"
+          ),
+
+          "</svg>",
+        ];
+
+        stage.innerHTML = parts.join("");
+      };
+
+      /**
+       * The ground. One isometric grid, drawn on z = 0 so every plaque
+       * has something to stand on. Fine lines for the mesh, a heavier
+       * one every five units so the eye can count the plane.
+       */
+      /**
+       * The grid runs well past the figure in every direction, so it fills
+       * the section rather than stopping at the last plate. The mask is
+       * what makes that safe: it ramps the mesh to nothing before the
+       * viewBox edge, so the grid has no visible border to be cut off at
+       * and the plane dissolves into the page.
+       */
+      const gridSVG = (view) => {
+        const fine = [];
+        const major = [];
+        const seg = (a, b) => {
+          // Every fifth line is a structural guide, the rest are mesh.
+          (a[0] % 5 === 0 || a[1] % 5 === 0 ? major : fine).push(
+            `<path d="${poly([a, b], false)}"/>`
+          );
+        };
+
+        // Overflow the figure by half its own size on each side.
+        const gx0 = Math.ceil(BOUNDS.x0 - (BOUNDS.x1 - BOUNDS.x0) * 0.5);
+        const gy0 = Math.ceil(BOUNDS.y0 - (BOUNDS.y1 - BOUNDS.y0) * 0.5);
+        const gx1 = Math.ceil(BOUNDS.x1 + (BOUNDS.x1 - BOUNDS.x0) * 0.5);
+        const gy1 = Math.ceil(BOUNDS.y1 + (BOUNDS.y1 - BOUNDS.y0) * 0.5);
+
+        // Two families, each spanning the full extent of the other axis.
+        for (let x = gx0; x <= gx1; x++) seg([x, gy0, 0], [x, gy1, 0]);
+        for (let y = gy0; y <= gy1; y++) seg([gx0, y, 0], [gx1, y, 0]);
+
+        return `<defs>
+            <filter id="contactBlur" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="9"/>
+            </filter>
+            <radialGradient id="gridFadeGradient" gradientUnits="objectBoundingBox"
+              cx="50%" cy="50%" r="50%">
+              <stop offset="52%" stop-color="#fff"/>
+              <stop offset="100%" stop-color="#000"/>
+            </radialGradient>
+            <mask id="gridFade" maskUnits="userSpaceOnUse"
+              x="${n2(view.minX)}" y="${n2(view.minY)}"
+              width="${n2(view.w)}" height="${n2(view.h)}">
+              <rect x="${n2(view.minX)}" y="${n2(view.minY)}"
+                width="${n2(view.w)}" height="${n2(view.h)}"
+                fill="url(#gridFadeGradient)"/>
+            </mask>
+          </defs>
+          <g class="grid" mask="url(#gridFade)">
+            <g class="grid--fine">${fine.join("")}</g>
+            <g class="grid--major">${major.join("")}</g>
+          </g>`;
+      };
+
+      /**
+       * The Mac mini, drawn as a boundary rather than a box: a dashed
+       * outline and the faintest tint, lying flat on the ground. A raised
+       * slab would put a second plane under the figure and start to read
+       * as a container; a boundary says the same thing without one.
+       */
+      const MINI = ["app", "postgres", "rustfs", "lmstudio"];
+      const OUTSIDE = ["cloudflare", "traefik", "browser"];
+
+      const zoneSVG = () => {
+        const ns = MINI.map((id) => byId.get(id));
+        const pad = 1.15;
+        const x0 = Math.min(...ns.map((n) => n.x)) - pad;
+        const y0 = Math.min(...ns.map((n) => n.y)) - pad;
+        const x1 = Math.max(...ns.map((n) => n.x + n.w)) + pad;
+        const y1 = Math.max(...ns.map((n) => n.y + n.d)) + pad;
+        const pts = ring(x0, y0, x1 - x0, y1 - y0, 0.9, 0);
+
+        return `<g class="zone">
+            <path class="zone__fill" d="${poly(pts)}"/>
+            <path class="zone__line" d="${poly(pts)}"/>
+          </g>`;
+      };
+
+      /**
+       * A small mono caption above or below a group of plates. Its
+       * position comes from the group's *projected* bounding box: in
+       * isometric the middle of a row on screen is not the middle of it
+       * in the plane, so anything computed in world coordinates lands
+       * off to one side.
+       */
+      const caption = (text, ids, where) => {
+        const pts = [];
+        for (const id of ids) {
+          const n = byId.get(id);
+          pts.push(iso(n.x, n.y, n.h), iso(n.x + n.w, n.y + n.d, 0));
+        }
+        const cx =
+          (Math.min(...pts.map((p) => p[0])) +
+            Math.max(...pts.map((p) => p[0]))) /
+          2;
+        const cy =
+          where === "above"
+            ? Math.min(...pts.map((p) => p[1])) - 30
+            : Math.max(...pts.map((p) => p[1])) + 48;
+        return `<text class="caption" x="${n2(cx)}" y="${n2(cy)}" text-anchor="middle">${text}</text>`;
+      };
+
+      /**
+       * A contact shadow, so a plate sits on the plane rather than floats.
+       * The offset copy used to be a hard-edged rhombus the same size as
+       * the plate, which read as a second plate underneath this one — it
+       * has to be blurred and slightly larger to read as shadow at all.
+       */
+      const contactSVG = (b) => {
+        // Same footprint as the plate, nudged down-right on screen (+x).
+        // Making it any larger let it peek out on the up-light side too,
+        // where a shadow cannot fall, and a second outline appeared round
+        // every plate.
+        const pts = ring(b.x, b.y, b.w, b.d, RADIUS, 0);
+        return `<path class="contact" d="${poly(
+          pts.map(([x, y, z]) => [x + 0.5, y + 0.22, z])
+        )}"/>`;
+      };
+
+      const plateSVG = (box) => {
+        const f = plaque(box, RADIUS);
+
+        // Name on the ground, in front of the plate, on a short leader.
+        const [nx, ny] = iso(box.x + box.w / 2, box.y + box.d + 0.85, 0);
+
+        return `<g class="box" data-id="${box.id}" tabindex="0" role="button"
+             aria-pressed="false" aria-label="${box.label} — ${box.kind}">
+            ${contactSVG(box)}
+            <path class="face-l" d="${f.left}"/>
+            <path class="face-r" d="${f.right}"/>
+            <path class="face-t" d="${f.roof}"/>
+            <path class="edge" d="${f.outline}"/>
+            <path class="edge-inset" d="${f.inset}"/>
+            <path class="edge-hi" d="${f.highlight}"/>
+            <path class="edge-groove" d="${f.groove}"/>
+            <path class="screw-slot" d="${f.slots}"/>
+            <g class="screw-head">${f.heads}</g>
+            ${iconOnFace(box, ICONS[box.icon])}
+            <path class="leader" d="${poly(
+              [
+                [box.x + box.w / 2, box.y + box.d, 0],
+                [box.x + box.w / 2, box.y + box.d + 0.55, 0],
+              ],
+              false
+            )}"/>
+            <text class="name" x="${n2(nx)}" y="${n2(ny)}">${box.label}</text>
+          </g>`;
+      };
+
+      /**
+       * A link on the ground plane, routed orthogonally so it never runs
+       * under a plate and never crosses another link diagonally.
+       */
+      const linkSVG = (link) => {
+        const a = byId.get(link.from);
+        const b = byId.get(link.to);
+        const z = 0.05;
+
+        const start = anchor(a, b);
+        const end = anchor(b, a);
+        const mid = router.find(start, end, link.lane);
+
+        // If the grid cannot get there at all, fall back to a straight
+        // run: an imprecise route beats a missing link.
+        const pts = mid ?? [start, end];
+
+        const attr =
+          `class="link" data-pipe="${link.id}" data-from="${link.from}" ` +
+          `data-to="${link.to}" d="${poly(
+            pts.map((p) => [p[0], p[1], z]),
+            false
+          )}"`;
+
+        let label = "";
+        if (link.label) {
+          // Slide along the WHOLE route for the point furthest from every
+          // plate, rather than picking a segment midpoint. A route with
+          // several short segments has no good midpoint at all, and the
+          // endpoints are always near a plate by definition.
+          let best = null;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const a = pts[i];
+            const b = pts[i + 1];
+            const steps = Math.max(
+              2,
+              Math.ceil((Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1])) / 0.4)
+            );
+            for (let k = 1; k < steps; k++) {
+              const t = k / steps;
+              const mx = a[0] + (b[0] - a[0]) * t;
+              const my = a[1] + (b[1] - a[1]) * t;
+              const near = NODES.reduce((m, n) => {
+                const dx = Math.max(n.x - mx, 0, mx - (n.x + n.w));
+                const dy = Math.max(n.y - my, 0, my - (n.y + n.d));
+                return Math.min(m, Math.hypot(dx, dy));
+              }, Infinity);
+              if (!best || near > best.near) best = { near, mx, my };
+            }
+          }
+          const at = best ?? {
+            mx: (pts[0][0] + pts[pts.length - 1][0]) / 2,
+            my: (pts[0][1] + pts[pts.length - 1][1]) / 2,
+          };
+          const [lx, ly] = iso(at.mx, at.my, z);
+          label = `<text class="flow-label" data-pipe="${link.id}" x="${n2(
+            lx
+          )}" y="${n2(ly - 11)}" text-anchor="middle">${link.label}</text>`;
+        }
+
+        return `<path ${attr}/>${label}`;
+      };
+
+      /* ==============================================================
+         Focus: isolate a node and the links it participates in
+      =============================================================== */
+      const scene = document.getElementById("scene");
+      const legend = document.getElementById("legend");
+      const inspect = document.getElementById("inspect");
+
+      /* One source of truth for what is lit: whatever is pinned, or else
+         whatever the pointer is over. Hovering used to write straight to
+         `focused`, which meant the first hover latched the figure and
+         no later hover could change it — hence a separate `hovered`. */
+      let pinned = null;
+      let hovered = null;
+
+      const applyFocus = (id) => {
+        for (const el of stage.querySelectorAll(".box")) {
+          const lit = el.dataset.id === id;
+          el.classList.toggle("is-on", lit);
+          el.setAttribute("aria-pressed", String(lit && pinned === id));
+        }
+        // Each link carries both endpoints, so focus no longer has to
+        // infer membership from a delimited string.
+        for (const el of stage.querySelectorAll(".link, .flow-label")) {
+          el.classList.toggle(
+            "is-on",
+            el.dataset.from === id || el.dataset.to === id
+          );
+        }
+      };
+
+      const showOverview = () => {
+        pinned = null;
+        hovered = null;
+        scene.classList.remove("is-focused");
+        for (const el of stage.querySelectorAll(".is-on")) {
+          el.classList.remove("is-on");
+        }
+        for (const el of stage.querySelectorAll(".box")) {
+          el.setAttribute("aria-pressed", "false");
+        }
+        for (const li of legend.querySelectorAll("li")) {
+          li.setAttribute("aria-pressed", "false");
+        }
+        inspect.style.removeProperty("--tone");
+        inspect.innerHTML = `
+          <div class="inspect__inner">
+            <p class="inspect__kind">The whole system</p>
+            <h3>One Mac mini, one tunnel</h3>
+            <p>
+              Four services run on one Mac mini. A browser, the edge that fronts it, and
+              the hosted workflow runner all live outside it — the edge reachable only
+              through a single Cloudflare wildcard route. Select a block to see what it
+              owns and what it talks to.
+            </p>
+            <div class="inspect__meta">
+              <span class="tag">compose stack</span>
+              <span class="tag">local models</span>
+              <span class="tag">one hosted dependency</span>
+            </div>
+          </div>`;
+      };
+
+      /** Repaint from `pinned ?? hovered`, and fill the panel to match. */
+      const select = () => {
+        const id = pinned ?? hovered;
+
+        if (!id) {
+          showOverview();
+          return;
+        }
+
+        const node = byId.get(id);
+        scene.classList.add("is-focused");
+        applyFocus(id);
+
+        for (const li of legend.querySelectorAll("li")) {
+          li.setAttribute("aria-pressed", String(li.dataset.id === id));
+        }
+
+        inspect.style.setProperty("--tone", "var(--primary)");
+        inspect.innerHTML = `
+          <div class="inspect__inner">
+            <p class="inspect__kind">${node.kind}</p>
+            <h3>${node.label}</h3>
+            <p>${node.text}</p>
+            <div class="inspect__meta">${node.tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
+          </div>`;
+      };
+
+      /* ---- legend ---------------------------------------------------
+         The legend is a second way in: it mirrors the diagram's kinds,
+         so clicking one selects the same plate. "Tooling" no longer has
+         a plate to point at and drops out rather than rendering empty.
+         -------------------------------------------------------------- */
+      const KINDS = [...new Set(NODES.map((n) => n.kind))];
+
+      legend.innerHTML = KINDS.map((kind) => {
+        const node = NODES.find((n) => n.kind === kind);
+        return `<li data-id="${node.id}" aria-pressed="false" style="--tone:var(--primary)">
+            <i aria-hidden="true"></i>${kind}
+          </li>`;
+      }).join("");
+
+      /* ---- pointer + keyboard ---------------------------------------- */
+      stage.addEventListener("click", (event) => {
+        const box = event.target.closest(".box");
+        if (!box) {
+          showOverview();
+          return;
+        }
+        // A second click on the same plate unpins it.
+        const id = box.dataset.id;
+        pinned = pinned === id ? null : id;
+        hovered = null;
+        select();
+      });
+
+      // `pointerover` fires again for every child element a plate is
+      // drawn from, so ignore it unless the plate under the pointer
+      // actually changed.
+      stage.addEventListener("pointerover", (event) => {
+        if (pinned) return;
+        const id = event.target.closest(".box")?.dataset.id ?? null;
+        if (id === hovered) return;
+        hovered = id;
+        select();
+      });
+
+      stage.addEventListener("pointerleave", () => {
+        if (pinned || !hovered) return;
+        hovered = null;
+        select();
+      });
+
+      stage.addEventListener("focusin", (event) => {
+        if (pinned) return;
+        const id = event.target.closest(".box")?.dataset.id;
+        if (!id || id === hovered) return;
+        hovered = id;
+        select();
+      });
+
+      stage.addEventListener("focusout", () => {
+        if (pinned || !hovered) return;
+        hovered = null;
+        select();
+      });
+
+      stage.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const box = event.target.closest(".box");
+        if (!box) return;
+        event.preventDefault();
+        const id = box.dataset.id;
+        pinned = pinned === id ? null : id;
+        select();
+      });
+
+      legend.addEventListener("click", (event) => {
+        const li = event.target.closest("li");
+        if (!li || !li.dataset.id) return;
+        pinned = pinned === li.dataset.id ? null : li.dataset.id;
+        hovered = null;
+        select();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") showOverview();
+      });
+
+      render();
+      showOverview();
+
+      let resizeTimer = null;
+      new ResizeObserver(() => {
+        if (resizeTimer !== null) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(render, 140);
+      }).observe(stage);
+
+      /* Rotating tips, so the page has one small piece of motion of its own. */
+      if (!motionQuery.matches) {
+        const tips = [
+          "Object storage — not the browser — is what declares an upload finished.",
+          "Categories are derived, so changing the taxonomy never strands old data.",
+          "Migrations run as a separate one-shot step, never at app startup.",
+          "The browser uploads straight to storage; the app server never sees the bytes.",
+        ];
+        const hint = document.querySelector(".hint");
+        let i = 0;
+        setInterval(() => {
+          i = (i + 1) % tips.length;
+          hint.textContent = tips[i];
+        }, 7000);
+      }
+
+      /* Reduced motion is a live preference, not a page-load snapshot. */
+      motionQuery.addEventListener("change", () => {
+        if (!motionQuery.matches) return;
+        for (const animation of document.getAnimations()) animation.finish();
+      });
+    </script>
+  </body>
+</html>
