@@ -32,7 +32,7 @@ A local-first web app that turns photos of paper receipts into structured, persi
 
 **Totals**: The money amounts stated on a receipt. The total is the amount paid and is required. The subtotal is the receipt's printed subtotal — the sum of the line items, GST-inclusive — and is present only when the receipt prints one. GST is the tax component included within the total, never an amount added to it, and is present only when the receipt states it. _Avoid_: Sum, grand total, amount.
 
-**Line item**: A single charge on a receipt, with a name, quantity, unit price, line total, and a kind of `product`, `surcharge`, or `discount`. A discount has a negative line total; a surcharge is a positive line item distinct from a product. _Avoid_: Item, entry, row.
+**Line item**: A single charge on a receipt, with a name, quantity, unit price, line total, and a kind of `product`, `surcharge`, or `discount`. A discount always has a negative line total (the sign follows the kind, never the other way round); a surcharge is a positive line item distinct from a product. _Avoid_: Item, entry, row.
 
 **Card surcharge**: A fee a merchant adds for a payment method (e.g. a 0.50% credit-card fee). Modelled as a line item of kind `surcharge`, so it is included in the total. _Avoid_: Payment fee, GST surcharge.
 
@@ -45,3 +45,5 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Subcategory**: A leaf category within a top-level category (e.g. Dairy & Eggs within Groceries). The level a line item is actually assigned. _Avoid_: Child category, sub-type.
 
 **Categorization**: The pass that assigns a category to each line item, interpreting the item's name and merchant. Distinct from extraction. _Avoid_: Classification, tagging.
+
+**Category source**: The marker recording who assigned a line item's category — `ai` from categorization, `user` from a manual edit. A user-set category is a decision: categorization skips it, so a re-run applies a taxonomy change to the AI's work and leaves human choices alone. An item with no category carries `ai`, which is what leaves it eligible for a categorization run. _Avoid_: Provenance, origin, author.
