@@ -32,6 +32,7 @@ export const categorizeReceipt = inngest.createFunction(
         throw new NonRetriableError(`Receipt ${receiptId} not found`);
       }
       return found.receiptItems.map((item) => ({
+        categorySource: item.categorySource,
         id: item.id,
         kind: item.kind,
         name: item.name,
@@ -51,13 +52,19 @@ export const categorizeReceipt = inngest.createFunction(
         .set({ categorizedAt: new Date() })
         .where(eq(receipts.id, receiptId));
 
-    if (items.length === 0) {
+    // A user-set category is a decision, not a gap: it is left alone so a re-run
+    // preserves it rather than re-classifying against the taxonomy.
+    const pending = items
+      .filter((item) => item.categorySource !== "user")
+      .map(({ id, kind, name }) => ({ id, kind, name }));
+
+    if (pending.length === 0) {
       await step.run("mark-categorized", stampCategorized);
       return { categorized: 0, receiptId };
     }
 
     const assignments = await step.run("categorize", () =>
-      categorizeItems(items, options)
+      categorizeItems(pending, options)
     );
 
     await step.run("store-categories", async () => {
@@ -65,7 +72,7 @@ export const categorizeReceipt = inngest.createFunction(
         options.map((option) => [option.slug, option.id])
       );
 
-      const updates = items.flatMap((item, index) => {
+      const updates = pending.flatMap((item, index) => {
         const slug = assignments[index];
         const categoryId = slug ? categoryIdBySlug.get(slug) : undefined;
         if (!categoryId) {
@@ -74,7 +81,7 @@ export const categorizeReceipt = inngest.createFunction(
         return [
           db
             .update(receiptItems)
-            .set({ categoryId })
+            .set({ categoryId, categorySource: "ai" })
             .where(eq(receiptItems.id, item.id)),
         ];
       });

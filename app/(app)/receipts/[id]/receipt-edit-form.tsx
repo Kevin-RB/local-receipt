@@ -4,7 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
-import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
+import type {
+  Control,
+  FieldErrors,
+  UseFormRegister,
+  UseFormRegisterReturn,
+} from "react-hook-form";
 import type z from "zod";
 
 import {
@@ -36,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
+import { UNCATEGORISED_CATEGORY } from "@/lib/category/options";
+import type { CategoryOptionGroup } from "@/lib/category/options";
 import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -45,9 +52,14 @@ import type {
   ReceiptItemSelect,
 } from "@/lib/db/schema/receipt-item";
 import { reconcile } from "@/lib/receipt/integrity";
+import {
+  coerceLineItem,
+  normalizeLineItems,
+} from "@/lib/receipt/line-item-money";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
+import { CategorySelect } from "./category-select";
 import { updateReceiptSchema } from "./schema";
 import type { UpdateReceiptInput } from "./schema";
 import { TransactionDateTimeField } from "./transaction-date-time-field";
@@ -57,6 +69,7 @@ export type ReceiptWithItems = ReceiptSelect & {
 };
 
 interface ReceiptEditFormProps {
+  categoryGroups: CategoryOptionGroup[];
   receipt: ReceiptWithItems;
 }
 
@@ -120,6 +133,8 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
 
   return {
     items: receipt.receiptItems.map((item) => ({
+      categoryId: item.categoryId,
+      itemId: item.id,
       kind: item.kind,
       lineTotal: item.lineTotal,
       name: item.name,
@@ -134,10 +149,13 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
   };
 };
 
-const FormFieldError = ({ error }: { error?: { message?: string } }) =>
+type FormFieldErrorProps = { message?: string } | undefined;
+
+const FormFieldError = ({ error }: { error?: FormFieldErrorProps }) =>
   error?.message ? <FieldError errors={[{ message: error.message }]} /> : null;
 
 interface ReceiptItemRowProps {
+  categoryGroups: CategoryOptionGroup[];
   control: Control<FormValues>;
   errors: FieldErrors<FormValues>;
   index: number;
@@ -146,7 +164,67 @@ interface ReceiptItemRowProps {
   register: UseFormRegister<FormValues>;
 }
 
+/**
+ * Whether the save will store this amount as typed. Asks the coercion rather
+ * than restating the rule, so the hint cannot drift from what a save does.
+ */
+const storedAsTyped = (kind: LineItemKind, lineTotal: number): boolean =>
+  coerceLineItem({ kind, lineTotal }).lineTotal === lineTotal;
+
+/**
+ * Explains the sign the save will apply, so a discount typed as a positive
+ * amount does not look like it was quietly reinterpreted. The input keeps
+ * showing what was typed — the negation happens on save, not as you type.
+ */
+const DiscountSignHint = () => (
+  <FieldDescription>
+    A discount is stored as a deduction, so this amount will be negated on save.
+  </FieldDescription>
+);
+
+interface LineTotalFieldProps {
+  error: FormFieldErrorProps;
+  item: FormValues["items"][number] | undefined;
+  lineTotalField: UseFormRegisterReturn;
+}
+
+/**
+ * The line total, plus the sign the save will apply: a discount is stored as a
+ * deduction, so a positive amount typed for one is negated on the way in.
+ */
+const LineTotalField = ({
+  error,
+  item,
+  lineTotalField,
+}: LineTotalFieldProps) => {
+  const lineTotal = toFiniteAmount(item?.lineTotal);
+  const asTyped = storedAsTyped(item?.kind ?? "product", lineTotal);
+
+  return (
+    <Field data-invalid={!!error}>
+      <FieldLabel>Line Total</FieldLabel>
+      <FieldContent>
+        <Input
+          aria-invalid={!!error}
+          step="0.01"
+          type="number"
+          {...lineTotalField}
+          onBlur={(event) => {
+            lineTotalField.onBlur(event);
+            if (event.target.value === "") {
+              event.target.value = "0";
+            }
+          }}
+        />
+        {asTyped ? null : <DiscountSignHint />}
+        <FormFieldError error={error} />
+      </FieldContent>
+    </Field>
+  );
+};
+
 const ReceiptItemRow = ({
+  categoryGroups,
   control,
   errors,
   index,
@@ -161,7 +239,7 @@ const ReceiptItemRow = ({
   return (
     <FieldGroup className="grid grid-cols-4">
       <Field
-        className="col-span-3"
+        className="col-span-2"
         data-invalid={!!errors.items?.[index]?.name}
       >
         <FieldLabel>Name</FieldLabel>
@@ -171,6 +249,28 @@ const ReceiptItemRow = ({
             {...register(`items.${index}.name` as const)}
           />
           <FormFieldError error={errors.items?.[index]?.name} />
+        </FieldContent>
+      </Field>
+
+      <Field className="col-span-1">
+        <FieldLabel>Category</FieldLabel>
+        <FieldContent>
+          <Controller
+            control={control}
+            name={`items.${index}.categoryId` as const}
+            render={({ field: categoryField }) => (
+              <CategorySelect
+                groups={categoryGroups}
+                onValueChange={(value) =>
+                  categoryField.onChange(
+                    value === UNCATEGORISED_CATEGORY ? null : value
+                  )
+                }
+                value={categoryField.value ?? UNCATEGORISED_CATEGORY}
+              />
+            )}
+          />
+          <FormFieldError error={errors.items?.[index]?.categoryId} />
         </FieldContent>
       </Field>
 
@@ -234,7 +334,8 @@ const ReceiptItemRow = ({
         <FieldLabel>Unit Price</FieldLabel>
         <FieldContent>
           <Input
-            min="0"
+            // No `min`: a discount's unit price is negative, and the input must
+            // not refuse a value the save is about to store.
             step="0.01"
             type="number"
             {...register(`items.${index}.unitPrice` as const, {
@@ -249,29 +350,19 @@ const ReceiptItemRow = ({
           />
         </FieldContent>
       </Field>
-      <Field data-invalid={!!errors.items?.[index]?.lineTotal}>
-        <FieldLabel>Line Total</FieldLabel>
-        <FieldContent>
-          <Input
-            aria-invalid={!!errors.items?.[index]?.lineTotal}
-            step="0.01"
-            type="number"
-            {...lineTotalField}
-            onBlur={(event) => {
-              lineTotalField.onBlur(event);
-              if (event.target.value === "") {
-                event.target.value = "0";
-              }
-            }}
-          />
-          <FormFieldError error={errors.items?.[index]?.lineTotal} />
-        </FieldContent>
-      </Field>
+      <LineTotalField
+        error={errors.items?.[index]?.lineTotal}
+        item={item}
+        lineTotalField={lineTotalField}
+      />
     </FieldGroup>
   );
 };
 
-export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
+export const ReceiptEditForm = ({
+  categoryGroups,
+  receipt,
+}: ReceiptEditFormProps) => {
   const {
     control,
     formState: { errors, isSubmitting },
@@ -281,6 +372,16 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     defaultValues: buildDefaultValues(receipt),
     resolver: zodResolver(updateReceiptSchema),
   });
+
+  // The category each stored line item started with, so a submit can tell a
+  // deliberate change from a value that merely looks stale.
+  const mountedCategoryByItemId = useMemo(
+    () =>
+      new Map(
+        receipt.receiptItems.map((item) => [item.id, item.categoryId ?? null])
+      ),
+    [receipt.receiptItems]
+  );
 
   const { append, fields, remove } = useFieldArray({
     control,
@@ -298,10 +399,12 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
   const reconciliation = useMemo(
     () =>
       reconcile(
-        (watchedItems ?? []).map((item) => ({
-          kind: item.kind ?? "product",
-          lineTotal: toFiniteAmount(item.lineTotal),
-        })),
+        normalizeLineItems(
+          (watchedItems ?? []).map((item) => ({
+            kind: item.kind ?? "product",
+            lineTotal: toFiniteAmount(item.lineTotal),
+          }))
+        ),
         { total: statedTotal }
       ),
     [watchedItems, statedTotal]
@@ -312,8 +415,24 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     (statedTotal !== undefined && Number.isFinite(statedTotal));
 
   const onSubmit = async (data: UpdateReceiptInput) => {
+    // The submitted category is the value the item had when the page loaded,
+    // which says nothing about intent: a categorization run may have filled the
+    // item in the meantime, and overwriting it with the stale form value would
+    // record a clear the user never made. Only a category that differs from the
+    // value the page started with is treated as a decision — compared by item id
+    // rather than by row index, so removing a row cannot shift the comparison.
+    // A line the user added has no entry here, and the insert path derives its
+    // source from whatever category it carries.
+    const items = data.items.map((item) => ({
+      ...item,
+      categoryTouched:
+        item.itemId !== undefined &&
+        item.categoryId !== mountedCategoryByItemId.get(item.itemId),
+    }));
+
     const result = await updateReceipt({
       ...data,
+      items,
       transaction: {
         ...data.transaction,
         datetime: normalizeDatetime(data.transaction.datetime),
@@ -529,6 +648,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 {fields.map((field, index) => (
                   <Fragment key={field.id}>
                     <ReceiptItemRow
+                      categoryGroups={categoryGroups}
                       control={control}
                       errors={errors}
                       index={index}
@@ -545,6 +665,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   onClick={() =>
                     append(
                       {
+                        categoryId: null,
                         kind: "product",
                         lineTotal: 0,
                         name: "",
