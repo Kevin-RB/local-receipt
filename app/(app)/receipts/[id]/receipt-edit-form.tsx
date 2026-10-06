@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
+import { UNCATEGORISED_CATEGORY } from "@/lib/category/options";
+import type { CategoryOptionGroup } from "@/lib/category/options";
 import { receiptToNested } from "@/lib/db/receipt-mapping";
 import { paymentMethodEnum } from "@/lib/db/schema/receipt";
 import type { PaymentMethod, ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -54,6 +56,7 @@ import { coerceLineItem, normalizeLineItems } from "@/lib/receipt/line-item";
 import { cn } from "@/lib/utils";
 
 import { updateReceipt } from "./actions";
+import { CategorySelect } from "./category-select";
 import { updateReceiptSchema } from "./schema";
 import type { UpdateReceiptInput } from "./schema";
 import { TransactionDateTimeField } from "./transaction-date-time-field";
@@ -63,6 +66,7 @@ export type ReceiptWithItems = ReceiptSelect & {
 };
 
 interface ReceiptEditFormProps {
+  categoryGroups: CategoryOptionGroup[];
   receipt: ReceiptWithItems;
 }
 
@@ -126,6 +130,8 @@ const buildDefaultValues = (receipt: ReceiptWithItems): FormValues => {
 
   return {
     items: receipt.receiptItems.map((item) => ({
+      categoryId: item.categoryId,
+      itemId: item.id,
       kind: item.kind,
       lineTotal: item.lineTotal,
       name: item.name,
@@ -146,6 +152,7 @@ const FormFieldError = ({ error }: { error?: FormFieldErrorProps }) =>
   error?.message ? <FieldError errors={[{ message: error.message }]} /> : null;
 
 interface ReceiptItemRowProps {
+  categoryGroups: CategoryOptionGroup[];
   control: Control<FormValues>;
   errors: FieldErrors<FormValues>;
   index: number;
@@ -214,6 +221,7 @@ const LineTotalField = ({
 };
 
 const ReceiptItemRow = ({
+  categoryGroups,
   control,
   errors,
   index,
@@ -228,7 +236,7 @@ const ReceiptItemRow = ({
   return (
     <FieldGroup className="grid grid-cols-4">
       <Field
-        className="col-span-3"
+        className="col-span-2"
         data-invalid={!!errors.items?.[index]?.name}
       >
         <FieldLabel>Name</FieldLabel>
@@ -238,6 +246,28 @@ const ReceiptItemRow = ({
             {...register(`items.${index}.name` as const)}
           />
           <FormFieldError error={errors.items?.[index]?.name} />
+        </FieldContent>
+      </Field>
+
+      <Field className="col-span-1">
+        <FieldLabel>Category</FieldLabel>
+        <FieldContent>
+          <Controller
+            control={control}
+            name={`items.${index}.categoryId` as const}
+            render={({ field: categoryField }) => (
+              <CategorySelect
+                groups={categoryGroups}
+                onValueChange={(value) =>
+                  categoryField.onChange(
+                    value === UNCATEGORISED_CATEGORY ? null : value
+                  )
+                }
+                value={categoryField.value ?? UNCATEGORISED_CATEGORY}
+              />
+            )}
+          />
+          <FormFieldError error={errors.items?.[index]?.categoryId} />
         </FieldContent>
       </Field>
 
@@ -326,7 +356,10 @@ const ReceiptItemRow = ({
   );
 };
 
-export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
+export const ReceiptEditForm = ({
+  categoryGroups,
+  receipt,
+}: ReceiptEditFormProps) => {
   const {
     control,
     formState: { errors, isSubmitting },
@@ -336,6 +369,16 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     defaultValues: buildDefaultValues(receipt),
     resolver: zodResolver(updateReceiptSchema),
   });
+
+  // The category each stored line item started with, so a submit can tell a
+  // deliberate change from a value that merely looks stale.
+  const mountedCategoryByItemId = useMemo(
+    () =>
+      new Map(
+        receipt.receiptItems.map((item) => [item.id, item.categoryId ?? null])
+      ),
+    [receipt.receiptItems]
+  );
 
   const { append, fields, remove } = useFieldArray({
     control,
@@ -369,8 +412,24 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
     (statedTotal !== undefined && Number.isFinite(statedTotal));
 
   const onSubmit = async (data: UpdateReceiptInput) => {
+    // The submitted category is the value the item had when the page loaded,
+    // which says nothing about intent: a categorization run may have filled the
+    // item in the meantime, and overwriting it with the stale form value would
+    // record a clear the user never made. Only a category that differs from the
+    // value the page started with is treated as a decision — compared by item id
+    // rather than by row index, so removing a row cannot shift the comparison.
+    // A line the user added has no entry here, and the insert path derives its
+    // source from whatever category it carries.
+    const items = data.items.map((item) => ({
+      ...item,
+      categoryTouched:
+        item.itemId !== undefined &&
+        item.categoryId !== mountedCategoryByItemId.get(item.itemId),
+    }));
+
     const result = await updateReceipt({
       ...data,
+      items,
       transaction: {
         ...data.transaction,
         datetime: normalizeDatetime(data.transaction.datetime),
@@ -586,6 +645,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                 {fields.map((field, index) => (
                   <Fragment key={field.id}>
                     <ReceiptItemRow
+                      categoryGroups={categoryGroups}
                       control={control}
                       errors={errors}
                       index={index}
@@ -602,6 +662,7 @@ export const ReceiptEditForm = ({ receipt }: ReceiptEditFormProps) => {
                   onClick={() =>
                     append(
                       {
+                        categoryId: null,
                         kind: "product",
                         lineTotal: 0,
                         name: "",

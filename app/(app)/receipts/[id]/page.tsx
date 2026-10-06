@@ -6,7 +6,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
-import { findReceiptByIdWithItems } from "@/lib/db";
+import { groupCategoryOptions } from "@/lib/category/options";
+import { findReceiptByIdWithItems, listCategoryOptions } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +81,9 @@ const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
   }
 
   const isEditable = receipt.status === "done";
+  const categoryGroups = isEditable
+    ? groupCategoryOptions(await listCategoryOptions())
+    : [];
 
   return (
     <main className="container mx-auto p-6">
@@ -106,7 +110,7 @@ const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
               receiptId={receipt.id}
             />
           </div>
-          <ReceiptEditForm receipt={receipt} />
+          <ReceiptEditForm categoryGroups={categoryGroups} receipt={receipt} />
         </div>
       ) : (
         <ReceiptImage

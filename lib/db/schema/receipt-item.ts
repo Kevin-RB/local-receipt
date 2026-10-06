@@ -21,12 +21,17 @@ export const lineItemKindEnum = z.enum(["product", "surcharge", "discount"]);
 
 export type LineItemKind = z.infer<typeof lineItemKindEnum>;
 
+export const categorySourceEnum = z.enum(["ai", "user"]);
+
+export type CategorySource = z.infer<typeof categorySourceEnum>;
+
 export const receiptItems = snakeCase.table(
   "receipt_items",
   {
     categoryId: uuid().references(() => categories.id, {
       onDelete: "set null",
     }),
+    categorySource: text().$type<CategorySource>().notNull().default("ai"),
     id: uuid().primaryKey().defaultRandom(),
     kind: text().$type<LineItemKind>().notNull().default("product"),
     lineTotal: numeric({ mode: "number", precision: 10, scale: 2 }).notNull(),
@@ -54,9 +59,11 @@ export const receiptItems = snakeCase.table(
 );
 
 export const receiptItemSelectSchema = createSelectSchema(receiptItems, {
+  categorySource: categorySourceEnum,
   kind: lineItemKindEnum,
 });
 export const receiptItemInsertSchema = createInsertSchema(receiptItems, {
+  categorySource: categorySourceEnum.optional(),
   kind: lineItemKindEnum.optional(),
 });
 export const receiptItemUpdateSchema = createUpdateSchema(receiptItems);
