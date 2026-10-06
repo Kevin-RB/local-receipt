@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { db, listCategoryOptions, receiptItems, receipts } from "@/lib/db";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import { reconcile } from "@/lib/receipt/integrity";
+import { normalizeLineItems } from "@/lib/receipt/line-item-money";
 import { planLineItemChanges } from "@/lib/receipt/line-items";
 
 import { updateReceiptSchema } from "./schema";
@@ -26,8 +27,19 @@ export const updateReceipt = async (input: UpdateReceiptInput) => {
     return { error: "Validation failed", success: false as const };
   }
 
-  const { items, merchant, payment, receiptId, totals, transaction } =
-    parsed.data;
+  const {
+    items: submittedItems,
+    merchant,
+    payment,
+    receiptId,
+    totals,
+    transaction,
+  } = parsed.data;
+
+  // A discount removes from the total, so the saved amount is coerced to the
+  // negative line total the money model requires before it is reconciled or
+  // written. A kind the user picked is not enough on its own.
+  const items = normalizeLineItems(submittedItems);
 
   const existing = await db.query.receipts.findFirst({
     where: { id: receiptId, userId: session.user.id },

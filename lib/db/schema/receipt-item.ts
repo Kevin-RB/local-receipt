@@ -1,4 +1,12 @@
-import { index, numeric, snakeCase, text, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  numeric,
+  snakeCase,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
 import {
   createInsertSchema,
   createSelectSchema,
@@ -37,6 +45,16 @@ export const receiptItems = snakeCase.table(
   (table) => [
     index("receipt_items_category_id_index").on(table.categoryId),
     index("receipt_items_receipt_id_index").on(table.receiptId),
+    // ADR-0007: a discount removes from the total, so its line total may never
+    // be positive. Zero is allowed because a discount of nothing is harmless
+    // and `normalizeLineItems` leaves it alone. The constraint is the last line
+    // of defence — the coercion in `lib/receipt/line-item-money` is what the app
+    // actually relies on, since a rejected write would surface as a save error
+    // rather than a corrected value.
+    check(
+      "receipt_items_discount_is_not_positive",
+      sql`${table.kind} <> 'discount' OR ${table.lineTotal} <= 0`
+    ),
   ]
 );
 

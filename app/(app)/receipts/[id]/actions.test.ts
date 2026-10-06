@@ -253,6 +253,202 @@ describe(updateReceipt, () => {
     expect(result).toStrictEqual({ success: true });
   });
 
+  it("negates a discount saved with a positive line total", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "discount",
+          lineTotal: 2,
+          name: "SPECIAL",
+          quantity: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+        receiptId,
+      }),
+      expect.objectContaining({
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        receiptId,
+      }),
+    ]);
+  });
+
+  it("keeps a product the user chose, even with a negative line total", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: -2,
+          name: "RETURN",
+          quantity: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+      }),
+      expect.objectContaining({
+        kind: "product",
+        lineTotal: -2,
+        name: "RETURN",
+      }),
+    ]);
+  });
+
+  it("stores no integrity warning when a positive discount makes the items sum to the total", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "discount",
+          lineTotal: 2,
+          name: "SPECIAL",
+          quantity: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ hasIntegrityWarning: false })
+    );
+  });
+
+  it("re-saves a stored discount, whose unit price is already negative", async () => {
+    const result = await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "discount",
+          lineTotal: -2,
+          name: "SPECIAL",
+          quantity: 2,
+          unitPrice: -1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(result).toStrictEqual({ success: true });
+  });
+
+  it("negates a discount's unit price when saving", async () => {
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          kind: "product",
+          lineTotal: 10,
+          name: "Groceries",
+          quantity: 1,
+        },
+        {
+          categoryTouched: false,
+          kind: "discount",
+          lineTotal: 2,
+          name: "SPECIAL",
+          quantity: 2,
+          unitPrice: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 8, total: 8 },
+    });
+
+    expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        kind: "product",
+        lineTotal: 10,
+        name: "Groceries",
+      }),
+      expect.objectContaining({
+        kind: "discount",
+        lineTotal: -2,
+        name: "SPECIAL",
+        unitPrice: -1,
+      }),
+    ]);
+  });
+
+  it("negates a discount edited in place, on the update path", async () => {
+    // The save plans updates against existing rows rather than reinserting, so
+    // a discount the user corrects is written through `plan.updates` — a
+    // different path from the insert one the coercion tests above cover.
+    mockFindFirst.mockResolvedValue({
+      receiptItems: [{ categoryId: null, categorySource: "ai", id: itemOneId }],
+      status: "done",
+    });
+
+    await updateReceipt({
+      ...validInput,
+      items: [
+        {
+          categoryTouched: false,
+          itemId: itemOneId,
+          kind: "discount",
+          lineTotal: 2,
+          name: "SPECIAL",
+          quantity: 2,
+          unitPrice: 1,
+        },
+      ],
+      totals: { gst: 0, subtotal: 0, total: 0 },
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({ lineTotal: -2, unitPrice: -1 })
+    );
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
   it("never lets a submitted itemId decide which row it writes to", async () => {
     // An id that is not among the receipt's own items must be treated as a new
     // row, never as an update against a line item on another receipt.
