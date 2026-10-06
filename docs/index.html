@@ -48,17 +48,15 @@
         --ring: oklch(0.723 0.014 214.4);
         --radius: 0.45rem;
 
-        /* Isometric scene tones. Each is a hue the boxes are shaded from. */
-        /* Ground plates read as ground only if they sit near the page's own
-           value — a mid-grey slab on white looks like a hole. */
-        --t-host: oklch(0.93 0.004 228);
-        --t-vm: oklch(0.9 0.012 265);
-
+        /* One tone per diagram kind, used for the legend swatch and the
+           inspector's kind label. The plates themselves stay one material —
+           they are the same machine, and tinting them by kind would say
+           they are not. */
         --t-app: oklch(0.66 0.16 128.85);
         --t-data: oklch(0.6 0.1 197);
         --t-model: oklch(0.6 0.17 340);
+        --t-hosted: oklch(0.62 0.14 62);
         --t-edge: oklch(0.56 0.13 265);
-        --t-tool: oklch(0.66 0.13 68);
         --t-client: oklch(0.52 0.02 228);
 
         /* Face shading. `color-mix` rejects negative percentages, so each side
@@ -93,14 +91,11 @@
           --destructive: oklch(0.704 0.191 22.216);
           --ring: oklch(0.56 0.021 213.5);
 
-          --t-host: oklch(0.27 0.008 228);
-          --t-vm: oklch(0.31 0.014 265);
-
           --t-app: oklch(0.72 0.19 128.85);
           --t-data: oklch(0.62 0.12 197);
           --t-model: oklch(0.66 0.18 340);
+          --t-hosted: oklch(0.72 0.14 62);
           --t-edge: oklch(0.58 0.14 265);
-          --t-tool: oklch(0.72 0.13 68);
           --t-client: oklch(0.5 0.02 228);
 
           --shade-top: white 12%;
@@ -125,14 +120,11 @@
         --destructive: oklch(0.704 0.191 22.216);
         --ring: oklch(0.56 0.021 213.5);
 
-        --t-host: oklch(0.27 0.008 228);
-        --t-vm: oklch(0.31 0.014 265);
-
         --t-app: oklch(0.72 0.19 128.85);
         --t-data: oklch(0.62 0.12 197);
         --t-model: oklch(0.66 0.18 340);
+        --t-hosted: oklch(0.72 0.14 62);
         --t-edge: oklch(0.58 0.14 265);
-        --t-tool: oklch(0.72 0.13 68);
         --t-client: oklch(0.5 0.02 228);
 
         --shade-top: white 12%;
@@ -206,9 +198,15 @@
          Reveal + stagger
          ---------------------------------------------------------------
          Elements with .reveal start slightly below and transparent, then
-         settle as they enter the viewport. Native scroll-driven
-         animations are used when available; otherwise an
-         IntersectionObserver adds .is-visible and CSS handles the rest.
+         settle as they enter the viewport. An IntersectionObserver adds
+         .is-visible and a CSS transition does the rest; children of a
+         .stagger inherit an increasing --delay so a group arrives in
+         order rather than all at once.
+
+         This started life on animation-timeline: view(). Browsers report
+         support for it inconsistently — some never run the animation — so
+         the observer is now the only path, and the delay is what carries
+         the stagger.
          =============================================================== */
       .reveal {
         opacity: 0;
@@ -1156,28 +1154,35 @@
         list-style: none;
       }
 
-      .legend li {
+      .legend button {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
         padding: 0.25rem 0.6rem 0.25rem 0.45rem;
         font-size: 0.78rem;
+        font-family: inherit;
         color: var(--muted-foreground);
         background: transparent;
         border: 1px solid var(--border);
         border-radius: 999px;
         cursor: pointer;
+        scale: 1;
         transition:
           border-color 200ms var(--ease),
           color 200ms var(--ease),
           scale 140ms var(--ease-out);
       }
 
-      .legend li:active {
+      .legend button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 3px;
+      }
+
+      .legend button:active {
         scale: 0.97;
       }
 
-      .legend li[aria-pressed="true"] {
+      .legend button[aria-pressed="true"] {
         color: var(--foreground);
         border-color: var(--ring);
       }
@@ -1191,7 +1196,7 @@
       }
 
       @media (hover: hover) and (pointer: fine) {
-        .legend li:hover {
+        .legend button:hover {
           color: var(--foreground);
         }
       }
@@ -1257,6 +1262,22 @@
         margin-top: 0.6rem;
         font-size: 0.8rem;
         color: var(--muted-foreground);
+        text-wrap: pretty;
+      }
+
+      /* The rotating tip sits under the instructions rather than in
+         place of them, so the how-to stays readable throughout. */
+      .hint--tip {
+        display: block;
+        margin-top: 0.35rem;
+        padding-top: 0.35rem;
+        border-top: 1px solid var(--border);
+        color: color-mix(in oklab, var(--foreground) 62%, var(--background));
+        min-height: 2.4em;
+      }
+
+      .hint--tip:empty {
+        display: none;
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -1704,11 +1725,13 @@
 
         <div class="scene scene--dramatic reveal" id="scene">
           <div class="stage">
+            <!-- role="group", not role="img": the plates inside are
+                   real buttons, and img makes descendants presentational. -->
             <svg
               class="diagram"
               id="diagram"
-              role="img"
-              aria-label="Isometric diagram of the possum stack: a browser and a Cloudflare tunnel in front of a Next.js app, with Postgres, object storage, a durable workflow runner, the local model server, and backups, all on one Mac mini."
+              role="group"
+              aria-label="Isometric diagram of the possum stack. Outside the Mac mini: the browser, a Cloudflare tunnel and the Traefik proxy. On the mini: the Next.js app, Postgres, RustFS and LM Studio. Hosted elsewhere: Inngest Cloud, the durable workflow runner."
             ></svg>
           </div>
 
@@ -1716,10 +1739,15 @@
             <div>
               <ul class="legend" id="legend"></ul>
               <p class="hint">
-                Hover or tap a block to trace it. Escape, or click empty space,
-                to see the whole system again.<span class="hint--scroll">
-                  Scroll the diagram sideways to see the whole plane.</span
+                <span class="hint--how"
+                  >Hover or tap a block to trace it. Escape, or click empty
+                  space, to see the whole system again.<span
+                    class="hint--scroll"
+                  >
+                    Scroll the diagram sideways to see the whole plane.</span
+                  ></span
                 >
+                <span class="hint--tip" id="tip" aria-live="off"></span>
               </p>
             </div>
             <div class="inspect" id="inspect" aria-live="polite"></div>
@@ -2524,8 +2552,12 @@
         };
       };
 
+      /* render() replaces this SVG wholesale, so the accessible name has
+         to live here as well as in the markup — kept in step by hand, and
+         matching what is actually drawn: three plates off the machine, four
+         on it, and one hosted elsewhere. */
       const ARIA =
-        "Isometric diagram of the possum stack. A browser and a Cloudflare tunnel sit off to one side of a Mac mini; the Next.js app, Postgres, object storage and a local model server sit on it, connected by dashed links.";
+        "Isometric diagram of the possum stack. Outside the Mac mini: the browser, a Cloudflare tunnel and the Traefik proxy. On the mini: the Next.js app, Postgres, RustFS and LM Studio. Hosted elsewhere: Inngest Cloud, the durable workflow runner.";
 
       const render = () => {
         const stageW = stage.clientWidth || 1000;
@@ -2543,7 +2575,7 @@
             view.w
           )} ${n2(view.h)}" width="${Math.round(view.w)}" height="${Math.round(
             view.h
-          )}" role="img" aria-label="${ARIA}">`,
+          )}" role="group" aria-label="${ARIA}">`,
 
           gridSVG(view),
 
@@ -2829,8 +2861,8 @@
         for (const el of stage.querySelectorAll(".box")) {
           el.setAttribute("aria-pressed", "false");
         }
-        for (const li of legend.querySelectorAll("li")) {
-          li.setAttribute("aria-pressed", "false");
+        for (const button of legend.querySelectorAll("button")) {
+          button.setAttribute("aria-pressed", "false");
         }
         inspect.style.removeProperty("--tone");
         inspect.innerHTML = `
@@ -2864,11 +2896,11 @@
         scene.classList.add("is-focused");
         applyFocus(id);
 
-        for (const li of legend.querySelectorAll("li")) {
-          li.setAttribute("aria-pressed", String(li.dataset.id === id));
+        for (const button of legend.querySelectorAll("button")) {
+          button.setAttribute("aria-pressed", String(button.dataset.id === id));
         }
 
-        inspect.style.setProperty("--tone", "var(--primary)");
+        inspect.style.setProperty("--tone", `var(${KIND_TONE[node.kind]})`);
         inspect.innerHTML = `
           <div class="inspect__inner">
             <p class="inspect__kind">${node.kind}</p>
@@ -2883,13 +2915,29 @@
          so clicking one selects the same plate. "Tooling" no longer has
          a plate to point at and drops out rather than rendering empty.
          -------------------------------------------------------------- */
+      /* The tone a kind is labelled with, matching the --t-* tokens. Only
+         the legend and the inspector use these; the plates stay one
+         material, because they are all the same machine. */
+      const KIND_TONE = {
+        Application: "--t-app",
+        Data: "--t-data",
+        Models: "--t-model",
+        Orchestration: "--t-hosted",
+        Edge: "--t-edge",
+        Client: "--t-client",
+      };
+
       const KINDS = [...new Set(NODES.map((n) => n.kind))];
 
+      /* Real buttons, not styled list items: aria-pressed is only valid
+         on a role that supports it, and a native button gets focus and
+         Enter/Space activation for free. */
       legend.innerHTML = KINDS.map((kind) => {
         const node = NODES.find((n) => n.kind === kind);
-        return `<li data-id="${node.id}" aria-pressed="false" style="--tone:var(--primary)">
+        return `<li><button type="button" data-id="${node.id}"
+            aria-pressed="false" style="--tone:var(${KIND_TONE[kind]})">
             <i aria-hidden="true"></i>${kind}
-          </li>`;
+          </button></li>`;
       }).join("");
 
       /* ---- pointer + keyboard ---------------------------------------- */
@@ -2948,9 +2996,9 @@
       });
 
       legend.addEventListener("click", (event) => {
-        const li = event.target.closest("li");
-        if (!li || !li.dataset.id) return;
-        pinned = pinned === li.dataset.id ? null : li.dataset.id;
+        const button = event.target.closest("button");
+        if (!button || !button.dataset.id) return;
+        pinned = pinned === button.dataset.id ? null : button.dataset.id;
         hovered = null;
         select();
       });
@@ -2976,11 +3024,15 @@
           "Migrations run as a separate one-shot step, never at app startup.",
           "The browser uploads straight to storage; the app server never sees the bytes.",
         ];
-        const hint = document.querySelector(".hint");
+        // Rotate the tip in its own node. Swapping the whole hint
+        // would take the how-to-use line with it, which is the one
+        // thing on screen that explains the diagram.
+        const tip = document.getElementById("tip");
         let i = 0;
+        tip.textContent = tips[i];
         setInterval(() => {
           i = (i + 1) % tips.length;
-          hint.textContent = tips[i];
+          tip.textContent = tips[i];
         }, 7000);
       }
 
