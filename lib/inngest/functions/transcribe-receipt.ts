@@ -1,7 +1,6 @@
 import { APICallError, NoObjectGeneratedError } from "ai";
 import { eq } from "drizzle-orm";
-import { NonRetriableError, eventType } from "inngest";
-import { z } from "zod/v4";
+import { NonRetriableError } from "inngest";
 
 import { isUnreachableError } from "@/lib/ai/errors";
 import { LM_STUDIO_URL } from "@/lib/ai/provider";
@@ -15,7 +14,11 @@ import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
 import { receiptChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
-import { receiptExtractedEvent } from "@/lib/inngest/functions/categorize-receipt";
+import {
+  receiptExtractedEvent,
+  receiptReprocessEvent,
+  receiptUploadedEvent,
+} from "@/lib/inngest/events";
 import { normalizeExtractedItems } from "@/lib/receipt/extraction";
 import { reconcile } from "@/lib/receipt/integrity";
 import { BUCKET, downloadObject } from "@/lib/storage/client";
@@ -34,9 +37,19 @@ const formatFailureMessage = (error: Error): string => {
   return error.message;
 };
 
-export const receiptUploadedEvent = eventType("receipt/uploaded", {
-  schema: z.object({ receiptId: z.string(), userId: z.string() }),
-});
+/**
+ * The status a failed run leaves behind.
+ *
+ * A first extraction has nothing to fall back to, so it is `error`. A
+ * re-process does: the stored extraction is only replaced in the final
+ * `storing` step, so any earlier failure leaves it fully intact and the receipt
+ * should keep saying so. Marking it `error` instead would hide the edit form,
+ * drop it out of `listDoneReceipts`, and exclude it from every spend query —
+ * all because an attempt the owner did not need failed.
+ */
+export const statusAfterFailedRun = (
+  previousStatus?: ProcessingStatus
+): ProcessingStatus => previousStatus ?? "error";
 
 export const transcribeReceipt = inngest.createFunction(
   {
@@ -53,12 +66,26 @@ export const transcribeReceipt = inngest.createFunction(
     ],
     id: "transcribe-receipt",
     onFailure: async ({ event, step }) => {
-      const { receiptId } = event.data.event.data;
+      const trigger = event.data.event;
+      const { receiptId } = trigger.data;
       const ch = receiptChannel(receiptId);
       const errorMessage = event.data.error?.message;
+      const previousStatus =
+        trigger.name === receiptReprocessEvent.name
+          ? trigger.data.previousStatus
+          : undefined;
 
       await step.run("mark-error", async () => {
-        await setReceiptStatus(receiptId, "error");
+        // `storing` writes `done` as its last act, so a receipt already `done`
+        // holds the new extraction. Restoring the pre-run status over it would
+        // report a failure against data that is there and correct.
+        const current = await findReceiptById(receiptId);
+
+        if (current?.status === "done") {
+          return;
+        }
+
+        await setReceiptStatus(receiptId, statusAfterFailedRun(previousStatus));
       });
 
       await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
@@ -66,10 +93,20 @@ export const transcribeReceipt = inngest.createFunction(
         state: "failed",
       });
     },
-    triggers: [receiptUploadedEvent],
+    triggers: [receiptUploadedEvent, receiptReprocessEvent],
   },
   async ({ event, step }) => {
-    const { receiptId } = event.data;
+    const { receiptId, userId } = event.data;
+
+    const reprocessing = event.name === receiptReprocessEvent.name;
+    const models = reprocessing ? event.data.models : undefined;
+
+    // A re-process arrives already claimed: the server action moved the row to
+    // `processing` before sending the event, and that claim is what stops two
+    // requests from starting two runs against one receipt.
+    const expectedStatus: ProcessingStatus = reprocessing
+      ? "processing"
+      : "pending";
 
     const ch = receiptChannel(receiptId);
 
@@ -78,9 +115,9 @@ export const transcribeReceipt = inngest.createFunction(
       if (!found) {
         throw new NonRetriableError(`Receipt ${receiptId} not found`);
       }
-      if (found.status !== "pending") {
+      if (found.status !== expectedStatus) {
         throw new NonRetriableError(
-          `Receipt ${receiptId} is ${found.status}, expected pending`
+          `Receipt ${receiptId} is ${found.status}, expected ${expectedStatus}`
         );
       }
       return found;
@@ -110,7 +147,11 @@ export const transcribeReceipt = inngest.createFunction(
       const base64 = await body.transformToString("base64");
 
       try {
-        return await transcribeReceiptImage(base64, contentTypeFromKey(key));
+        return await transcribeReceiptImage(
+          base64,
+          contentTypeFromKey(key),
+          models?.ocr
+        );
       } catch (error) {
         if (isUnreachableError(error)) {
           throw new NonRetriableError(
@@ -135,7 +176,7 @@ export const transcribeReceipt = inngest.createFunction(
     let rawExtraction;
     try {
       rawExtraction = await step.run("parsing", () =>
-        parseReceiptText(transcript)
+        parseReceiptText(transcript, models?.parse)
       );
     } catch (error) {
       if (isUnreachableError(error)) {
@@ -176,20 +217,32 @@ export const transcribeReceipt = inngest.createFunction(
     });
 
     await step.run("storing", async () => {
-      await db
-        .update(receipts)
-        .set({
-          ...receiptToFlat(extraction),
-          hasIntegrityWarning: integrityWarning,
-          status: "done" as const,
-        })
-        .where(eq(receipts.id, receiptId));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(receipts)
+          .set({
+            ...receiptToFlat(extraction),
+            // The new items carry no categories, so the previous stamp now
+            // describes a set of rows that no longer exists.
+            categorizedAt: null,
+            hasIntegrityWarning: integrityWarning,
+            status: "done" as const,
+          })
+          .where(eq(receipts.id, receiptId));
 
-      if (items.length > 0) {
-        await db
-          .insert(receiptItems)
-          .values(items.map((item) => ({ ...item, receiptId })));
-      }
+        // Unconditional: a re-process replaces the stored line items, and a
+        // first extraction has none to delete. A delete-then-insert rather than
+        // an insert alone is what keeps a re-run from doubling every line.
+        await tx
+          .delete(receiptItems)
+          .where(eq(receiptItems.receiptId, receiptId));
+
+        if (items.length > 0) {
+          await tx
+            .insert(receiptItems)
+            .values(items.map((item) => ({ ...item, receiptId })));
+        }
+      });
     });
 
     await step.realtime.publish("publish-done", ch.state, {
@@ -198,7 +251,7 @@ export const transcribeReceipt = inngest.createFunction(
 
     await step.sendEvent(
       "emit-extracted",
-      receiptExtractedEvent.create({ receiptId, userId: event.data.userId })
+      receiptExtractedEvent.create({ receiptId, userId })
     );
 
     return {

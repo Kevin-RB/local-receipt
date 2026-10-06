@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
-import { receiptExtractedEvent } from "@/lib/inngest/functions/categorize-receipt";
+import { receiptExtractedEvent } from "@/lib/inngest/events";
 
 const SEND_BATCH_SIZE = 100;
 

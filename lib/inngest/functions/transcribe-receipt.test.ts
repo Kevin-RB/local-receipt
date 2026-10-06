@@ -3,9 +3,19 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 
 import type { ReceiptInformationExtraction } from "@/lib/db/contract";
 
-import { transcribeReceipt } from "./transcribe-receipt";
+import { statusAfterFailedRun, transcribeReceipt } from "./transcribe-receipt";
 
-const { mockSet, mockUpdate } = vi.hoisted(() => {
+const {
+  mockDelete,
+  mockDeleteWhere,
+  mockInsert,
+  mockInsertValues,
+  mockParse,
+  mockSet,
+  mockTranscribe,
+  mockTransaction,
+  mockUpdate,
+} = vi.hoisted(() => {
   const setWhere = vi.fn<() => Promise<void>>().mockResolvedValue();
   const setValue = vi
     .fn<(payload: Record<string, unknown>) => { where: typeof setWhere }>()
@@ -14,15 +24,74 @@ const { mockSet, mockUpdate } = vi.hoisted(() => {
     .fn<(table: unknown) => { set: typeof setValue }>()
     .mockReturnValue({ set: setValue });
 
-  return { mockSet: setValue, mockUpdate: updateTable };
+  const deleteWhere = vi.fn<() => Promise<void>>().mockResolvedValue();
+  const deleteTable = vi
+    .fn<(table: unknown) => { where: typeof deleteWhere }>()
+    .mockReturnValue({ where: deleteWhere });
+
+  const insertValues = vi
+    .fn<(rows: unknown[]) => Promise<void>>()
+    .mockResolvedValue();
+  const insert = vi
+    .fn<(table: unknown) => { values: typeof insertValues }>()
+    .mockReturnValue({ values: insertValues });
+
+  // Every write inside `storing` goes through the transaction handle, which
+  // records its own calls so a test can assert the replace happened inside one.
+  const tx = {
+    delete: deleteTable,
+    insert,
+    update: updateTable,
+  };
+  const transaction = vi
+    .fn<(fn: (t: typeof tx) => Promise<void>) => Promise<void>>()
+    .mockImplementation(async (fn) => await fn(tx));
+
+  return {
+    mockDelete: deleteTable,
+    mockDeleteWhere: deleteWhere,
+    mockInsert: insert,
+    mockInsertValues: insertValues,
+    mockParse: vi
+      .fn<(transcript: string, model?: string) => Promise<unknown>>()
+      .mockResolvedValue({}),
+    mockSet: setValue,
+    mockTransaction: transaction,
+    mockTranscribe: vi
+      .fn<
+        (base64: string, mimeType: string, model?: string) => Promise<string>
+      >()
+      .mockResolvedValue("FAKE OCR TRANSCRIPT"),
+    mockUpdate: updateTable,
+  };
 });
 
 // @ts-expect-error mock types don't match Drizzle internals
 vi.mock(import("@/lib/db"), () => ({
-  db: { update: mockUpdate },
-  findReceiptById: vi.fn<() => Promise<null>>(),
+  db: {
+    delete: mockDelete,
+    findReceiptById: vi.fn<() => Promise<null>>(),
+    insert: mockInsert,
+    transaction: mockTransaction,
+    update: mockUpdate,
+  },
   receiptItems: {},
   receipts: {},
+}));
+
+// @ts-expect-error mock types don't match the AI module's own signatures
+vi.mock(import("@/lib/ai/transcribe-receipt-image"), () => ({
+  parseReceiptText: mockParse,
+  transcribeReceiptImage: mockTranscribe,
+}));
+
+// Lets the `extracting` step run for real, which is the only way to observe
+// which model the OCR call was given.
+// @ts-expect-error mock types don't match the storage client
+vi.mock(import("@/lib/storage/client"), () => ({
+  BUCKET: "receipts",
+  downloadObject: () =>
+    Promise.resolve({ transformToString: () => Promise.resolve("BASE64") }),
 }));
 
 interface FunctionOutput {
@@ -46,56 +115,58 @@ const mockPublish = vi.fn<() => Promise<void>>();
 
 const mockSendEvent = vi.fn<() => Promise<void>>().mockResolvedValue();
 
-const baseSteps = [
+/** A step stub: the value the step returns, replacing whatever it would do. */
+interface StepStub {
+  handler: () => unknown;
+  id: string;
+}
+
+const baseSteps: StepStub[] = [
   {
     handler: () => ({
       id: "00000000-0000-0000-0000-000000000001",
       objectKey: "receipts/test.jpg",
-      status: "pending" as const,
+      status: "pending",
     }),
     id: "lookup-receipt",
   },
-  {
-    handler: () => null,
-    id: "mark-processing",
-  },
-  {
-    handler: () => "FAKE OCR TRANSCRIPT",
-    id: "extracting",
-  },
-  {
-    handler: () => mockExtraction,
-    id: "parsing",
-  },
-  {
-    handler: () => null,
-    id: "store-transcript",
-  },
-  {
-    handler: () => null,
-    id: "storing",
-  },
+  { handler: () => null, id: "mark-processing" },
+  { handler: () => "FAKE OCR TRANSCRIPT", id: "extracting" },
+  { handler: () => mockExtraction, id: "parsing" },
+  { handler: () => null, id: "store-transcript" },
+  { handler: () => null, id: "storing" },
 ];
 
-const applyOverrides = (overrides?: Partial<(typeof baseSteps)[number]>) =>
+const applyOverrides = (overrides?: Partial<StepStub>) =>
   overrides
     ? baseSteps.map((s) => (s.id === overrides.id ? { ...s, ...overrides } : s))
     : baseSteps;
 
+const uploadedEvent = {
+  data: {
+    receiptId: "00000000-0000-0000-0000-000000000001",
+    userId: "user-1",
+  },
+  name: "receipt/uploaded",
+};
+
+const reprocessEvent = {
+  data: {
+    models: { ocr: "big-vision", parse: "big-reasoner" },
+    previousStatus: "done",
+    receiptId: "00000000-0000-0000-0000-000000000001",
+    userId: "user-1",
+  },
+  name: "receipt/reprocess",
+};
+
 const createEngine = (
-  overrides?: Partial<(typeof baseSteps)[number]>,
-  realSteps: string[] = []
+  overrides?: Partial<StepStub>,
+  realSteps: string[] = [],
+  event: typeof uploadedEvent | typeof reprocessEvent = uploadedEvent
 ) =>
   new InngestTestEngine({
-    events: [
-      {
-        data: {
-          receiptId: "00000000-0000-0000-0000-000000000001",
-          userId: "user-1",
-        },
-        name: "receipt/uploaded",
-      },
-    ],
+    events: [event],
     function: transcribeReceipt,
     steps: applyOverrides(overrides).filter((s) => !realSteps.includes(s.id)),
     transformCtx: (rawCtx) => {
@@ -119,7 +190,14 @@ const createEngine = (
 
 describe("transcribeReceipt function", () => {
   beforeEach(() => {
+    mockDelete.mockClear();
+    mockDeleteWhere.mockClear();
+    mockInsert.mockClear();
+    mockInsertValues.mockClear();
+    mockParse.mockClear();
     mockSet.mockClear();
+    mockTransaction.mockClear();
+    mockTranscribe.mockClear();
     mockUpdate.mockClear();
     mockSendEvent.mockClear();
   });
@@ -378,5 +456,142 @@ describe("transcribeReceipt function", () => {
         name: "receipt/extracted",
       })
     );
+  });
+
+  it("runs the configured models when the receipt was just uploaded", async () => {
+    mockParse.mockResolvedValueOnce(mockExtraction);
+
+    await createEngine(undefined, ["extracting", "parsing"]).execute();
+
+    // `undefined` rather than a model id: leaving the argument off is what
+    // hands the call its environment default.
+    expect(mockTranscribe).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      undefined
+    );
+    expect(mockParse).toHaveBeenCalledWith("FAKE OCR TRANSCRIPT", undefined);
+  });
+
+  describe("re-processing", () => {
+    const reprocess = (
+      overrides?: Partial<StepStub>,
+      realSteps: string[] = []
+    ) => createEngine(overrides, realSteps, reprocessEvent);
+
+    it("uses the models the run was started with", async () => {
+      mockParse.mockResolvedValueOnce(mockExtraction);
+
+      await reprocess(undefined, ["extracting", "parsing"]).execute();
+
+      expect(mockTranscribe).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        "big-vision"
+      );
+      expect(mockParse).toHaveBeenCalledWith(
+        "FAKE OCR TRANSCRIPT",
+        "big-reasoner"
+      );
+    });
+
+    it("accepts a receipt the trigger already moved to processing", async () => {
+      const engine = reprocess({
+        handler: () => ({
+          id: "00000000-0000-0000-0000-000000000001",
+          objectKey: "receipts/test.jpg",
+          status: "processing" as const,
+        }),
+        id: "lookup-receipt",
+      });
+
+      const { error, result } = await engine.execute();
+
+      expect(error).toBeUndefined();
+      expect((result as FunctionOutput).receiptId).toBe(
+        "00000000-0000-0000-0000-000000000001"
+      );
+    });
+
+    it("replaces the stored line items rather than adding to them", async () => {
+      await reprocess(undefined, ["storing"]).execute();
+
+      expect(mockDeleteWhere).toHaveBeenCalledOnce();
+      expect(mockInsertValues).toHaveBeenCalledExactlyOnceWith([
+        expect.objectContaining({ name: "REG LATTE" }),
+        expect.objectContaining({ name: "SRIRACHA CHICKEN" }),
+      ]);
+    });
+
+    it("writes the receipt and its line items in one transaction", async () => {
+      await reprocess(undefined, ["storing"]).execute();
+
+      expect(mockTransaction).toHaveBeenCalledOnce();
+    });
+
+    it("clears the categorization stamp the replaced items no longer justify", async () => {
+      await reprocess(undefined, ["storing"]).execute();
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ categorizedAt: null })
+      );
+    });
+
+    it("nulls every flat field so an omitted one is cleared, not kept", async () => {
+      // `receiptToFlat` must null rather than leave undefined, because Drizzle
+      // drops undefined from an update — which would keep the previous bad
+      // extraction's value for anything the new parse omitted.
+      const sparse = {
+        items: [
+          { kind: "product", lineTotal: 10, name: "Product", quantity: 1 },
+        ],
+        merchant: { name: "Store" },
+        payment: { method: "other" },
+        totals: { total: 10 },
+        transaction: {},
+      } as unknown as ReceiptInformationExtraction;
+
+      await reprocess({ handler: () => sparse, id: "parsing" }, [
+        "storing",
+      ]).execute();
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gst: null,
+          merchantAbn: null,
+          receiptNumber: null,
+          subtotal: null,
+        })
+      );
+    });
+
+    it("categorizes the new items", async () => {
+      await reprocess().execute();
+
+      expect(mockSendEvent).toHaveBeenCalledWith(
+        "emit-extracted",
+        expect.objectContaining({
+          data: {
+            receiptId: "00000000-0000-0000-0000-000000000001",
+            userId: "user-1",
+          },
+          name: "receipt/extracted",
+        })
+      );
+    });
+  });
+
+  describe("after a failed run", () => {
+    it("restores the status a re-process started from", () => {
+      expect(statusAfterFailedRun("done")).toBe("done");
+    });
+
+    it("leaves a receipt that was already failed failed", () => {
+      expect(statusAfterFailedRun("error")).toBe("error");
+    });
+
+    it("marks a first extraction as failed, having nothing to fall back to", () => {
+      expect(statusAfterFailedRun()).toBe("error");
+    });
   });
 });

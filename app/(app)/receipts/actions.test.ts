@@ -6,7 +6,13 @@ const {
   mockDeleteWhere,
   mockFindFirst,
   mockGetSession,
+  mockListAvailableModels,
   mockRevalidatePath,
+  mockReturning,
+  mockSend,
+  mockUpdate,
+  mockUpdateSet,
+  mockUpdateWhere,
 } = vi.hoisted(() => {
   const deleteWhere = vi.fn<() => Promise<void>>().mockResolvedValue();
   const deleteTable = vi
@@ -22,6 +28,19 @@ const {
     >()
     .mockResolvedValue({ objectKey: "abc.jpg", status: "done" });
 
+  const returning = vi
+    .fn<() => Promise<{ id: string }[]>>()
+    .mockResolvedValue([{ id: "123e4567-e89b-12d3-a456-426614174000" }]);
+  const updateWhere = vi
+    .fn<() => { returning: typeof returning }>()
+    .mockReturnValue({ returning });
+  const updateSet = vi
+    .fn<(payload: Record<string, unknown>) => { where: typeof updateWhere }>()
+    .mockReturnValue({ where: updateWhere });
+  const updateTable = vi
+    .fn<(table: unknown) => { set: typeof updateSet }>()
+    .mockReturnValue({ set: updateSet });
+
   return {
     mockDelete: deleteTable,
     mockDeleteObject: vi.fn<() => Promise<void>>().mockResolvedValue(),
@@ -30,7 +49,15 @@ const {
     mockGetSession: vi
       .fn<() => Promise<{ user: { id: string } } | null>>()
       .mockResolvedValue({ user: { id: "user-1" } }),
+    mockListAvailableModels: vi
+      .fn<() => Promise<string[]>>()
+      .mockResolvedValue(["glm-ocr", "google/gemma-4-e4b"]),
+    mockReturning: returning,
     mockRevalidatePath: vi.fn<(path: string) => undefined>(),
+    mockSend: vi.fn<(events: unknown) => Promise<void>>().mockResolvedValue(),
+    mockUpdate: updateTable,
+    mockUpdateSet: updateSet,
+    mockUpdateWhere: updateWhere,
   };
 });
 
@@ -39,6 +66,7 @@ vi.mock(import("@/lib/db"), () => ({
   db: {
     delete: mockDelete,
     query: { receipts: { findFirst: mockFindFirst } },
+    update: mockUpdate,
   },
   receipts: {},
 }));
@@ -61,7 +89,18 @@ vi.mock(import("next/cache"), () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
-const { deleteReceipt } = await import("./actions");
+vi.mock(import("@/lib/ai/models"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  listAvailableModels: mockListAvailableModels,
+}));
+
+// @ts-expect-error mock types don't match Inngest internals
+vi.mock(import("@/lib/inngest/client"), () => ({
+  inngest: { send: mockSend },
+}));
+
+const { deleteReceipt, listExtractionModels, reprocessReceipt } =
+  await import("./actions");
 
 const receiptId = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -154,5 +193,231 @@ describe(deleteReceipt, () => {
       error: "Failed to delete receipt",
       success: false,
     });
+  });
+});
+
+const input = {
+  models: { ocr: "glm-ocr", parse: "google/gemma-4-e4b" },
+  receiptId,
+};
+
+describe(reprocessReceipt, () => {
+  beforeEach(() => {
+    mockGetSession.mockClear();
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
+    mockFindFirst.mockClear();
+    mockFindFirst.mockResolvedValue({
+      objectKey: "abc.jpg",
+      status: "done",
+    });
+    mockListAvailableModels.mockClear();
+    mockListAvailableModels.mockResolvedValue([
+      "glm-ocr",
+      "google/gemma-4-e4b",
+    ]);
+    mockRevalidatePath.mockClear();
+    mockReturning.mockClear();
+    mockReturning.mockResolvedValue([{ id: receiptId }]);
+    mockSend.mockClear();
+    mockUpdate.mockClear();
+    mockUpdateSet.mockClear();
+    mockUpdateWhere.mockClear();
+  });
+
+  it("rejects unauthenticated requests without touching the database", async () => {
+    mockGetSession.mockResolvedValueOnce(null);
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt not found",
+      success: false,
+    });
+    expect(mockFindFirst).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found for another user's receipt", async () => {
+    mockFindFirst.mockResolvedValueOnce(null);
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt not found",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid payload", async () => {
+    const result = await reprocessReceipt({ ...input, receiptId: "nope" });
+
+    expect(result).toStrictEqual({
+      error: "Validation failed",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses a receipt that is not finished or failed", async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      status: "processing",
+    });
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt is not ready to re-process",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses a receipt with no stored image to read", async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: null,
+      status: "done",
+    });
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt has no image to re-process",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("says the server is unreachable rather than blaming the model", async () => {
+    mockListAvailableModels.mockResolvedValueOnce([]);
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "The model server is not reachable",
+      success: false,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses a model the provider does not report", async () => {
+    const result = await reprocessReceipt({
+      ...input,
+      models: { ocr: "made-up-model", parse: "google/gemma-4-e4b" },
+    });
+
+    expect(result).toStrictEqual({
+      error: "That model is not available",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("claims the receipt by moving it to processing", async () => {
+    await reprocessReceipt(input);
+
+    expect(mockUpdateSet).toHaveBeenCalledWith({ status: "processing" });
+    expect(mockUpdateWhere).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a second request once the receipt is claimed", async () => {
+    mockReturning.mockResolvedValueOnce([]);
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt is already being processed",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("starts a run with the chosen models and the status to restore", async () => {
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({ success: true });
+    expect(mockSend).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        data: {
+          models: { ocr: "glm-ocr", parse: "google/gemma-4-e4b" },
+          previousStatus: "done",
+          receiptId,
+          userId: "user-1",
+        },
+        name: "receipt/reprocess",
+      }),
+    ]);
+  });
+
+  it("gives every request its own event id so a repeat is a new run", async () => {
+    await reprocessReceipt(input);
+    await reprocessReceipt(input);
+
+    const ids = mockSend.mock.calls.flatMap(([events]) =>
+      (events as { id: string }[]).map((event) => event.id)
+    );
+
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("records a failed receipt's status so a failure can restore it", async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      status: "error",
+    });
+
+    await reprocessReceipt(input);
+
+    expect(mockSend).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        data: expect.objectContaining({ previousStatus: "error" }),
+      }),
+    ]);
+  });
+
+  it("releases the claim when the run cannot be enqueued", async () => {
+    mockSend.mockRejectedValueOnce(new Error("inngest unreachable"));
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Failed to start re-processing",
+      success: false,
+    });
+    expect(mockUpdateSet).toHaveBeenCalledWith({ status: "done" });
+  });
+});
+
+describe(listExtractionModels, () => {
+  beforeEach(() => {
+    mockListAvailableModels.mockClear();
+  });
+
+  it("returns the ids the provider reports, alongside the defaults", async () => {
+    mockListAvailableModels.mockResolvedValueOnce(["glm-ocr"]);
+
+    await expect(listExtractionModels()).resolves.toStrictEqual({
+      available: ["glm-ocr"],
+      defaults: { ocr: "glm-ocr", parse: "google/gemma-4-e4b" },
+    });
+  });
+
+  it("offers nothing rather than models the trigger would refuse", async () => {
+    mockListAvailableModels.mockResolvedValueOnce([]);
+
+    await expect(listExtractionModels()).resolves.toStrictEqual({
+      available: [],
+      defaults: { ocr: "glm-ocr", parse: "google/gemma-4-e4b" },
+    });
+  });
+
+  it("does not offer a model the provider has not loaded", async () => {
+    mockListAvailableModels.mockResolvedValueOnce(["glm-ocr"]);
+
+    const result = await listExtractionModels();
+
+    expect(result.available).toStrictEqual(["glm-ocr"]);
   });
 });

@@ -4,7 +4,7 @@ Date: 2026-08-13
 
 ## Status
 
-Accepted (deferred)
+Superseded by ADR-0011.
 
 ## Context
 
@@ -34,7 +34,11 @@ Any one of these becomes true:
 
 At that point, provenance tracking needs a grilling session before implementation.
 
+That point was reached: condition 1 above became true, and ADR-0011 supersedes this decision. Re-extraction now ships and **replaces** the stored extraction wholesale — manual edits and user-set categories do not survive it. Provenance tracking is still not shipped, so preserving hand-made rows remains open.
+
 ## Related
 
+- ADR-0011 (re-processing replaces the stored extraction) — supersedes this ADR.
 - Issue #26 (decision record)
 - Manual-edit feature (#28)
+- Issue #149 (re-process)
