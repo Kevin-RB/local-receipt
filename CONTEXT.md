@@ -45,3 +45,5 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Subcategory**: A leaf category within a top-level category (e.g. Dairy & Eggs within Groceries). The level a line item is actually assigned. _Avoid_: Child category, sub-type.
 
 **Categorization**: The pass that assigns a category to each line item, interpreting the item's name and merchant. Distinct from extraction. _Avoid_: Classification, tagging.
+
+**Category source**: The marker recording who assigned a line item's category — `ai` from categorization, `user` from a manual edit. A user-set category is a decision: categorization skips it, so a re-run applies a taxonomy change to the AI's work and leaves human choices alone. An item with no category carries `ai`, which is what leaves it eligible for a categorization run. _Avoid_: Provenance, origin, author.
