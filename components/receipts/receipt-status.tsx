@@ -73,9 +73,10 @@ export const ReceiptStatus = ({
   const realtime = useReceiptRealtime({
     receiptId: status === "processing" ? id : null,
   });
-  // The whole message, not just its `state`: a second run that only reports its
-  // terminal state would otherwise leave `state` unchanged and never reach the
-  // refresh below. Identity is what distinguishes one run's `done` from the last.
+  // Depend on the whole message rather than just its `state`, so a terminal
+  // message still re-runs the effect below when the previous one carried the
+  // same state. The object is replaced per message, and React skips the effect
+  // when every dependency is unchanged, so one message is acted on once.
   const message = realtime.messages.byTopic.state;
   const state = message?.data.state;
 
