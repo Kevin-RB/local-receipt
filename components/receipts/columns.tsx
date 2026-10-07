@@ -18,6 +18,7 @@ import { z } from "zod/v4";
 import { deleteReceipt } from "@/app/(app)/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { dateRangeFilterFn } from "@/components/receipts/filters";
+import { ReceiptStatus } from "@/components/receipts/receipt-status";
 import { ReprocessDialog } from "@/components/receipts/reprocess-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,16 +49,6 @@ export const receiptTableSchema = z.object({
 });
 
 export type ReceiptTable = z.infer<typeof receiptTableSchema>;
-
-type badgeVariant = "default" | "destructive" | "outline" | "secondary";
-
-const statusBadgeVariant: Record<ReceiptTable["status"], badgeVariant> = {
-  done: "default",
-  error: "destructive",
-  pending: "secondary",
-  processing: "secondary",
-  uploading: "secondary",
-};
 
 const dateFormatter = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "full",
@@ -175,10 +166,9 @@ const RowActions = ({
 
 export const receiptColumns = columnHelper.columns([
   columnHelper.accessor("status", {
-    cell: ({ row }) => {
-      const { status } = row.original;
-      return <Badge variant={statusBadgeVariant[status]}>{status}</Badge>;
-    },
+    cell: ({ row }) => (
+      <ReceiptStatus id={row.original.id} status={row.original.status} />
+    ),
     header: "Status",
     sortFn: "alphanumeric",
   }),
