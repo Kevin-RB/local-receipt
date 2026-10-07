@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { useReceiptRealtime } from "@/hooks/use-receipt-realtime";
@@ -9,7 +9,7 @@ import type { ReceiptState } from "@/hooks/use-receipt-realtime";
 
 import type { ReceiptTable } from "./columns";
 
-type BadgeVariant = "default" | "destructive" | "outline" | "secondary";
+type BadgeVariant = "default" | "destructive" | "secondary";
 
 export interface StatusBadge {
   label: string;
@@ -27,10 +27,10 @@ const statusBadgeVariant: Record<ReceiptTable["status"], BadgeVariant> = {
 /**
  * What a run in flight shows in place of the stored status.
  *
- * `failed` is labelled `error` so the badge reads the same before and after the
- * refresh that follows a terminal state: the refresh re-reads the stored status,
- * which says `error`, and wording the live state `failed` would make the badge
- * rename itself for the same outcome.
+ * `failed` is labelled `error` so the badge does not rename itself: the
+ * refresh that follows a terminal state re-reads the stored status, which says
+ * `error`, and wording the live state `failed` would show two different words
+ * for one outcome.
  */
 const liveBadge: Record<NonNullable<ReceiptState>, StatusBadge> = {
   done: { label: "done", variant: "default" },
@@ -54,21 +54,13 @@ export const statusBadge = (
  *
  * The stored status only moves at the two ends of a run — claimed before it
  * starts, set when it stores — so without this a re-processed receipt sits on
- * `processing` until the page is reloaded, which on a local model can be most
- * of a minute. Subscribing only while a run is coming or going keeps the table
- * to one connection per in-flight receipt rather than one per receipt on the
- * page. A `pending` receipt subscribes as well as a `processing` one, so the
- * first message of a first extraction is not missed while the table catches up.
+ * `processing` until the page is reloaded, which on a local model can be most of
+ * a minute. Subscribing only while a run is claiming keeps the table to one
+ * connection per in-flight receipt rather than one per receipt on the page.
  *
- * A stage published before this cell's socket opened is not seen: the realtime
- * client keeps no server-side replay to offer, and `historyLimit` only caps
- * what it retains locally. The terminal message that matters therefore depends
- * on the subscription catching it, which is the one thing here that cannot be
- * guaranteed — a run that finishes entirely inside a dropped connection leaves
- * the row on `processing` until the page is reloaded.
- *
- * Reaching a terminal state refreshes once per message, which is what pulls the
- * new extraction into the row.
+ * A stage published before this cell's socket opened is not seen: realtime has
+ * no replay to offer, so a run that starts and finishes inside a dropped
+ * connection leaves the row on `processing` until the page is reloaded.
  */
 export const ReceiptStatus = ({
   id,
@@ -78,35 +70,19 @@ export const ReceiptStatus = ({
   status: ReceiptTable["status"];
 }) => {
   const router = useRouter();
-  const inFlight = status === "processing" || status === "pending";
-  const realtime = useReceiptRealtime({ receiptId: inFlight ? id : null });
+  const realtime = useReceiptRealtime({
+    receiptId: status === "processing" ? id : null,
+  });
+  // The whole message, not just its `state`: a second run that only reports its
+  // terminal state would otherwise leave `state` unchanged and never reach the
+  // refresh below. Identity is what distinguishes one run's `done` from the last.
   const message = realtime.messages.byTopic.state;
   const state = message?.data.state;
-  const refreshedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!message || message.kind !== "data") {
-      return;
+    if (message && (state === "done" || state === "failed")) {
+      router.refresh();
     }
-
-    if (state !== "done" && state !== "failed") {
-      return;
-    }
-
-    // Once per terminal *message*, not once per cell. This cell stays mounted
-    // across runs, so a latch that only ever latches swallows every re-process
-    // after the first — and the hook does not clear its messages when it is
-    // disabled, so the previous run's `done` is still there when the next run
-    // starts. The message's own arrival time identifies the run, which is what
-    // makes that stale terminal state a no-op.
-    const arrived = message.createdAt.getTime();
-
-    if (refreshedAt.current === arrived) {
-      return;
-    }
-
-    refreshedAt.current = arrived;
-    router.refresh();
   }, [message, router, state]);
 
   const badge = statusBadge(status, state ?? null);
