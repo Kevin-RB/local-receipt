@@ -1,5 +1,5 @@
 import { APICallError, NoObjectGeneratedError } from "ai";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { isUnreachableError } from "@/lib/ai/errors";
@@ -24,8 +24,23 @@ import { reconcile } from "@/lib/receipt/integrity";
 import { BUCKET, downloadObject } from "@/lib/storage/client";
 import { contentTypeFromKey } from "@/lib/storage/content-type";
 
-const setReceiptStatus = (id: string, status: ProcessingStatus) =>
-  db.update(receipts).set({ status }).where(eq(receipts.id, id));
+/**
+ * Sets a receipt's status, scoped to its owner.
+ *
+ * The owner is part of the write rather than something the caller is trusted to
+ * have checked, so no call site in this function can move a receipt that belongs
+ * to someone else — the failure path included, which is where an unscoped write
+ * was reachable from an event naming another user's receipt.
+ */
+const setReceiptStatus = (
+  id: string,
+  status: ProcessingStatus,
+  ownerId: string
+) =>
+  db
+    .update(receipts)
+    .set({ status })
+    .where(and(eq(receipts.id, id), eq(receipts.userId, ownerId)));
 
 const formatFailureMessage = (error: Error): string => {
   if (NoObjectGeneratedError.isInstance(error)) {
@@ -38,18 +53,35 @@ const formatFailureMessage = (error: Error): string => {
 };
 
 /**
- * The status a failed run leaves behind.
+ * The status a failed run writes, or `null` when it must write nothing.
  *
- * A first extraction has nothing to fall back to, so it is `error`. A
- * re-process does: the stored extraction is only replaced in the final
- * `storing` step, so any earlier failure leaves it fully intact and the receipt
- * should keep saying so. Marking it `error` instead would hide the edit form,
- * drop it out of `listDoneReceipts`, and exclude it from every spend query —
- * all because an attempt the owner did not need failed.
+ * Two cases write nothing, and both are load-bearing:
+ *
+ * - The receipt is not there for the event's user. The event names a row, and
+ *   the sender may not own it, so a failed run has nothing to report about it.
+ *   Writing anyway would let a forged event flip the status of any receipt by
+ *   id — hiding it from the editor and from every spend query.
+ * - The receipt is already `done`, because `storing` writes `done` as its last
+ *   act. Restoring the pre-run status over it would report a failure against
+ *   data that is there and correct.
+ *
+ * Otherwise a re-process restores the status it started from: the stored
+ * extraction is only replaced in the final `storing` step, so an earlier
+ * failure leaves it fully intact and the receipt should keep saying so. A first
+ * extraction has nothing to fall back to and is `error`.
  */
 export const statusAfterFailedRun = (
+  // `undefined` as well as `null`: the lookup returns the former when there is
+  // no such row for the user, and both mean the same thing here.
+  current: { status: ProcessingStatus } | null | undefined,
   previousStatus?: ProcessingStatus
-): ProcessingStatus => previousStatus ?? "error";
+): ProcessingStatus | null => {
+  if (!current || current.status === "done") {
+    return null;
+  }
+
+  return previousStatus ?? "error";
+};
 
 export const transcribeReceipt = inngest.createFunction(
   {
@@ -76,16 +108,12 @@ export const transcribeReceipt = inngest.createFunction(
           : undefined;
 
       await step.run("mark-error", async () => {
-        // `storing` writes `done` as its last act, so a receipt already `done`
-        // holds the new extraction. Restoring the pre-run status over it would
-        // report a failure against data that is there and correct.
         const current = await findReceiptByIdForOwner(receiptId, userId);
+        const status = statusAfterFailedRun(current, previousStatus);
 
-        if (current?.status === "done") {
-          return;
+        if (status) {
+          await setReceiptStatus(receiptId, status, userId);
         }
-
-        await setReceiptStatus(receiptId, statusAfterFailedRun(previousStatus));
       });
 
       await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
@@ -133,7 +161,7 @@ export const transcribeReceipt = inngest.createFunction(
     }
 
     await step.run("mark-processing", async () => {
-      await setReceiptStatus(receiptId, "processing");
+      await setReceiptStatus(receiptId, "processing", userId);
     });
 
     await step.realtime.publish("publish-extracting", ch.state, {

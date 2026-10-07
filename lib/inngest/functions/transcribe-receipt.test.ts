@@ -639,16 +639,29 @@ describe("transcribeReceipt function", () => {
   });
 
   describe("after a failed run", () => {
+    const processing = { status: "processing" as const };
+
     it("restores the status a re-process started from", () => {
-      expect(statusAfterFailedRun("done")).toBe("done");
+      expect(statusAfterFailedRun(processing, "done")).toBe("done");
     });
 
     it("leaves a receipt that was already failed failed", () => {
-      expect(statusAfterFailedRun("error")).toBe("error");
+      expect(statusAfterFailedRun(processing, "error")).toBe("error");
     });
 
     it("marks a first extraction as failed, having nothing to fall back to", () => {
-      expect(statusAfterFailedRun()).toBe("error");
+      expect(statusAfterFailedRun(processing)).toBe("error");
+    });
+
+    it("writes nothing for a receipt the event's user does not own", () => {
+      // A scoped lookup returning null means the event named someone else's
+      // receipt. Falling through here is how the ownership gate gets bypassed:
+      // the run reports a failure against a row it never proved it may touch.
+      expect(statusAfterFailedRun(null, "done")).toBeNull();
+    });
+
+    it("writes nothing once the store has committed", () => {
+      expect(statusAfterFailedRun({ status: "done" }, "error")).toBeNull();
     });
   });
 });
