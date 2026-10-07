@@ -105,7 +105,7 @@ Two boundaries are worth calling out, because they are the reason the pipeline i
 3. **Upload.** The browser PUTs the bytes straight to RustFS. Storage credentials never leave the server.
 4. **Notification.** RustFS POSTs a bucket event to `/api/storage-events`, authenticated by the shared secret. The handler promotes the row `uploading → pending` and sends `receipt/uploaded` with a deterministic event id, so redelivery is deduped by Inngest rather than starting a second run. A non-2xx makes RustFS retry, and the retry re-enqueues instead of losing the extraction.
 5. **Extract.** `transcribe-receipt` claims the row (`pending → processing`), downloads the image, and OCRs it with the vision model. The transcript is written as soon as it exists — if parsing then fails, it is the only evidence of what the image said. Next the transcript is parsed into the fixed extraction contract (`lib/db/contract.ts`) and validated against it, and in a final step the flat receipt fields, the line items, and the integrity warning are written and the row marked `done`. The warning is raised when the line items do not reconcile against the stated total.
-6. **Categorize.** Extraction emits `receipt/extracted`; `categorize-receipt` loads the line items and the seeded leaf taxonomy, asks the model for one category per item, writes the assignments, and stamps `categorized_at`. It skips items whose category source is `user` — a category the owner chose is a decision, so a re-run must not overrule it.
+6. **Categorize.** Extraction emits `receipt/extracted`; `categorize-receipt` loads the line items and the seeded leaf taxonomy, asks the model for one category per item, writes the assignments, and stamps `categorized_at`. Because the taxonomy is a derived layer, a re-run reapplies it to every item; preserving hand-picked categories requires a `category_source` marker, which does not exist yet (see [ADR-0009](docs/adr/0009-categories-are-derived-and-re-runnable.md)).
 7. **Notify the UI.** Throughout, the function publishes `extracting` / `parsing` / `storing` / `done` / `failed` on the receipt's realtime channel.
 
 Each step is memoized by Inngest, so a crash or retry resumes rather than restarts.
@@ -173,7 +173,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm de
 
 ## Configuration
 
-Everything has a working default; nothing is required to boot.
+Most values fall back to a working local default. The rows marked `—` have none and must be set in `.env.local` before the matching subsystem works.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -183,7 +183,7 @@ Everything has a working default; nothing is required to boot.
 | `INVITE_CODE` | — | Shared code required to register. Unset means registration is closed |
 | `STORAGE_ENDPOINT` | `localhost:9000` | RustFS, reached from the app |
 | `STORAGE_PUBLIC_ENDPOINT` | `STORAGE_ENDPOINT` | RustFS as the browser sees it (presigned URLs are signed against this host) |
-| `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `rustfsadmin` | The app's IAM identity — least privilege, not root |
+| `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | `rustfsadmin` (does **not** match local compose — see below) | The app's IAM identity — least privilege, not root |
 | `STORAGE_BUCKET` | `receipts` | Bucket holding receipt images |
 | `STORAGE_WEBHOOK_SECRET` | — | Bearer token RustFS sends on bucket notifications |
 | `LM_STUDIO_URL` | `http://localhost:1234/v1` | Local model server |
@@ -191,8 +191,20 @@ Everything has a working default; nothing is required to boot.
 | `PARSE_MODEL` | `google/gemma-4-e4b` | Model that turns a transcript into the contract |
 | `CATEGORIZE_MODEL` | `PARSE_MODEL` | Model for categorization |
 | `CHAT_MODEL` | `PARSE_MODEL` | Model for the chat agent |
-| `INNGEST_DEV` / `INNGEST_BASE_URL` | `1` / `http://localhost:8288` | Point the app at the local Inngest dev server |
+| `INNGEST_DEV` | — | Set to `1` to talk to the local dev server instead of Inngest Cloud. Required locally, or the SDK assumes Cloud and wants an event key |
+| `INNGEST_BASE_URL` | — | The local Inngest dev server, `http://localhost:8288`. Paired with `INNGEST_DEV=1` |
 | `SEED_DATABASE_URL` | `…/receipts_seed` | Target for `pnpm db:seed` |
+
+### Storage credentials must match the stack
+
+The code default of `rustfsadmin` is a leftover placeholder, not a working local identity — nothing in `docker-compose.yml` creates that user, so storage calls fail against the stack above with an auth error. `rustfs-init` creates the app's least-privilege identity, and your `.env.local` must name it:
+
+```bash
+STORAGE_ACCESS_KEY=receipts-app
+STORAGE_SECRET_KEY=receipts-app-dev-secret
+```
+
+Those are the values `docker-compose.yml` provisions locally. Root credentials (`receipt-app` / `possum123`) work too, since root bypasses IAM, but they are for `rustfs-init` and the console — never for the app.
 
 ## Commands
 
