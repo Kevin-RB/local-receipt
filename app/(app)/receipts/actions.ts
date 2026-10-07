@@ -52,11 +52,24 @@ export const deleteReceipt = async (receiptId: string) => {
  * rather than filling the select with models the trigger would refuse — the
  * action rejects the run outright in that case, because nothing can run without
  * the provider.
+ *
+ * Server actions are HTTP endpoints, so this one is as reachable as any other
+ * without a session. It answers with the ids the model server has loaded and the
+ * models this app is configured to use, which is not an anonymous answer, so an
+ * unauthenticated caller gets an empty list rather than either.
  */
-export const listExtractionModels = async () => ({
-  available: await listAvailableModels(),
-  defaults: { ocr: ORC_MODEL, parse: PARSE_MODEL },
-});
+export const listExtractionModels = async () => {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    return { available: [], defaults: { ocr: "", parse: "" } };
+  }
+
+  return {
+    available: await listAvailableModels(),
+    defaults: { ocr: ORC_MODEL, parse: PARSE_MODEL },
+  };
+};
 
 /**
  * Runs extraction again over a stored receipt.

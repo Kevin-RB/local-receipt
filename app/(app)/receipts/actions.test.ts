@@ -392,7 +392,29 @@ describe(reprocessReceipt, () => {
 
 describe(listExtractionModels, () => {
   beforeEach(() => {
+    mockGetSession.mockClear();
+    mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockListAvailableModels.mockClear();
+  });
+
+  it("returns nothing to an unauthenticated caller", async () => {
+    // Server actions are HTTP endpoints, so this one is reachable without a
+    // session unless it says otherwise.
+    mockGetSession.mockResolvedValueOnce(null);
+
+    await expect(listExtractionModels()).resolves.toStrictEqual({
+      available: [],
+      defaults: { ocr: "", parse: "" },
+    });
+    expect(mockListAvailableModels).not.toHaveBeenCalled();
+  });
+
+  it("does not reach the provider without a session", async () => {
+    mockGetSession.mockResolvedValueOnce(null);
+
+    await listExtractionModels();
+
+    expect(mockListAvailableModels).not.toHaveBeenCalled();
   });
 
   it("returns the ids the provider reports, alongside the defaults", async () => {

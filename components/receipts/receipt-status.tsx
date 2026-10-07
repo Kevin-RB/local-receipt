@@ -59,8 +59,13 @@ export const statusBadge = (
  * connection per in-flight receipt rather than one per receipt on the page.
  *
  * A stage published before this cell's socket opened is not seen: realtime has
- * no replay to offer, so a run that starts and finishes inside a dropped
- * connection leaves the row on `processing` until the page is reloaded.
+ * no replay to offer, so a run that finishes inside a dropped connection leaves
+ * the row showing `processing` until the page is reloaded. That holds only for a
+ * run whose claim already reached this table — a receipt first rendered as
+ * `pending` never opens a socket at all, so a first extraction that starts and
+ * finishes without this page seeing `processing` is not followed here. Re-process
+ * is, because claiming the row is what puts it into `processing` and the table
+ * is re-rendered immediately afterwards.
  */
 export const ReceiptStatus = ({
   id,
