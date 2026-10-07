@@ -8,6 +8,7 @@ import { statusAfterFailedRun, transcribeReceipt } from "./transcribe-receipt";
 const {
   mockDelete,
   mockDeleteWhere,
+  mockFindReceiptByIdForOwner,
   mockInsert,
   mockInsertValues,
   mockParse,
@@ -50,6 +51,8 @@ const {
   return {
     mockDelete: deleteTable,
     mockDeleteWhere: deleteWhere,
+    mockFindReceiptByIdForOwner:
+      vi.fn<(id: string, ownerId: string) => Promise<unknown>>(),
     mockInsert: insert,
     mockInsertValues: insertValues,
     mockParse: vi
@@ -70,11 +73,11 @@ const {
 vi.mock(import("@/lib/db"), () => ({
   db: {
     delete: mockDelete,
-    findReceiptById: vi.fn<() => Promise<null>>(),
     insert: mockInsert,
     transaction: mockTransaction,
     update: mockUpdate,
   },
+  findReceiptByIdForOwner: mockFindReceiptByIdForOwner,
   receiptItems: {},
   receipts: {},
 }));
@@ -195,6 +198,7 @@ describe("transcribeReceipt function", () => {
     mockInsert.mockClear();
     mockInsertValues.mockClear();
     mockParse.mockClear();
+    mockFindReceiptByIdForOwner.mockClear();
     mockSet.mockClear();
     mockTransaction.mockClear();
     mockTranscribe.mockClear();
@@ -443,6 +447,36 @@ describe("transcribeReceipt function", () => {
     await engine.execute().catch(() => {});
 
     expect(mockSet).toHaveBeenCalledWith({ transcript: "FAKE OCR TRANSCRIPT" });
+  });
+
+  it("refuses a receipt that does not belong to the event's user", async () => {
+    // The event carries a userId; if the run trusted the receiptId alone, anyone
+    // able to send an event could name someone else's receipt and have its line
+    // items deleted and its extraction overwritten.
+    mockFindReceiptByIdForOwner.mockResolvedValueOnce(null);
+
+    const { error } = await createEngine(undefined, [
+      "lookup-receipt",
+    ]).execute();
+
+    expect(error).toBeDefined();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockInsertValues).not.toHaveBeenCalled();
+  });
+
+  it("looks the receipt up scoped to the event's user", async () => {
+    mockFindReceiptByIdForOwner.mockResolvedValueOnce({
+      id: "00000000-0000-0000-0000-000000000001",
+      objectKey: "receipts/test.jpg",
+      status: "pending",
+    });
+
+    await createEngine(undefined, ["lookup-receipt"]).execute();
+
+    expect(mockFindReceiptByIdForOwner).toHaveBeenCalledWith(
+      "00000000-0000-0000-0000-000000000001",
+      "user-1"
+    );
   });
 
   it("emits receipt/extracted once the receipt is stored", async () => {

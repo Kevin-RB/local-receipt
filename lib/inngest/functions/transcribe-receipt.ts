@@ -8,7 +8,7 @@ import {
   parseReceiptText,
   transcribeReceiptImage,
 } from "@/lib/ai/transcribe-receipt-image";
-import { db, findReceiptById, receiptItems, receipts } from "@/lib/db";
+import { db, findReceiptByIdForOwner, receiptItems, receipts } from "@/lib/db";
 import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
@@ -67,7 +67,7 @@ export const transcribeReceipt = inngest.createFunction(
     id: "transcribe-receipt",
     onFailure: async ({ event, step }) => {
       const trigger = event.data.event;
-      const { receiptId } = trigger.data;
+      const { receiptId, userId } = trigger.data;
       const ch = receiptChannel(receiptId);
       const errorMessage = event.data.error?.message;
       const previousStatus =
@@ -79,7 +79,7 @@ export const transcribeReceipt = inngest.createFunction(
         // `storing` writes `done` as its last act, so a receipt already `done`
         // holds the new extraction. Restoring the pre-run status over it would
         // report a failure against data that is there and correct.
-        const current = await findReceiptById(receiptId);
+        const current = await findReceiptByIdForOwner(receiptId, userId);
 
         if (current?.status === "done") {
           return;
@@ -111,7 +111,11 @@ export const transcribeReceipt = inngest.createFunction(
     const ch = receiptChannel(receiptId);
 
     const receipt = await step.run("lookup-receipt", async () => {
-      const found = await findReceiptById(receiptId);
+      // Scoped to the user on the event, not just the receipt id. The event is a
+      // message anyone holding the event key can send, and this run deletes every
+      // line item and overwrites the stored extraction — so a receipt named by
+      // someone else's id must not be touched, whoever claims to own it.
+      const found = await findReceiptByIdForOwner(receiptId, userId);
       if (!found) {
         throw new NonRetriableError(`Receipt ${receiptId} not found`);
       }
