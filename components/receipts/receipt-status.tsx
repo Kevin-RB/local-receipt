@@ -55,17 +55,19 @@ export const statusBadge = (
  * The stored status only moves at the two ends of a run — claimed before it
  * starts, set when it stores — so without this a re-processed receipt sits on
  * `processing` until the page is reloaded, which on a local model can be most of
- * a minute. Subscribing only while a run is claiming keeps the table to one
- * connection per in-flight receipt rather than one per receipt on the page.
+ * a minute.
+ *
+ * `pending` subscribes as well as `processing`, and that is the queue rather than
+ * a formality: the claim is a step *inside* the run, so a receipt waiting for a
+ * concurrency slot stays `pending` for as long as the runs ahead of it take.
+ * With the account limit at two and a local extraction running for minutes, that
+ * is exactly when someone is watching the table. Subscribing only in flight keeps
+ * it to one connection per receipt that has a run coming or going, rather than
+ * one per receipt on the page.
  *
  * A stage published before this cell's socket opened is not seen: realtime has
  * no replay to offer, so a run that finishes inside a dropped connection leaves
- * the row showing `processing` until the page is reloaded. That holds only for a
- * run whose claim already reached this table — a receipt first rendered as
- * `pending` never opens a socket at all, so a first extraction that starts and
- * finishes without this page seeing `processing` is not followed here. Re-process
- * is, because claiming the row is what puts it into `processing` and the table
- * is re-rendered immediately afterwards.
+ * the row showing `processing` until the page is reloaded.
  */
 export const ReceiptStatus = ({
   id,
@@ -76,7 +78,7 @@ export const ReceiptStatus = ({
 }) => {
   const router = useRouter();
   const realtime = useReceiptRealtime({
-    receiptId: status === "processing" ? id : null,
+    receiptId: status === "processing" || status === "pending" ? id : null,
   });
   // Depend on the whole message rather than just its `state`, so a terminal
   // message still re-runs the effect below when the previous one carried the
