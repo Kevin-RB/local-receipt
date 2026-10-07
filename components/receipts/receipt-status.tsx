@@ -60,8 +60,15 @@ export const statusBadge = (
  * page. A `pending` receipt subscribes as well as a `processing` one, so the
  * first message of a first extraction is not missed while the table catches up.
  *
- * Reaching a terminal state refreshes once, which is what pulls the new
- * extraction into the row.
+ * A stage published before this cell's socket opened is not seen: the realtime
+ * client keeps no server-side replay to offer, and `historyLimit` only caps
+ * what it retains locally. The terminal message that matters therefore depends
+ * on the subscription catching it, which is the one thing here that cannot be
+ * guaranteed — a run that finishes entirely inside a dropped connection leaves
+ * the row on `processing` until the page is reloaded.
+ *
+ * Reaching a terminal state refreshes once per message, which is what pulls the
+ * new extraction into the row.
  */
 export const ReceiptStatus = ({
   id,
@@ -73,19 +80,34 @@ export const ReceiptStatus = ({
   const router = useRouter();
   const inFlight = status === "processing" || status === "pending";
   const realtime = useReceiptRealtime({ receiptId: inFlight ? id : null });
-  const state = realtime.messages.byTopic.state?.data.state;
-  const refreshed = useRef(false);
+  const message = realtime.messages.byTopic.state;
+  const state = message?.data.state;
+  const refreshedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    if (refreshed.current) {
+    if (!message || message.kind !== "data") {
       return;
     }
 
-    if (state === "done" || state === "failed") {
-      refreshed.current = true;
-      router.refresh();
+    if (state !== "done" && state !== "failed") {
+      return;
     }
-  }, [state, router]);
+
+    // Once per terminal *message*, not once per cell. This cell stays mounted
+    // across runs, so a latch that only ever latches swallows every re-process
+    // after the first — and the hook does not clear its messages when it is
+    // disabled, so the previous run's `done` is still there when the next run
+    // starts. The message's own arrival time identifies the run, which is what
+    // makes that stale terminal state a no-op.
+    const arrived = message.createdAt.getTime();
+
+    if (refreshedAt.current === arrived) {
+      return;
+    }
+
+    refreshedAt.current = arrived;
+    router.refresh();
+  }, [message, router, state]);
 
   const badge = statusBadge(status, state ?? null);
 

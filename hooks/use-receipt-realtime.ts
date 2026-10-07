@@ -38,12 +38,6 @@ export const useReceiptRealtime = ({
     autoCloseOnTerminal: false,
     channel: receiptChannel(receiptId ?? ""),
     enabled: !!receiptId,
-    // A subscription is not open the instant a run starts — the receipts table
-    // only subscribes once it has re-rendered with the receipt claimed — so
-    // without replaying recent messages a fast run could finish before the
-    // subscriber existed and the terminal state, the one that matters, would
-    // never arrive.
-    historyLimit: 20,
     pauseOnHidden: false,
     reconnect: true,
     token: () => {

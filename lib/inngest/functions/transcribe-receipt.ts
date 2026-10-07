@@ -162,12 +162,24 @@ export const transcribeReceipt = inngest.createFunction(
       }
     });
 
-    await step.run("store-transcript", async () => {
-      await db
-        .update(receipts)
-        .set({ transcript })
-        .where(eq(receipts.id, receiptId));
-    });
+    // A first extraction writes the transcript as soon as it has it: there is
+    // nothing else on the row, so the OCR text is the only evidence of what the
+    // image said if parsing fails (ADR-0008).
+    //
+    // A re-process does not. The row already holds a transcript that describes
+    // the extraction still stored on it, and the whole promise of restoring the
+    // previous status is that the data survives a failed run — which an early
+    // write would break, leaving a receipt reading as `done` with the old
+    // extraction and a transcript that produced nothing. So it is written with
+    // the extraction, in the `storing` transaction below.
+    if (!reprocessing) {
+      await step.run("store-transcript", async () => {
+        await db
+          .update(receipts)
+          .set({ transcript })
+          .where(eq(receipts.id, receiptId));
+      });
+    }
 
     await step.realtime.publish("publish-parsing", ch.state, {
       state: "parsing",
@@ -227,6 +239,9 @@ export const transcribeReceipt = inngest.createFunction(
             categorizedAt: null,
             hasIntegrityWarning: integrityWarning,
             status: "done" as const,
+            // Written with the extraction rather than before it, so the
+            // transcript on the row always belongs to the data on the row.
+            transcript,
           })
           .where(eq(receipts.id, receiptId));
 

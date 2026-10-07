@@ -41,21 +41,24 @@ Categorization re-runs over the new items, exactly as it does after a first extr
 
 **`storing` deletes before it inserts**, unconditionally, in one transaction. A first extraction has no line items to delete, so the delete is a no-op there and there is no branch to reason about. `categorizedAt` is reset to `null` in the same write: the new items carry no categories, so leaving the old stamp would claim a categorization that no longer exists.
 
+**The transcript is written with the extraction, not before it.** A first extraction still writes it as soon as OCR has produced it, because there is nothing else on the row and ADR-0008 made that text the only evidence of what the image said when parsing fails. A re-process does not have that case — the row already holds a transcript describing the extraction still stored on it. Writing the new one early would leave a failed re-process showing a receipt that reads as `done`, with the previous extraction and a transcript that produced nothing, which breaks the guarantee above from the side. So a re-process writes it inside the `storing` transaction, and the transcript on a row always belongs to the data on that row.
+
 ## Consequences
 
 - A bad extraction is recoverable without re-uploading, and the owner can pick a stronger model for the attempt.
 - Manual edits and user-set categories on a re-processed receipt are lost. This is stated in the confirm dialog before the action runs, not discovered afterwards. Provenance tracking remains unshipped; if preserving hand-made rows is later wanted, it is a new column and a new ADR, and this one is the thing to supersede.
-- `transcribe-receipt` carries a branch on which trigger fired. It is one `event.name` check selecting the model pair and dropping the status precondition; the steps themselves are shared, which is the point.
-- The model list is fetched server-side. LM Studio is reachable from the app container but not from the browser in production, so the picker is populated by a server action rather than a client fetch.
+- `transcribe-receipt` carries two branches on which trigger fired: one selects the model pair and the expected status, the other decides whether the transcript is written early. The steps themselves are shared, which is the point.
+- The realtime client has no server-side replay. A stage published before the table's subscription opens is not seen, so a run that starts and finishes inside a dropped connection leaves the row on `processing` until the page is reloaded. This is a limit of the transport, not of the trigger.
 - There is no history. A re-process leaves nothing recording that it happened, or with which models, so a receipt that is re-processed and then re-processed again is indistinguishable from one that was never touched. If that matters, it is a run-history table, not a column on `receipts`.
 - A receipt is `processing` for the length of a re-process, and `processing` is what `listDoneReceipts` and the spend queries exclude. So a re-processed receipt briefly drops out of the overview and returns when the run lands. `processing` is the only in-flight status the lifecycle has; a separate one would mean touching the enum, both badge maps, the table schema, the spend queries and the edit guard to avoid a one-minute flicker.
 - The picker cannot tell a vision model from a text-only one, because LM Studio's model list does not say. A text model can be chosen for OCR and will fail at the provider. The two selects are labelled by role because that is what can honestly be known here.
 - An unreachable model server is reported rather than degraded around: the picker lists nothing and the trigger refuses, because no run can happen without the provider.
+- The model list is fetched server-side. LM Studio is reachable from the app container but not from the browser in production, so the picker is populated by a server action rather than a client fetch.
 
 ## Related
 
 - ADR-0003 (no re-extraction or provenance) — superseded by this ADR; its deferral condition was met.
 - ADR-0009, ADR-0010 (categories are derived; a user-set category is a decision) — both survive: a re-process replaces the items they annotate, and the `category_source` marker they rely on still governs a categorization re-run. Issue #149 does not reopen them.
 - ADR-0002 (server actions for user mutations) — `reprocessReceipt` is the write path, alongside `deleteReceipt`.
-- ADR-0008 (persist the OCR transcript) — a re-process overwrites the transcript with the new OCR output, so the transcript on screen is the one that produced the stored data.
+- ADR-0008 (persist the OCR transcript) — still holds for a first extraction, which writes the transcript early so a parse failure leaves the OCR text behind. A re-process defers that write to the store, so this decision narrows when the early write applies rather than removing it.
 - Issue #149.

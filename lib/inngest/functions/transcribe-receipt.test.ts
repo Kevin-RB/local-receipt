@@ -426,7 +426,10 @@ describe("transcribeReceipt function", () => {
     expect(mockSet).toHaveBeenCalledWith({ transcript: "FAKE OCR TRANSCRIPT" });
   });
 
-  it("keeps the OCR transcript when parsing fails", async () => {
+  it("keeps the OCR transcript of a first extraction when parsing fails", async () => {
+    // ADR-0008: there is nothing else on the row, so the OCR text is the only
+    // evidence of what the image said. A re-process has the opposite case — a
+    // transcript that matches data still stored — and defers its write.
     const engine = createEngine(
       {
         handler: () => {
@@ -535,6 +538,26 @@ describe("transcribeReceipt function", () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({ categorizedAt: null })
       );
+    });
+
+    it("writes the transcript with the extraction it belongs to", async () => {
+      await reprocess(undefined, ["storing"]).execute();
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ transcript: "FAKE OCR TRANSCRIPT" })
+      );
+    });
+
+    it("leaves the stored transcript alone until the new extraction is stored", async () => {
+      // The transcript on the row describes the extraction on the row. Writing
+      // the new one early and then failing would leave a receipt that reads as
+      // `done`, with the previous extraction and a transcript that produced
+      // nothing.
+      await reprocess(undefined, ["store-transcript", "storing"]).execute();
+
+      expect(mockSet).not.toHaveBeenCalledWith({
+        transcript: "FAKE OCR TRANSCRIPT",
+      });
     });
 
     it("nulls every flat field so an omitted one is cleared, not kept", async () => {
