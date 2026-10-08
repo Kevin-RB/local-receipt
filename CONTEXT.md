@@ -47,3 +47,7 @@ A local-first web app that turns photos of paper receipts into structured, persi
 **Categorization**: The pass that assigns a category to each line item, interpreting the item's name and merchant. Distinct from extraction. _Avoid_: Classification, tagging.
 
 **Category source**: The marker recording who assigned a line item's category — `ai` from categorization, `user` from a manual edit. A user-set category is a decision: categorization skips it, so a re-run applies a taxonomy change to the AI's work and leaves human choices alone. An item with no category carries `ai`, which is what leaves it eligible for a categorization run. _Avoid_: Provenance, origin, author.
+
+**Re-processing**: A second run of extraction over a stored receipt, letting the owner retry a receipt that extracted badly, optionally with a different model. It replaces the stored extraction, so manual edits and user-set categories on that receipt do not survive it. Available from a completed or failed receipt. _Avoid_: Retry (that is re-signing a failed upload), re-extract, re-parse, redo.
+
+**Extraction models**: The pair of models a run uses — the OCR model that transcribes the image and the parse model that turns the transcript into the contract. Fixed by environment for a first extraction, chosen per run when re-processing. _Avoid_: AI model, LLM, the model.

@@ -1,15 +1,11 @@
 import { eq } from "drizzle-orm";
-import { NonRetriableError, eventType } from "inngest";
-import { z } from "zod/v4";
+import { NonRetriableError } from "inngest";
 
 import { categorizeItems } from "@/lib/ai/categorize";
 import { db, listCategoryOptions, receipts } from "@/lib/db";
 import { receiptItems } from "@/lib/db/schema/receipt-item";
 import { inngest } from "@/lib/inngest/client";
-
-export const receiptExtractedEvent = eventType("receipt/extracted", {
-  schema: z.object({ receiptId: z.string(), userId: z.string() }),
-});
+import { receiptExtractedEvent } from "@/lib/inngest/events";
 
 export const categorizeReceipt = inngest.createFunction(
   {

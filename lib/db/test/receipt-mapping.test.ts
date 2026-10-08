@@ -139,6 +139,30 @@ describe(receiptToFlat, () => {
     ).toBeNull();
   });
 
+  it("nulls an absent optional rather than leaving it undefined", () => {
+    // Drizzle drops `undefined` from an update, which would leave the stored
+    // value in place instead of clearing it.
+    const minimal: ReceiptNested = {
+      merchant: { name: "Coles" },
+      payment: { method: "card" },
+      totals: { total: 10.9 },
+      transaction: {},
+    };
+
+    expect(receiptToFlat(minimal)).toStrictEqual({
+      gst: null,
+      merchantAbn: null,
+      merchantAddress: null,
+      merchantName: "Coles",
+      merchantStoreId: null,
+      paymentMethod: "card",
+      receiptNumber: null,
+      subtotal: null,
+      total: 10.9,
+      transactionDateTime: null,
+    });
+  });
+
   it("round-trips a nested receipt through the flat columns", () => {
     expect(receiptToFlat(receiptToNested(flatReceipt))).toStrictEqual(
       receiptToFlat(nestedReceipt)

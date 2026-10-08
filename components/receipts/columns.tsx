@@ -7,6 +7,7 @@ import {
   Eye,
   FileCheck,
   MoreHorizontal,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +18,8 @@ import { z } from "zod/v4";
 import { deleteReceipt } from "@/app/(app)/receipts/actions";
 import type { DataTableFeatures } from "@/components/receipts/features";
 import { dateRangeFilterFn } from "@/components/receipts/filters";
+import { ReceiptStatus } from "@/components/receipts/receipt-status";
+import { ReprocessDialog } from "@/components/receipts/reprocess-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,16 +50,6 @@ export const receiptTableSchema = z.object({
 
 export type ReceiptTable = z.infer<typeof receiptTableSchema>;
 
-type badgeVariant = "default" | "destructive" | "outline" | "secondary";
-
-const statusBadgeVariant: Record<ReceiptTable["status"], badgeVariant> = {
-  done: "default",
-  error: "destructive",
-  pending: "secondary",
-  processing: "secondary",
-  uploading: "secondary",
-};
-
 const dateFormatter = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "full",
   timeStyle: "short",
@@ -68,13 +61,20 @@ const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
 const RowActions = ({
   id,
   merchantName,
+  status,
 }: {
   id: string;
   merchantName: string;
+  status: ReceiptTable["status"];
 }) => {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reprocessOpen, setReprocessOpen] = useState(false);
+
+  // A re-process replaces what extraction stored, so there is nothing to redo
+  // while a run is in flight or before one has ever produced a result.
+  const canReprocess = status === "done" || status === "error";
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -115,6 +115,12 @@ const RowActions = ({
             <Eye data-icon="inline-start" />
             View
           </DropdownMenuItem>
+          {canReprocess ? (
+            <DropdownMenuItem onClick={() => setReprocessOpen(true)}>
+              <RefreshCw data-icon="inline-start" />
+              Re-process
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setConfirmOpen(true)}
@@ -148,16 +154,21 @@ const RowActions = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ReprocessDialog
+        merchantName={merchantName}
+        onOpenChange={setReprocessOpen}
+        open={reprocessOpen}
+        receiptId={id}
+      />
     </>
   );
 };
 
 export const receiptColumns = columnHelper.columns([
   columnHelper.accessor("status", {
-    cell: ({ row }) => {
-      const { status } = row.original;
-      return <Badge variant={statusBadgeVariant[status]}>{status}</Badge>;
-    },
+    cell: ({ row }) => (
+      <ReceiptStatus id={row.original.id} status={row.original.status} />
+    ),
     header: "Status",
     sortFn: "alphanumeric",
   }),
@@ -219,6 +230,7 @@ export const receiptColumns = columnHelper.columns([
       <RowActions
         id={row.original.id}
         merchantName={row.original.merchantName}
+        status={row.original.status}
       />
     ),
     header: "",

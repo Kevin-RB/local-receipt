@@ -36,9 +36,6 @@ if (process.env.NODE_ENV !== "production") {
   globalForDb.db = db;
 }
 
-export const findReceiptById = (id: string) =>
-  db.query.receipts.findFirst({ where: { id } });
-
 export const findReceiptByIdForOwner = (id: string, ownerId: string) =>
   db.query.receipts.findFirst({ where: { id, userId: ownerId } });
 
