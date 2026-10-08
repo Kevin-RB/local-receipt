@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -38,7 +37,6 @@ export const LoginForm = ({
   className,
   ...props
 }: React.ComponentProps<"div">) => {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const {
     formState: { errors, isSubmitting },
@@ -56,8 +54,12 @@ export const LoginForm = ({
       setError("root", { message: error.message ?? "Failed to sign in" });
       return;
     }
-    router.push("/");
-    router.refresh();
+    // A real navigation, not `router.push`. The Router Cache may hold a
+    // prefetch of `/` from before the session existed (the logo links to it),
+    // and `router.refresh()` after a push races the in-flight navigation in
+    // Next.js 16, leaving a blank page. A full load re-runs the server layout
+    // with the new cookie.
+    window.location.assign("/");
   };
 
   return (
