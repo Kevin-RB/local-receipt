@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -72,16 +72,33 @@ export const listExtractionModels = async () => {
 };
 
 /**
+ * How long a claim is honoured before another attempt may take it over.
+ *
+ * A claim is the only thing standing between a receipt and being re-processed,
+ * and nothing guarantees the run that owes it will ever appear: the event can be
+ * accepted by Inngest when no function matches it, or the process holding the
+ * run can die before its failure handler fires. Either way the row sits in
+ * `pending` or `processing` with nothing behind it, and no other path in the app
+ * moves it — so the claim has to expire, or the receipt is a dead end.
+ *
+ * Generous on purpose. A local extraction runs for six to ten minutes, and
+ * taking a claim that is genuinely still running produces two runs against one
+ * receipt; waiting longer costs the owner a cooldown, taking it too early costs
+ * them their data.
+ */
+export const PROCESSING_LEASE_MS = 30 * 60 * 1000;
+
+/**
  * Runs extraction again over a stored receipt.
  *
- * The claim is a single conditional update: only a receipt that is `done` or
- * `error` can move to `processing`, and the row coming back is what proves this
- * request was the one that moved it. Two rapid clicks therefore cannot start two
- * runs against one receipt — the second finds nothing to claim.
+ * The claim is a single conditional update whose result is what proves this
+ * request was the one that moved the receipt, so two rapid clicks cannot start
+ * two runs. It accepts a finished receipt as well as one whose claim has
+ * expired, which is the way back in for a receipt whose run never arrived.
  *
  * If the run cannot be enqueued the claim is handed back, because a receipt
- * left in `processing` with nothing running is indistinguishable from one that
- * is genuinely mid-run.
+ * left claimed with nothing running is indistinguishable from one that is
+ * genuinely mid-run.
  */
 export const reprocessReceipt = async (input: unknown) => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -106,7 +123,7 @@ export const reprocessReceipt = async (input: unknown) => {
     return { error: "Receipt not found", success: false as const };
   }
 
-  if (receipt.status !== "done" && receipt.status !== "error") {
+  if (receipt.status === "uploading") {
     return {
       error: "Receipt is not ready to re-process",
       success: false as const,
@@ -140,13 +157,34 @@ export const reprocessReceipt = async (input: unknown) => {
     return { error: "That model is not available", success: false as const };
   }
 
+  const leaseExpiredBefore = new Date(Date.now() - PROCESSING_LEASE_MS);
+
   const claimed = await db
     .update(receipts)
-    .set({ status: "processing" })
+    .set({ processingStartedAt: new Date(), status: "processing" })
     .where(
       and(
         eq(receipts.id, receiptId),
-        inArray(receipts.status, ["done", "error"])
+        or(
+          // Finished, so nothing is in flight and the claim is free.
+          inArray(receipts.status, ["done", "error"]),
+          // Mid-run, but by an attempt that is no longer plausible. A null
+          // stamp is a receipt claimed before this column existed, which is
+          // exactly a receipt whose run is long gone.
+          //
+          // `pending` is deliberately not claimable. It is recoverable without
+          // this — a receipt waiting for a slot has never been extracted, so
+          // deleting and re-uploading loses nothing — and taking it over would
+          // race a live `receipt/uploaded` run whose guard expects it to still
+          // be `pending`. `processing` is the one with data at stake.
+          and(
+            eq(receipts.status, "processing"),
+            or(
+              isNull(receipts.processingStartedAt),
+              lt(receipts.processingStartedAt, leaseExpiredBefore)
+            )
+          )
+        )
       )
     )
     .returning({ id: receipts.id });
@@ -163,9 +201,16 @@ export const reprocessReceipt = async (input: unknown) => {
       receiptReprocessEvent.create(
         {
           models,
-          // Restored by the function's failure handler, so a re-process that
-          // fails leaves the receipt as findable as it was before.
-          previousStatus: receipt.status,
+          // Restored by the function's failure handler, so a run that fails
+          // leaves the receipt as findable as it was before. A receipt taken
+          // over from an expired claim has no usable prior status — the run
+          // that abandoned it is the thing that would have known — so it falls
+          // back to `error`, which is itself re-processable rather than a row
+          // that returns to being claimed.
+          previousStatus:
+            receipt.status === "done" || receipt.status === "error"
+              ? receipt.status
+              : "error",
           receiptId,
           userId: session.user.id,
         },
@@ -173,11 +218,17 @@ export const reprocessReceipt = async (input: unknown) => {
       ),
     ]);
   } catch {
-    // Guarded on the claim this request made, so a rollback can never undo a
-    // status something else moved the receipt to in the meantime.
+    // Puts back both halves of the claim. The stamp matters as much as the
+    // status: a takeover wrote a fresh one, and leaving it behind re-locks the
+    // receipt for another full lease — after the owner had already waited one
+    // out to get here. Guarded on the claim this request made, so a rollback
+    // can never undo a status something else moved the receipt to meanwhile.
     await db
       .update(receipts)
-      .set({ status: receipt.status })
+      .set({
+        processingStartedAt: receipt.processingStartedAt ?? null,
+        status: receipt.status,
+      })
       .where(
         and(eq(receipts.id, receiptId), eq(receipts.status, "processing"))
       );

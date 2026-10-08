@@ -70,6 +70,20 @@ export const receipts = snakeCase.table(
     merchantStoreId: text(),
     objectKey: text(),
     paymentMethod: text().$type<PaymentMethod>(),
+    /**
+     * When the current run claimed the receipt.
+     *
+     * Stamped where a run takes the row into `processing`: the action's claim
+     * for a re-process, and `mark-processing` for any run that gets that far. A
+     * `pending` receipt therefore has no stamp — it is queued, not claimed, and
+     * `reprocessReceipt` deliberately does not take one over.
+     *
+     * A claim has no other way to expire. The run that owes the receipt may
+     * never be created at all — an event is accepted when no function matches
+     * it — and nothing else moves the row out of `processing`, so without this
+     * an abandoned claim is a dead end reachable only by editing the database.
+     */
+    processingStartedAt: timestamp({ withTimezone: true }),
     receiptNumber: text(),
     status: text().$type<ProcessingStatus>().notNull().default("pending"),
     subtotal: numeric({ mode: "number", precision: 10, scale: 2 }),

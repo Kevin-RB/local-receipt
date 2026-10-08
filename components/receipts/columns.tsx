@@ -72,9 +72,12 @@ const RowActions = ({
   const [deleting, setDeleting] = useState(false);
   const [reprocessOpen, setReprocessOpen] = useState(false);
 
-  // A re-process replaces what extraction stored, so there is nothing to redo
-  // while a run is in flight or before one has ever produced a result.
-  const canReprocess = status === "done" || status === "error";
+  // `processing` is offered as well as the finished states, because the claim
+  // on a receipt mid-run expires: a run that was never created leaves the row
+  // claimed with no other way back to it. The trigger decides whether the claim
+  // is really free, so a click on a healthy run is refused rather than honoured.
+  const canReprocess =
+    status === "done" || status === "error" || status === "processing";
 
   const handleDelete = async () => {
     setDeleting(true);
