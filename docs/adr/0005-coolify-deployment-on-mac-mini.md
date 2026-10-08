@@ -71,9 +71,26 @@ Known gap: `rustfs-data` (receipt images) is not covered by either mechanism, so
 
 The object store is now **RustFS**, not MinIO — see ADR-0006. The MinIO-specific topology described above is historical and must not be followed as current setup: the S3 API on `uploads.tribi.dev` is served by RustFS; the console is the RustFS console on `${STORAGE_CONSOLE_HOST_PORT}`, which needs a private API host port and a one-time Server Configuration entry (unlike MinIO's server-side-proxying console); CORS is server-level (`RUSTFS_CORS_ALLOWED_ORIGINS`) rather than a per-bucket MinIO rule; and the credential fence is the RustFS root keys plus the least-privilege `receipts-app` IAM user, not MinIO root. ADR-0006 is authoritative for storage.
 
+## Update (2026-10-09): sync Inngest on deploy (issue #142)
+
+Inngest records an app's functions only when it is **synced**, and Coolify is not one of Inngest's hosting integrations — only Vercel and Netlify resync automatically — so a deploy that added or changed a function left Inngest serving the previous manifest until someone resynced from the dashboard. Adding `categorize-receipt` failed exactly this way: the deploy was healthy, the backfill printed `Queued categorization for 4 receipt(s).`, and nothing ran. The events were accepted, but no registered function consumed `receipt/extracted`, so they were dropped silently.
+
+**Decision.** A new `.github/workflows/sync-inngest.yml` runs on `push` to `main`/`staging`. It waits for the Coolify deployment of that exact commit to finish, then calls Inngest's documented sync endpoint (`POST /v2/apps/receipt-analyser/syncs`). Ordering is the crux — Inngest's own docs warn that an early sync registers the old configuration — so the wait is a first-class step, not a fixed delay.
+
+The sync is a **pull**: Inngest fetches the manifest from the live app, so it registers whatever is actually running. That is also why a rollback or manual redeploy — which changes the live manifest with no push — can be resynced by re-running the workflow from the branch (`workflow_dispatch`). Two guards keep it honest: the wait times out after 30 minutes rather than reporting a stale sync, and the sync request is retried for a couple of minutes, because "deployment finished" can precede the app accepting requests (its boot script waits on LM Studio) and a first attempt against a starting container would otherwise fail.
+
+**Why poll Coolify rather than the app.** The deploy system is the authoritative owner of "the deployment finished", and polling it keeps CI/CD concerns out of the app: no `/api/version` endpoint and no `SOURCE_COMMIT` wiring are added just for the pipeline. The cost is reaching the Coolify API from a GitHub runner, which the Access gate below turns into a deliberate, read-only integration.
+
+**Why not Coolify's post-deployment command.** It runs at the right moment, but in Coolify 4.4.2 `post_deployment()` calls `completeDeployment()` _before_ it and wraps `run_post_deployment_command()` in a `try/catch` that only logs a warning, so a failed sync leaves the deployment green — the same "reported success while nothing happened" class this fixes.
+
+**Why not the serve-endpoint `PUT`.** A bare `PUT /api/inngest` does self-register (the SDK posts to `/fn/register` with the signing key) and needs no API key, so it remains a valid fallback. It was not chosen because the documented contract is the REST sync endpoint, which uses the API key the docs designate for CI and which verifies that Inngest can reach the app (a pull, not a push).
+
+**Security.** The Coolify token is **read-only** (`read` is enough to list deployments; `deploy`, `write`, and `root` are unnecessary), so even a leak cannot change or deploy anything. It sits behind Cloudflare Access, so reaching the API also requires the Access service token — two independent gates, though both credentials live in the same secret store. The per-environment target (Coolify app UUID, public URL) lives in a GitHub **environment** selected by branch — `main` → `production`, `staging` → `staging` — so no environment-specific values sit in the workflow. The Inngest API key is an **environment secret** holding a key scoped to that environment (write permission; syncing registers functions), so a staging sync cannot reach production; the Coolify and Cloudflare credentials stay repo-level. The environments also give each deploy a record in the repo's deployment history.
+
 ## Related
 
 - Issue #54 (public deployment)
 - Issues #70–#73 (T15–T18: wildcard tunnel, dashboard domain, git-backed deploy, merge-gate CD)
 - Issue #80 (T20: headless LM Studio)
+- Issue #142 (sync Inngest on deploy)
 - ADR-0001 (upload via presigned URL and bucket notification)
