@@ -468,7 +468,31 @@ describe(reprocessReceipt, () => {
       error: "Failed to start re-processing",
       success: false,
     });
-    expect(mockUpdateSet).toHaveBeenCalledWith({ status: "done" });
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "done" })
+    );
+  });
+
+  it("puts back the stamp it took when the run cannot be enqueued", async () => {
+    // The claim wrote a fresh stamp. Leaving it behind re-locks the receipt for
+    // another full lease — after the owner had already waited one out to get
+    // here — which is the dead end this whole path exists to close.
+    const abandoned = new Date(Date.now() - 40 * 60 * 1000);
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      processingStartedAt: abandoned,
+      status: "processing",
+    });
+    mockSend.mockRejectedValueOnce(new Error("inngest unreachable"));
+
+    await reprocessReceipt(input);
+
+    expect(mockUpdateSet).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        processingStartedAt: abandoned,
+        status: "processing",
+      })
+    );
   });
 });
 

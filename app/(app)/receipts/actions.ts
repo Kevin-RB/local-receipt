@@ -218,11 +218,17 @@ export const reprocessReceipt = async (input: unknown) => {
       ),
     ]);
   } catch {
-    // Guarded on the claim this request made, so a rollback can never undo a
-    // status something else moved the receipt to in the meantime.
+    // Puts back both halves of the claim. The stamp matters as much as the
+    // status: a takeover wrote a fresh one, and leaving it behind re-locks the
+    // receipt for another full lease — after the owner had already waited one
+    // out to get here. Guarded on the claim this request made, so a rollback
+    // can never undo a status something else moved the receipt to meanwhile.
     await db
       .update(receipts)
-      .set({ status: receipt.status })
+      .set({
+        processingStartedAt: receipt.processingStartedAt ?? null,
+        status: receipt.status,
+      })
       .where(
         and(eq(receipts.id, receiptId), eq(receipts.status, "processing"))
       );
