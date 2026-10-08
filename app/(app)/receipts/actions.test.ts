@@ -23,6 +23,7 @@ const {
     .fn<
       () => Promise<{
         objectKey: string | null;
+        processingStartedAt?: Date | null;
         status: string;
       } | null>
     >()
@@ -259,10 +260,10 @@ describe(reprocessReceipt, () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it("refuses a receipt that is not finished or failed", async () => {
+  it("refuses an upload that has no image in storage yet", async () => {
     mockFindFirst.mockResolvedValueOnce({
       objectKey: "abc.jpg",
-      status: "processing",
+      status: "uploading",
     });
 
     const result = await reprocessReceipt(input);
@@ -272,6 +273,77 @@ describe(reprocessReceipt, () => {
       success: false,
     });
     expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  // Whether a claim is stale enough to take is decided by the WHERE clause, so
+  // a mocked drizzle cannot exercise it — `mockReturning` stands in for that
+  // verdict. What these cover is what the action does with each answer, and the
+  // predicate itself is verified against a real database.
+  it("takes over a claim that was abandoned", async () => {
+    // The run that owed this receipt was never created, or died before its
+    // failure handler could run. Without this the row is unreachable from the
+    // app: nothing else moves it out of processing.
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      processingStartedAt: new Date(Date.now() - 31 * 60 * 1000),
+      status: "processing",
+    });
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({ success: true });
+    expect(mockSend).toHaveBeenCalledOnce();
+  });
+
+  it("takes over a claim stamped before the column existed", async () => {
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      processingStartedAt: null,
+      status: "processing",
+    });
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({ success: true });
+  });
+
+  it("refuses a receipt that is queued rather than claimed", async () => {
+    // A receipt waiting for a slot has never been extracted, so it can be
+    // replaced outright; taking its claim over would race the run that already
+    // owns it.
+    mockReturning.mockResolvedValueOnce([]);
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      processingStartedAt: new Date(Date.now() - 31 * 60 * 1000),
+      status: "pending",
+    });
+
+    const result = await reprocessReceipt(input);
+
+    expect(result).toStrictEqual({
+      error: "Receipt is already being processed",
+      success: false,
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("names no prior status when taking over an abandoned claim", async () => {
+    // A stale claim says nothing about what the receipt looked like before the
+    // run that abandoned it, so a failure must land somewhere re-processable
+    // rather than leaving the row claimed again.
+    mockFindFirst.mockResolvedValueOnce({
+      objectKey: "abc.jpg",
+      processingStartedAt: new Date(Date.now() - 31 * 60 * 1000),
+      status: "processing",
+    });
+
+    await reprocessReceipt(input);
+
+    expect(mockSend).toHaveBeenCalledExactlyOnceWith([
+      expect.objectContaining({
+        data: expect.objectContaining({ previousStatus: "error" }),
+      }),
+    ]);
   });
 
   it("refuses a receipt with no stored image to read", async () => {
@@ -318,8 +390,18 @@ describe(reprocessReceipt, () => {
   it("claims the receipt by moving it to processing", async () => {
     await reprocessReceipt(input);
 
-    expect(mockUpdateSet).toHaveBeenCalledWith({ status: "processing" });
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "processing" })
+    );
     expect(mockUpdateWhere).toHaveBeenCalledOnce();
+  });
+
+  it("stamps the claim so it can later be told from an abandoned one", async () => {
+    await reprocessReceipt(input);
+
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ processingStartedAt: expect.any(Date) })
+    );
   });
 
   it("refuses a second request once the receipt is claimed", async () => {

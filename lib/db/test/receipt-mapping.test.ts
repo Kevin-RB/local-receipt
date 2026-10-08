@@ -18,6 +18,7 @@ const flatReceipt: ReceiptSelect = {
   merchantStoreId: "0342",
   objectKey: "abc.jpg",
   paymentMethod: "card",
+  processingStartedAt: dtypeReceipt,
   receiptNumber: "0342-0087-1234",
   status: "done",
   subtotal: 9.9,

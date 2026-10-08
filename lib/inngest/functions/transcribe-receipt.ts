@@ -39,7 +39,13 @@ const setReceiptStatus = (
 ) =>
   db
     .update(receipts)
-    .set({ status })
+    .set({
+      status,
+      // Stamped with the claim, not with the status: a receipt in `processing`
+      // with nothing behind it is what the lease is there to recover, and this
+      // is the moment the run commits to being behind it.
+      ...(status === "processing" ? { processingStartedAt: new Date() } : {}),
+    })
     .where(and(eq(receipts.id, id), eq(receipts.userId, ownerId)));
 
 const formatFailureMessage = (error: Error): string => {
