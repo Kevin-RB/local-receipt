@@ -84,7 +84,7 @@ const required = (name: string): string => {
 const seconds = (milliseconds: number): number =>
   Math.round(milliseconds / 1000);
 
-interface CoolifyConfig {
+export interface CoolifyConfig {
   baseUrl: string;
   appUuid: string;
   headers: Record<string, string>;
@@ -118,7 +118,7 @@ const readConfig = (): CoolifyConfig => {
   };
 };
 
-const fetchDeployments = async (
+export const fetchDeployments = async (
   config: CoolifyConfig
 ): Promise<Deployment[]> => {
   const response = await fetch(
@@ -135,6 +135,20 @@ const fetchDeployments = async (
     throw new CoolifyRequestError(
       `Coolify API returned ${response.status}: ${await response.text()}`,
       retryable
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    // Cloudflare Access answers an unauthenticated request with a 302 to its
+    // login page, which fetch follows to an HTML 200 — so a rejected service
+    // token looks like a successful, unparseable response. Fail fast with the
+    // real cause instead of a JSON syntax error.
+    const bodyText = await response.text();
+    const preview = bodyText.slice(0, 200).replaceAll(/\s+/gu, " ");
+    throw new CoolifyRequestError(
+      `Coolify API returned "${contentType || "no content-type"}" instead of JSON — the request likely did not pass Cloudflare Access (check the service token and its Service Auth policy). Body starts: ${preview}`,
+      false
     );
   }
 
