@@ -84,10 +84,18 @@ const required = (name: string): string => {
 const seconds = (milliseconds: number): number =>
   Math.round(milliseconds / 1000);
 
-const fetchDeployments = async (): Promise<Deployment[]> => {
-  const baseUrl = required("COOLIFY_URL").replace(/\/+$/u, "");
-  const appUuid = required("APP_UUID");
+interface CoolifyConfig {
+  baseUrl: string;
+  appUuid: string;
+  headers: Record<string, string>;
+}
 
+/**
+ * Read the connection settings once, before the poll loop. A missing variable
+ * is a permanent misconfiguration, so it must throw outside the retry logic
+ * rather than be retried as if it were a transient network failure.
+ */
+const readConfig = (): CoolifyConfig => {
   const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: `Bearer ${required("COOLIFY_API_KEY")}`,
@@ -103,9 +111,19 @@ const fetchDeployments = async (): Promise<Deployment[]> => {
     headers["CF-Access-Client-Secret"] = accessClientSecret;
   }
 
+  return {
+    appUuid: required("APP_UUID"),
+    baseUrl: required("COOLIFY_URL").replace(/\/+$/u, ""),
+    headers,
+  };
+};
+
+const fetchDeployments = async (
+  config: CoolifyConfig
+): Promise<Deployment[]> => {
   const response = await fetch(
-    `${baseUrl}/api/v1/deployments/applications/${appUuid}?take=50`,
-    { headers }
+    `${config.baseUrl}/api/v1/deployments/applications/${config.appUuid}?take=50`,
+    { headers: config.headers }
   );
 
   if (!response.ok) {
@@ -127,6 +145,8 @@ const fetchDeployments = async (): Promise<Deployment[]> => {
 
 const main = async (): Promise<void> => {
   const commit = required("COMMIT");
+  // Read the connection settings up front so a missing variable fails fast.
+  const config = readConfig();
   const finishTimeoutMs = Number(process.env.TIMEOUT_SECONDS ?? "1800") * 1000;
   const notFoundTimeoutMs =
     Number(process.env.NOT_FOUND_TIMEOUT_SECONDS ?? "300") * 1000;
@@ -141,7 +161,7 @@ const main = async (): Promise<void> => {
       // Sequential by design: each poll must observe the previous result, so
       // there is nothing to parallelize here.
       // eslint-disable-next-line no-await-in-loop -- polling is inherently sequential
-      verdict = classifyDeployment(await fetchDeployments(), commit);
+      verdict = classifyDeployment(await fetchDeployments(config), commit);
     } catch (error: unknown) {
       // A transient failure must not end the wait on the first poll; a
       // permanent one should fail fast rather than burn the whole budget.
