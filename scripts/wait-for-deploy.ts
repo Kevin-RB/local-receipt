@@ -138,6 +138,20 @@ const fetchDeployments = async (
     );
   }
 
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    // Cloudflare Access answers an unauthenticated request with a 302 to its
+    // login page, which fetch follows to an HTML 200 — so a rejected service
+    // token looks like a successful, unparseable response. Fail fast with the
+    // real cause instead of a JSON syntax error.
+    const bodyText = await response.text();
+    const preview = bodyText.slice(0, 200).replaceAll(/\s+/gu, " ");
+    throw new CoolifyRequestError(
+      `Coolify API returned "${contentType || "no content-type"}" instead of JSON — the request likely did not pass Cloudflare Access (check the service token and its Service Auth policy). Body starts: ${preview}`,
+      false
+    );
+  }
+
   const body = (await response.json()) as { deployments?: Deployment[] };
 
   return body.deployments ?? [];
