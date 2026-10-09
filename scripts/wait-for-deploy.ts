@@ -84,7 +84,7 @@ const required = (name: string): string => {
 const seconds = (milliseconds: number): number =>
   Math.round(milliseconds / 1000);
 
-interface CoolifyConfig {
+export interface CoolifyConfig {
   baseUrl: string;
   appUuid: string;
   headers: Record<string, string>;
@@ -118,7 +118,7 @@ const readConfig = (): CoolifyConfig => {
   };
 };
 
-const fetchDeployments = async (
+export const fetchDeployments = async (
   config: CoolifyConfig
 ): Promise<Deployment[]> => {
   const response = await fetch(
