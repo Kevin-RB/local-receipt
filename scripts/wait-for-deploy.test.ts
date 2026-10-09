@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyDeployment } from "./wait-for-deploy";
+import {
+  classifyDeployment,
+  CoolifyRequestError,
+  isRetryable,
+} from "./wait-for-deploy";
 import type { Deployment } from "./wait-for-deploy";
 
 const deployment = (overrides: Partial<Deployment> = {}): Deployment => ({
@@ -19,6 +23,15 @@ describe(classifyDeployment, () => {
 
     expect(classifyDeployment([running], "abc123")).toStrictEqual({
       deployment: running,
+      state: "wait",
+    });
+  });
+
+  it("waits while the commit's deployment is queued", () => {
+    const queued = deployment({ status: "queued" });
+
+    expect(classifyDeployment([queued], "abc123")).toStrictEqual({
+      deployment: queued,
       state: "wait",
     });
   });
@@ -42,7 +55,7 @@ describe(classifyDeployment, () => {
   });
 
   it("fails when the commit's deployment was cancelled", () => {
-    const cancelled = deployment({ status: "cancelled" });
+    const cancelled = deployment({ status: "cancelled-by-user" });
 
     expect(classifyDeployment([cancelled], "abc123")).toStrictEqual({
       deployment: cancelled,
@@ -56,5 +69,19 @@ describe(classifyDeployment, () => {
     expect(classifyDeployment([other], "abc123")).toStrictEqual({
       state: "wait",
     });
+  });
+});
+
+describe(isRetryable, () => {
+  it("retries a transient Coolify response", () => {
+    expect(isRetryable(new CoolifyRequestError("503", true))).toBeTruthy();
+  });
+
+  it("does not retry a permanent Coolify response", () => {
+    expect(isRetryable(new CoolifyRequestError("401", false))).toBeFalsy();
+  });
+
+  it("retries a network-level failure", () => {
+    expect(isRetryable(new TypeError("fetch failed"))).toBeTruthy();
   });
 });

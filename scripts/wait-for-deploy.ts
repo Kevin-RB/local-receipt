@@ -11,10 +11,14 @@ import { pathToFileURL } from "node:url";
  * than teach the app an endpoint that only CI needs.
  *
  * Exits 0 once the commit's deployment is `finished`; exits non-zero if it
- * fails, is cancelled, or does not finish within the timeout.
+ * fails, is cancelled, or does not finish within the timeout. Transient poll
+ * failures (network, Cloudflare Access 5xx) are retried until the deadline; a
+ * permanent one (bad token, wrong app id) fails fast.
  */
 
-const FAILED_STATUSES = new Set(["failed", "cancelled", "cancelled_by_user"]);
+// Coolify's terminal non-success statuses. `queued` and `in_progress` are the
+// ones still worth waiting on; see `ApplicationDeploymentStatus` in Coolify.
+const FAILED_STATUSES = new Set(["failed", "cancelled-by-user"]);
 
 export interface Deployment {
   commit: string;
@@ -44,6 +48,24 @@ export const classifyDeployment = (
   }
   return { deployment, state: "wait" };
 };
+
+/** A Coolify API response that is not OK, tagged with whether it can clear. */
+export class CoolifyRequestError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = "CoolifyRequestError";
+    this.retryable = retryable;
+  }
+}
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+/** A network failure or a retryable response is worth another poll. */
+export const isRetryable = (error: unknown): boolean =>
+  !(error instanceof CoolifyRequestError) || error.retryable;
 
 const required = (name: string): string => {
   const value = process.env[name];
@@ -80,8 +102,14 @@ const fetchDeployments = async (): Promise<Deployment[]> => {
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Coolify API returned ${response.status}: ${await response.text()}`
+    // 408/429/5xx can clear on their own; a 4xx (401/403/404) will not.
+    const retryable =
+      response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500;
+    throw new CoolifyRequestError(
+      `Coolify API returned ${response.status}: ${await response.text()}`,
+      retryable
     );
   }
 
@@ -97,29 +125,41 @@ const main = async (): Promise<void> => {
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
-    // Sequential by design: each poll must observe the previous result, so
-    // there is nothing to parallelize here.
-    // eslint-disable-next-line no-await-in-loop -- polling is inherently sequential
-    const deployments = await fetchDeployments();
-    const verdict = classifyDeployment(deployments, commit);
+    let verdict: DeploymentVerdict | undefined;
 
-    if (verdict.state === "success") {
+    try {
+      // Sequential by design: each poll must observe the previous result, so
+      // there is nothing to parallelize here.
+      // eslint-disable-next-line no-await-in-loop -- polling is inherently sequential
+      verdict = classifyDeployment(await fetchDeployments(), commit);
+    } catch (error: unknown) {
+      // A transient failure must not end the wait on the first poll; a
+      // permanent one should fail fast rather than burn the whole budget.
+      if (!isRetryable(error)) {
+        throw error;
+      }
+      console.warn(`Coolify poll failed (${errorMessage(error)}); retrying.`);
+    }
+
+    if (verdict?.state === "success") {
       console.log(`Deployment of ${commit} finished.`);
       return;
     }
-    if (verdict.state === "failed") {
+    if (verdict?.state === "failed") {
       throw new Error(`Deployment of ${commit} ${verdict.deployment.status}.`);
     }
     if (Date.now() >= deadline) {
-      const last = verdict.deployment?.status ?? "not seen";
+      const last = verdict?.deployment?.status ?? "not seen";
       throw new Error(
         `Timed out waiting for deployment of ${commit} (last status: ${last}).`
       );
     }
 
-    console.log(
-      `Waiting for deployment of ${commit} (${verdict.deployment?.status ?? "not seen"})...`
-    );
+    if (verdict) {
+      console.log(
+        `Waiting for deployment of ${commit} (${verdict.deployment?.status ?? "not seen"})...`
+      );
+    }
     // eslint-disable-next-line no-await-in-loop -- polling is inherently sequential
     await sleep(intervalMs);
   }
@@ -133,7 +173,7 @@ if (isMain) {
   try {
     await main();
   } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(errorMessage(error));
     process.exitCode = 1;
   }
 }
