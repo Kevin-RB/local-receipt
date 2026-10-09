@@ -59,6 +59,8 @@ jobs:
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
           COMMIT: ${{ github.sha }}
+          # Short window for Coolify to *start* a deployment; long one to finish.
+          NOT_FOUND_TIMEOUT_SECONDS: 300
           TIMEOUT_SECONDS: 1800
         run: node ./scripts/wait-for-deploy.ts
 

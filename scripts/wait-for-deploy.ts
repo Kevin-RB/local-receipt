@@ -10,10 +10,14 @@ import { pathToFileURL } from "node:url";
  * authoritative source for "the deployment finished", so we poll it rather
  * than teach the app an endpoint that only CI needs.
  *
- * Exits 0 once the commit's deployment is `finished`; exits non-zero if it
- * fails, is cancelled, or does not finish within the timeout. Transient poll
- * failures (network, Cloudflare Access 5xx) are retried until the deadline; a
- * permanent one (bad token, wrong app id) fails fast.
+ * Two budgets, because "Coolify has not started" and "the build is still
+ * running" are different problems: a missing deployment means the webhook or
+ * the app id is wrong and should fail quickly, while a build may legitimately
+ * take a long time. Exits 0 once the commit's deployment is `finished`; exits
+ * non-zero if it fails, is cancelled, never appears, or does not finish in
+ * time. Transient poll failures (network, Cloudflare Access 5xx) are retried
+ * until the relevant deadline; a permanent one (bad token, wrong app id)
+ * fails fast.
  */
 
 // Coolify's terminal non-success statuses. `queued` and `in_progress` are the
@@ -77,6 +81,9 @@ const required = (name: string): string => {
   return value;
 };
 
+const seconds = (milliseconds: number): number =>
+  Math.round(milliseconds / 1000);
+
 const fetchDeployments = async (): Promise<Deployment[]> => {
   const baseUrl = required("COOLIFY_URL").replace(/\/+$/u, "");
   const appUuid = required("APP_UUID");
@@ -120,9 +127,12 @@ const fetchDeployments = async (): Promise<Deployment[]> => {
 
 const main = async (): Promise<void> => {
   const commit = required("COMMIT");
-  const timeoutMs = Number(process.env.TIMEOUT_SECONDS ?? "900") * 1000;
+  const finishTimeoutMs = Number(process.env.TIMEOUT_SECONDS ?? "1800") * 1000;
+  const notFoundTimeoutMs =
+    Number(process.env.NOT_FOUND_TIMEOUT_SECONDS ?? "300") * 1000;
   const intervalMs = Number(process.env.POLL_INTERVAL_SECONDS ?? "15") * 1000;
-  const deadline = Date.now() + timeoutMs;
+  const finishBy = Date.now() + finishTimeoutMs;
+  const appearBy = Date.now() + notFoundTimeoutMs;
 
   for (;;) {
     let verdict: DeploymentVerdict | undefined;
@@ -148,18 +158,32 @@ const main = async (): Promise<void> => {
     if (verdict?.state === "failed") {
       throw new Error(`Deployment of ${commit} ${verdict.deployment.status}.`);
     }
-    if (Date.now() >= deadline) {
-      const last = verdict?.deployment?.status ?? "not seen";
+
+    if (verdict?.deployment) {
+      // Coolify started a deployment; a slow build is allowed the full budget.
+      if (Date.now() >= finishBy) {
+        throw new Error(
+          `Timed out waiting for deployment of ${commit} to finish (last status: ${verdict.deployment.status}).`
+        );
+      }
+      console.log(
+        `Waiting for deployment of ${commit} to finish (${verdict.deployment.status})...`
+      );
+    } else if (verdict) {
+      // Reached Coolify, but it has not created a deployment for the commit.
+      if (Date.now() >= appearBy) {
+        throw new Error(
+          `Coolify never started a deployment for ${commit} within ${seconds(notFoundTimeoutMs)}s.`
+        );
+      }
+      console.log(`Waiting for Coolify to start a deployment for ${commit}...`);
+    } else if (Date.now() >= finishBy) {
+      // Never reached the API; bound the retries by the overall budget.
       throw new Error(
-        `Timed out waiting for deployment of ${commit} (last status: ${last}).`
+        `Could not reach the Coolify API for ${commit} within ${seconds(finishTimeoutMs)}s.`
       );
     }
 
-    if (verdict) {
-      console.log(
-        `Waiting for deployment of ${commit} (${verdict.deployment?.status ?? "not seen"})...`
-      );
-    }
     // eslint-disable-next-line no-await-in-loop -- polling is inherently sequential
     await sleep(intervalMs);
   }
