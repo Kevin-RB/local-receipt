@@ -12,7 +12,7 @@ import { db, findReceiptByIdForOwner, receiptItems, receipts } from "@/lib/db";
 import { ReceiptInformationExtractionSchema } from "@/lib/db/contract";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import type { ProcessingStatus } from "@/lib/db/schema/receipt";
-import { receiptChannel } from "@/lib/inngest/channels";
+import { receiptsChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 import {
   receiptExtractedEvent,
@@ -106,7 +106,7 @@ export const transcribeReceipt = inngest.createFunction(
     onFailure: async ({ event, step }) => {
       const trigger = event.data.event;
       const { receiptId, userId } = trigger.data;
-      const ch = receiptChannel(receiptId);
+      const ch = receiptsChannel(userId);
       const errorMessage = event.data.error?.message;
       const previousStatus =
         trigger.name === receiptReprocessEvent.name
@@ -124,6 +124,7 @@ export const transcribeReceipt = inngest.createFunction(
 
       await step.realtime.publish(`state-${receiptId}-failed`, ch.state, {
         error: errorMessage,
+        receiptId,
         state: "failed",
       });
     },
@@ -142,7 +143,7 @@ export const transcribeReceipt = inngest.createFunction(
       ? "processing"
       : "pending";
 
-    const ch = receiptChannel(receiptId);
+    const ch = receiptsChannel(userId);
 
     const receipt = await step.run("lookup-receipt", async () => {
       // Scoped to the user on the event, not just the receipt id. The event is a
@@ -171,6 +172,7 @@ export const transcribeReceipt = inngest.createFunction(
     });
 
     await step.realtime.publish("publish-extracting", ch.state, {
+      receiptId,
       state: "extracting",
     });
 
@@ -220,6 +222,7 @@ export const transcribeReceipt = inngest.createFunction(
     }
 
     await step.realtime.publish("publish-parsing", ch.state, {
+      receiptId,
       state: "parsing",
     });
 
@@ -263,6 +266,7 @@ export const transcribeReceipt = inngest.createFunction(
     }).matches;
 
     await step.realtime.publish("publish-storing", ch.state, {
+      receiptId,
       state: "storing",
     });
 
@@ -299,6 +303,7 @@ export const transcribeReceipt = inngest.createFunction(
     });
 
     await step.realtime.publish("publish-done", ch.state, {
+      receiptId,
       state: "done",
     });
 
