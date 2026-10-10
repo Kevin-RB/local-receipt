@@ -85,7 +85,7 @@ interface ToastBody {
   type: "error" | "loading" | "success";
 }
 
-const resolveToastBody = (input: {
+export const resolveToastBody = (input: {
   connectionStatus: UseRealtimeConnectionStatus;
   error: Error | null;
   state: ReceiptState | undefined;
@@ -93,7 +93,10 @@ const resolveToastBody = (input: {
 }): ToastBody => {
   const { connectionStatus, error, state, stateError } = input;
 
-  if (error) {
+  // A socket drop must not replace a toast that already reports the outcome:
+  // once the receipt is done or failed, the stored result is what the owner
+  // needs to see, not a sticky connection error about a run that finished.
+  if (error && state !== "done" && state !== "failed") {
     return {
       description: error.message,
       timeout: 0,

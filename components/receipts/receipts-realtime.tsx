@@ -27,6 +27,23 @@ import type { StateTier } from "./refresh-policy";
  */
 const REFRESH_DEBOUNCE_MS = 400;
 
+const DEV_INNGEST_PORT = 8288;
+
+/**
+ * In local development the subscription token carries the server's
+ * `INNGEST_BASE_URL` (`http://localhost:8288`), which a phone loading the app
+ * from the host's LAN name cannot reach. Point the browser at the Inngest dev
+ * server on whatever host the app itself was loaded from. Every other
+ * environment falls back to the token's own (cloud) base URL.
+ */
+const resolveDevInngestApiBaseUrl = () => {
+  if (typeof window === "undefined" || process.env.NODE_ENV !== "development") {
+    return;
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:${DEV_INNGEST_PORT}`;
+};
+
 /**
  * The page's one subscription to the owner's channel.
  *
@@ -48,6 +65,7 @@ export const ReceiptsRealtimeProvider = ({
 }) => {
   const router = useRouter();
   const realtime = useRealtime({
+    apiBaseUrl: resolveDevInngestApiBaseUrl(),
     // A user channel carries many runs and never reaches one terminal status,
     // so the socket stays open for the life of the page.
     autoCloseOnTerminal: false,
