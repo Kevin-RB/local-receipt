@@ -86,7 +86,7 @@ export const listExtractionModels = async () => {
  * receipt; waiting longer costs the owner a cooldown, taking it too early costs
  * them their data.
  */
-export const PROCESSING_LEASE_MS = 30 * 60 * 1000;
+const PROCESSING_LEASE_MS = 30 * 60 * 1000;
 
 /**
  * Runs extraction again over a stored receipt.
