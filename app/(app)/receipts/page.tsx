@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { receiptColumns } from "@/components/receipts/columns";
 import type { ReceiptTable } from "@/components/receipts/columns";
+import { ReceiptsRealtimeProvider } from "@/components/receipts/receipts-realtime";
 import { DataTable } from "@/components/receipts/table";
 import { UploadFlow } from "@/components/upload-flow";
 import { auth } from "@/lib/auth";
@@ -46,12 +47,17 @@ const ReceiptsPage = async () => {
           readers and the document title. The greeting now lives on the chat,
           which is the front door. */}
       <h1 className="sr-only">Receipts</h1>
-      <div className="flex justify-center">
-        <UploadFlow />
-      </div>
-      <section className="mx-auto w-full">
-        <DataTable columns={receiptColumns} data={receipts} />
-      </section>
+      <ReceiptsRealtimeProvider
+        initialReceiptIds={receipts.map((receipt) => receipt.id)}
+        userId={session.user.id}
+      >
+        <div className="flex justify-center">
+          <UploadFlow />
+        </div>
+        <section className="mx-auto w-full">
+          <DataTable columns={receiptColumns} data={receipts} />
+        </section>
+      </ReceiptsRealtimeProvider>
     </main>
   );
 };

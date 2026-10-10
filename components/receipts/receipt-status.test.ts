@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ReceiptTable } from "@/components/receipts/columns";
 import { statusBadge } from "@/components/receipts/receipt-status";
-import type { ReceiptState } from "@/hooks/use-receipt-realtime";
+import type { ReceiptState } from "@/lib/inngest/channels";
 
 describe(statusBadge, () => {
   it("shows the stored status when no run is reporting", () => {

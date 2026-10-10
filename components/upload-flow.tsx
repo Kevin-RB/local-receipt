@@ -1,11 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { ReceiptToastNotifier } from "@/components/receipt-toast-notifier";
+import {
+  useReceiptState,
+  useReceiptsRealtime,
+} from "@/components/receipts/receipts-realtime-context";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { useReceiptRealtime } from "@/hooks/use-receipt-realtime";
 
 import { ImageUploadCard } from "./image-upload-card";
 
@@ -20,23 +22,11 @@ export const UploadFlow = () => {
   const [completedReceiptId, setCompletedReceiptId] = useState<string | null>(
     null
   );
-  const router = useRouter();
+  const { connectionStatus, error } = useReceiptsRealtime();
   const receiptId = upload.status === "done" ? upload.receiptId : null;
-  const realtime = useReceiptRealtime({ receiptId });
-  const state = realtime.messages.byTopic.state?.data.state;
-  const refreshedRef = useRef({
-    appeared: false,
-    receiptId: null as string | null,
-    terminal: false,
-  });
-
-  const isTerminalState =
-    state === "done" ||
-    state === "failed" ||
-    realtime.runStatus === "completed" ||
-    realtime.runStatus === "failed" ||
-    realtime.runStatus === "cancelled";
-
+  const liveState = useReceiptState(receiptId ?? "");
+  const state = liveState?.state;
+  const isTerminalState = state === "done" || state === "failed";
   const isProcessing = upload.status === "done" && !isTerminalState;
 
   // Remount the upload card once a completed upload reaches a terminal state so
@@ -48,31 +38,6 @@ export const UploadFlow = () => {
     setCompletedReceiptId(receiptId);
   }
   const uploadCardKey = completedReceiptId ?? "active";
-
-  useEffect(() => {
-    if (!(receiptId && state)) {
-      return;
-    }
-
-    if (refreshedRef.current.receiptId !== receiptId) {
-      refreshedRef.current = { appeared: false, receiptId, terminal: false };
-    }
-
-    const refreshed = refreshedRef.current;
-    const isTerminal = state === "done" || state === "failed";
-
-    if (isTerminal ? refreshed.terminal : refreshed.appeared) {
-      return;
-    }
-
-    if (isTerminal) {
-      refreshed.terminal = true;
-    } else {
-      refreshed.appeared = true;
-    }
-
-    router.refresh();
-  }, [receiptId, state, router]);
 
   return (
     <>
@@ -92,7 +57,14 @@ export const UploadFlow = () => {
           Upload a receipt image to get AI-powered insights.
         </CardFooter>
       </Card>
-      {upload.status === "done" && <ReceiptToastNotifier realtime={realtime} />}
+      {upload.status === "done" && (
+        <ReceiptToastNotifier
+          connectionStatus={connectionStatus}
+          error={error}
+          state={state}
+          stateError={liveState?.error}
+        />
+      )}
     </>
   );
 };
