@@ -1,16 +1,9 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-
 import { Chat } from "@/components/chat/chat";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth/dal";
 import { toDisplayName } from "@/lib/chat/greeting";
 
 const Home = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/sign-in");
-  }
+  const session = await requireSession();
 
   return (
     <main className="flex h-[calc(100svh-3rem)] flex-col">

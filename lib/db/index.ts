@@ -48,13 +48,15 @@ export const findReceiptByIdWithItems = (id: string, ownerId: string) =>
 export const findReceiptByObjectKey = (objectKey: string) =>
   db.query.receipts.findFirst({ where: { objectKey } });
 
+/**
+ * The receipts list. Receipt-level columns only: the table does not read line
+ * items, so loading them here was a second query for rows that the page
+ * dropped. `/receipts/[id]` uses `findReceiptByIdWithItems` when it needs them.
+ */
 export const listReceipts = (ownerId: string) =>
   db.query.receipts.findMany({
     orderBy: (table, { desc: orderDesc }) => [orderDesc(table.createdAt)],
     where: { userId: ownerId },
-    with: {
-      receiptItems: true,
-    },
   });
 
 export const listDoneReceipts = (ownerId: string) =>

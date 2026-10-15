@@ -1,12 +1,10 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { CategorySpendingChart } from "@/components/overview/category-spending-chart";
 import { IntegrityChart } from "@/components/overview/integrity-chart";
 import { MerchantSpendingChart } from "@/components/overview/merchant-spending-chart";
 import { SpendingChart } from "@/components/overview/spending-chart";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth/dal";
 import { listDoneReceipts, spendByCategoryByDay } from "@/lib/db";
 import { receiptSelectSchema } from "@/lib/db/schema/receipt";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -23,11 +21,7 @@ const getReceipts = async (ownerId: string): Promise<ReceiptSelect[]> => {
 };
 
 const OverviewPage = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/sign-in");
-  }
+  const session = await requireSession();
 
   const [receipts, categorySpend] = await Promise.all([
     getReceipts(session.user.id),
