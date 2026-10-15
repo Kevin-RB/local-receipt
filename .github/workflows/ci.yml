@@ -5,6 +5,15 @@ on:
     branches:
       - main
       - staging
+    # `edited` is not a default activity type. Without it, retargeting a PR's
+    # base (e.g. un-stacking after the parent merges) does not run CI, because
+    # changing the base emits `edited` — and the base branch is what the
+    # `branches` filter matches on.
+    types:
+      - edited
+      - opened
+      - reopened
+      - synchronize
 
 jobs:
   quality:
