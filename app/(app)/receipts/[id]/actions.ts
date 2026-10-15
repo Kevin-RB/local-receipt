@@ -2,9 +2,8 @@
 
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth/dal";
 import { db, listCategoryOptions, receiptItems, receipts } from "@/lib/db";
 import { receiptToFlat } from "@/lib/db/receipt-mapping";
 import { reconcile } from "@/lib/receipt/integrity";
@@ -15,7 +14,7 @@ import { updateReceiptSchema } from "./schema";
 import type { UpdateReceiptInput } from "./schema";
 
 export const updateReceipt = async (input: UpdateReceiptInput) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     return { error: "Receipt is not editable", success: false as const };

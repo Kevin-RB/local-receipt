@@ -1,11 +1,10 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth/dal";
 
 const AuthLayout = async ({ children }: { children: React.ReactNode }) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (session) {
     redirect("/");

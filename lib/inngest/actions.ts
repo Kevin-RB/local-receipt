@@ -1,9 +1,8 @@
 "use server";
 
 import { getClientSubscriptionToken } from "inngest/react";
-import { headers } from "next/headers";
 
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth/dal";
 import { receiptsChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 
@@ -16,7 +15,7 @@ import { inngest } from "@/lib/inngest/client";
  * subscribes once; every receipt the owner can see is a message on it.
  */
 export const fetchReceiptsSubscriptionToken = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     throw new Error("Unauthorized");
