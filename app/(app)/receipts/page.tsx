@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { receiptColumns } from "@/components/receipts/columns";
@@ -7,7 +5,7 @@ import type { ReceiptTable } from "@/components/receipts/columns";
 import { ReceiptsRealtimeProvider } from "@/components/receipts/receipts-realtime";
 import { DataTable } from "@/components/receipts/table";
 import { UploadFlow } from "@/components/upload-flow";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth/dal";
 import { listReceipts } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
 import { receiptSelectSchema } from "@/lib/db/schema/receipt";
@@ -33,11 +31,7 @@ const getReceiptData = async (ownerId: string): Promise<ReceiptTable[]> => {
 };
 
 const ReceiptsPage = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/sign-in");
-  }
+  const session = await requireSession();
 
   const receipts = await getReceiptData(session.user.id);
 

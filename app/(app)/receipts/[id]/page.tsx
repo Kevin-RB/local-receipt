@@ -1,11 +1,10 @@
 import { ArrowLeft } from "lucide-react";
-import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth/dal";
 import { groupCategoryOptions } from "@/lib/category/options";
 import { findReceiptByIdWithItems, listCategoryOptions } from "@/lib/db";
 import type { ReceiptSelect } from "@/lib/db/schema/receipt";
@@ -67,11 +66,7 @@ const ReceiptTranscript = ({ transcript }: { transcript: string }) => (
 );
 
 const ReceiptDetailPage = async ({ params }: ReceiptDetailPageProps) => {
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session) {
-    redirect("/sign-in");
-  }
+  const session = await requireSession();
 
   const { id } = await params;
   const receipt = await findReceiptByIdWithItems(id, session.user.id);

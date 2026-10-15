@@ -2,11 +2,10 @@
 
 import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
 import { listAvailableModels } from "@/lib/ai/models";
 import { ORC_MODEL, PARSE_MODEL } from "@/lib/ai/provider";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth/dal";
 import { db, receipts } from "@/lib/db";
 import { inngest } from "@/lib/inngest/client";
 import { receiptReprocessEvent } from "@/lib/inngest/events";
@@ -15,7 +14,7 @@ import { BUCKET, deleteObject } from "@/lib/storage/client";
 import { reprocessReceiptSchema } from "./schema";
 
 export const deleteReceipt = async (receiptId: string) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     return { error: "Receipt not found", success: false as const };
@@ -59,7 +58,7 @@ export const deleteReceipt = async (receiptId: string) => {
  * unauthenticated caller gets an empty list rather than either.
  */
 export const listExtractionModels = async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     return { available: [], defaults: { ocr: "", parse: "" } };
@@ -101,7 +100,7 @@ const PROCESSING_LEASE_MS = 30 * 60 * 1000;
  * genuinely mid-run.
  */
 export const reprocessReceipt = async (input: unknown) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     return { error: "Receipt not found", success: false as const };
