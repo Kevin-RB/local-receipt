@@ -50,7 +50,7 @@ export const findReceiptByObjectKey = (objectKey: string) =>
 
 /**
  * The receipts list. Receipt-level columns only: the table does not read line
- * items, so loading them here was a second query, and rows, that the page
+ * items, so loading them here was a second query for rows that the page
  * dropped. `/receipts/[id]` uses `findReceiptByIdWithItems` when it needs them.
  */
 export const listReceipts = (ownerId: string) =>
