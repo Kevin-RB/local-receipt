@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildChatTools } from "./tools/index";
+import { spendByCategoryInput } from "./tools/spend-by-category";
 
 const mocks = vi.hoisted(() => ({
   listReceiptSummaries: vi.fn<() => Promise<unknown>>(),
@@ -52,6 +53,32 @@ describe("owner scoping", () => {
     expect(mocks.searchLineItems).toHaveBeenCalledWith(OWNER, {
       query: "cheese",
     });
+  });
+
+  it("passes the category grouping through to the query", async () => {
+    await buildChatTools(OWNER).spend_by_category.execute?.(
+      { from: "2026-01-01", groupBy: "category", to: "2026-01-31" },
+      {} as never
+    );
+
+    expect(mocks.spendByCategory).toHaveBeenCalledWith(
+      OWNER,
+      "2026-01-01",
+      "2026-01-31",
+      "category"
+    );
+  });
+
+  it("accepts only the two known category groupings", () => {
+    const range = { from: "2026-01-01", to: "2026-01-31" };
+
+    expect(
+      spendByCategoryInput.parse({ ...range, groupBy: "category" })
+    ).toStrictEqual({ ...range, groupBy: "category" });
+    expect(
+      spendByCategoryInput.safeParse({ ...range, groupBy: "leaf" }).success
+    ).toBeFalsy();
+    expect(spendByCategoryInput.safeParse(range).success).toBeTruthy();
   });
 
   it("does not accept an owner argument on any tool", () => {

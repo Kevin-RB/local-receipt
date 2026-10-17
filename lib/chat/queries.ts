@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, ilike, lt, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import "temporal-polyfill/global";
 
 import {
@@ -54,19 +55,40 @@ const optionalDateFilters = (from?: string, to?: string) => {
   return filters;
 };
 
+/**
+ * How `spendByCategory` rolls its rows up. `subcategory` is the leaf taxonomy
+ * a line item is actually assigned; `category` rolls each leaf up to its
+ * top-level parent, so a question about a whole group ("how much on
+ * Groceries?") is answered by the query rather than by the model adding
+ * subcategory rows up.
+ */
+export type CategorySpendGroupBy = "subcategory" | "category";
+
 export const spendByCategory = async (
   ownerId: string,
   from: string,
-  to: string
+  to: string,
+  groupBy: CategorySpendGroupBy = "subcategory"
 ): Promise<CategorySpend> => {
+  const parentCategories = alias(categories, "parent_categories");
+
+  // A leaf rolls up to its parent's name; a leaf that is already top-level has
+  // no parent and so rolls up to itself; an uncategorised line has neither and
+  // falls to the placeholder.
+  const category =
+    groupBy === "category"
+      ? sql<string>`coalesce(${parentCategories.name}, ${categories.name}, 'Uncategorised')`
+      : sql<string>`coalesce(${categories.name}, 'Uncategorised')`;
+
   const rows = await db
     .select({
-      category: sql<string>`coalesce(${categories.name}, 'Uncategorised')`,
+      category,
       total: sql<number>`sum(${receiptItems.lineTotal})::double precision`,
     })
     .from(receiptItems)
     .innerJoin(receipts, eq(receiptItems.receiptId, receipts.id))
     .leftJoin(categories, eq(receiptItems.categoryId, categories.id))
+    .leftJoin(parentCategories, eq(categories.parentId, parentCategories.id))
     .where(
       and(
         eq(receipts.userId, ownerId),
@@ -76,7 +98,7 @@ export const spendByCategory = async (
         lt(receipts.transactionDateTime, startOfNextReceiptDay(to))
       )
     )
-    .groupBy(categories.id, categories.name)
+    .groupBy(category)
     .orderBy(desc(sql`sum(${receiptItems.lineTotal})`));
 
   return {
