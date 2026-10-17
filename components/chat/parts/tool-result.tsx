@@ -15,6 +15,11 @@ import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
  * `error` makes it destructive — so each state is just a different row rather
  * than a different primitive.
  *
+ * Running and error rows keep the polite live region the retired
+ * `<Marker render={<output />}>` rows carried. The message scroller's log
+ * region only announces additions, and these rows settle into their final
+ * text in place, so the transition would otherwise go unannounced.
+ *
  * The two booleans come from the SDK's own `UIToolInvocation` discriminant,
  * which the caller narrows before it can reach the typed `output` anyway — so
  * this shell re-uses that narrowing instead of re-deriving the states itself.
@@ -33,11 +38,15 @@ export const ToolResult = ({
   if (errorText) {
     return (
       <Trace>
-        <TraceLine status="error">
+        <TraceLine aria-live="polite" status="error">
           <TraceIcon>
             <TriangleAlertIcon />
           </TraceIcon>
-          <TraceTitle>{`${label} failed: ${errorText}`}</TraceTitle>
+          {/* `TraceTitle` truncates, and a clipped error is the only diagnostic
+              the reader gets, so the title is allowed to wrap here. */}
+          <TraceTitle className="whitespace-normal">
+            {`${label} failed: ${errorText}`}
+          </TraceTitle>
         </TraceLine>
       </Trace>
     );
@@ -46,7 +55,7 @@ export const ToolResult = ({
   if (isPending) {
     return (
       <Trace>
-        <TraceLine status="running">
+        <TraceLine aria-live="polite" status="running">
           <TraceIcon>
             <Leap size={14} />
           </TraceIcon>

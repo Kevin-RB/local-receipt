@@ -190,7 +190,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
                     {status === "submitted" ? (
                       <MessageScrollerItem messageId="thinking">
                         <Trace>
-                          <TraceLine status="running">
+                          <TraceLine aria-live="polite" status="running">
                             <TraceIcon>
                               <Leap size={14} />
                             </TraceIcon>

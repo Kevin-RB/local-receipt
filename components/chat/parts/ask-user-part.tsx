@@ -14,7 +14,7 @@ export const AskUserPart = ({ part }: { part: AskUserToolPart }) => {
   if (part.state === "input-streaming" || part.state === "input-available") {
     return (
       <Trace>
-        <TraceLine status="running">
+        <TraceLine aria-live="polite" status="running">
           <TraceIcon>
             <Blocks color="var(--primary)" size={14} />
           </TraceIcon>
@@ -27,8 +27,12 @@ export const AskUserPart = ({ part }: { part: AskUserToolPart }) => {
   if (part.state === "output-error") {
     return (
       <Trace>
-        <TraceLine status="error">
-          <TraceTitle>{`Question failed: ${part.errorText}`}</TraceTitle>
+        <TraceLine aria-live="polite" status="error">
+          {/* Unlike a tool label, a failed question has no other surface, so
+              the title wraps rather than truncating the reason. */}
+          <TraceTitle className="whitespace-normal">
+            {`Question failed: ${part.errorText}`}
+          </TraceTitle>
         </TraceLine>
       </Trace>
     );

@@ -32,7 +32,7 @@ export const ReasoningPart = ({
 
   return (
     <Trace>
-      <TraceLine status="running">
+      <TraceLine aria-live="polite" status="running">
         <TraceIcon>
           <BrainIcon />
         </TraceIcon>
