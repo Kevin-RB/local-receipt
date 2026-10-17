@@ -18,6 +18,18 @@ export const categoryTotalSchema = z.object({
 export const categoryTotalsSchema = z.array(categoryTotalSchema);
 export type CategoryTotal = z.infer<typeof categoryTotalSchema>;
 
+/**
+ * The rows above, plus the overall total. Computing the sum in the query keeps
+ * the headline figure exact: a model asked to add the rows up gets it wrong
+ * (a real trace claimed $372.66 for rows summing to $373.16), so the number is
+ * ours to produce and the tool row renders it.
+ */
+export const categorySpendSchema = z.object({
+  categories: categoryTotalsSchema,
+  total: z.number(),
+});
+export type CategorySpend = z.infer<typeof categorySpendSchema>;
+
 export const merchantTotalSchema = z.object({
   merchant: z.string(),
   receipts: z.number(),
@@ -25,6 +37,13 @@ export const merchantTotalSchema = z.object({
 });
 export const merchantTotalsSchema = z.array(merchantTotalSchema);
 export type MerchantTotal = z.infer<typeof merchantTotalSchema>;
+
+/** The merchant rows plus their overall total, summed in the query rather than by the model. */
+export const merchantSpendSchema = z.object({
+  merchants: merchantTotalsSchema,
+  total: z.number(),
+});
+export type MerchantSpend = z.infer<typeof merchantSpendSchema>;
 
 export const lineItemMatchSchema = z.object({
   category: z.string().nullable(),

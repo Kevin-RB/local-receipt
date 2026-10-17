@@ -34,11 +34,14 @@ export const SpendByCategoryPart = ({
     );
   }
 
-  const rows = part.output;
-  const largest = largestTotal(rows);
+  const { categories, total } = part.output;
+  const largest = largestTotal(categories);
 
   return (
-    <ToolResult isPending={false} label="Totals by category">
+    <ToolResult
+      isPending={false}
+      label={`Totals by category · ${formatAmount(total)}`}
+    >
       <ResultTable
         caption="Spend by category"
         columns={[
@@ -71,7 +74,7 @@ export const SpendByCategoryPart = ({
           },
         ]}
         empty="No categorised spend in that period."
-        rows={rows}
+        rows={categories}
         rowKey={(row) => row.category}
       />
     </ToolResult>

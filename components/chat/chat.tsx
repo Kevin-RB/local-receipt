@@ -17,7 +17,6 @@ import {
   EmptyDescription,
   EmptyHeader,
 } from "@/components/ui/empty";
-import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -27,6 +26,7 @@ import {
   MessageScrollerViewport,
   useMessageScrollerScrollable,
 } from "@/components/ui/message-scroller";
+import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
 import { greetingFor } from "@/lib/chat/greeting";
 import { isLastStreaming } from "@/lib/chat/message-parts";
 import type {
@@ -189,12 +189,14 @@ export const Chat = ({ firstName }: { firstName: string }) => {
 
                     {status === "submitted" ? (
                       <MessageScrollerItem messageId="thinking">
-                        <Marker className="shimmer" render={<output />}>
-                          <MarkerIcon>
-                            <Leap size={14} />
-                          </MarkerIcon>
-                          <MarkerContent>Thinking…</MarkerContent>
-                        </Marker>
+                        <Trace>
+                          <TraceLine status="running">
+                            <TraceIcon>
+                              <Leap size={14} />
+                            </TraceIcon>
+                            <TraceTitle>Thinking…</TraceTitle>
+                          </TraceLine>
+                        </Trace>
                       </MessageScrollerItem>
                     ) : null}
                   </MessageScrollerContent>

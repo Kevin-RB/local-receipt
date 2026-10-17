@@ -14,9 +14,9 @@ import {
 } from "@/lib/receipt/datetime";
 
 import type {
-  CategoryTotal,
+  CategorySpend,
   LineItemSearch,
-  MerchantTotal,
+  MerchantSpend,
   ReceiptDetail,
   ReceiptSummary,
 } from "./output-schemas";
@@ -58,7 +58,7 @@ export const spendByCategory = async (
   ownerId: string,
   from: string,
   to: string
-): Promise<CategoryTotal[]> => {
+): Promise<CategorySpend> => {
   const rows = await db
     .select({
       category: sql<string>`coalesce(${categories.name}, 'Uncategorised')`,
@@ -78,14 +78,18 @@ export const spendByCategory = async (
     )
     .groupBy(categories.id, categories.name)
     .orderBy(desc(sql`sum(${receiptItems.lineTotal})`));
-  return rows;
+
+  return {
+    categories: rows,
+    total: roundToCents(rows.reduce((sum, row) => sum + row.total, 0)),
+  };
 };
 
 export const spendByMerchant = async (
   ownerId: string,
   from: string,
   to: string
-): Promise<MerchantTotal[]> => {
+): Promise<MerchantSpend> => {
   const rows = await db
     .select({
       merchant: sql<string>`coalesce(${receipts.merchantName}, 'Unknown')`,
@@ -103,7 +107,11 @@ export const spendByMerchant = async (
     )
     .groupBy(receipts.merchantName)
     .orderBy(desc(sql`sum(${receipts.total})`));
-  return rows;
+
+  return {
+    merchants: rows,
+    total: roundToCents(rows.reduce((sum, row) => sum + row.total, 0)),
+  };
 };
 
 export const searchLineItems = async (

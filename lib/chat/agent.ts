@@ -16,17 +16,9 @@ import { buildChatTools } from "./tools";
  */
 const MAX_STEPS = 8;
 
-const buildInstructions = (
-  categories: { name: string; parentName: string | null }[]
-): string => {
+const buildInstructions = (categories: { name: string }[]): string => {
   const today = receiptDateToISODateString(new Date());
-  const taxonomy = categories
-    .map((category) =>
-      category.parentName
-        ? `${category.parentName} > ${category.name}`
-        : category.name
-    )
-    .join(", ");
+  const taxonomy = categories.map((category) => category.name).join(", ");
 
   return `You are a personal spending assistant for a receipt-tracking app. Today is ${today} (${RECEIPT_TIMEZONE}).
 
@@ -38,7 +30,10 @@ Rules:
 - All amounts are Australian dollars.
 - Known categories: ${taxonomy}.
 - To find a specific product (for example "cheese"), use search_line_items; item names on receipts are often abbreviated, so try a short keyword.
-- Keep answers short: give the total first, then a brief breakdown.
+- The tools render their results to the user as a table or list, so every figure they return is already on screen. Do not reproduce them in your reply: no markdown table, no bullet per row, no re-listing of amounts.
+- Reply in prose only, adding what the table cannot show, in two or three sentences at most: where the spending is concentrated, the largest category or merchant, or the shape of the data — for example that nearly all of it sits in one category.
+- Never compute new numbers from the table: no sums, averages, or percentages. State only figures a tool returned; the table is already the source of them.
+- If you have nothing to add beyond the table, say so in one short sentence. Do not pad.
 
 Asking questions:
 - Do not call ask_user. Almost every request has a reasonable reading, and a question costs the user another round trip for an answer you could have inferred.

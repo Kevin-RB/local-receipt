@@ -1,16 +1,19 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { Leap } from "loading-dev";
+import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 
-import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
-
-import { ToolError, ToolRunning } from "./tool-state";
+import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
 
 /**
- * Shared shell for a tool result: a one-line marker saying what ran, above a
- * compact table of the data it returned. The marker doubles as the running and
+ * Shared shell for a tool result: a one-line `Trace` row saying what ran, above
+ * a compact table of the data it returned. The row doubles as the running and
  * error state, so a tool call occupies one slot in the transcript whether it is
  * in flight, failed, or done.
+ *
+ * `TraceLine`'s `status` carries the styling — `running` shimmers the title,
+ * `error` makes it destructive — so each state is just a different row rather
+ * than a different primitive.
  *
  * The two booleans come from the SDK's own `UIToolInvocation` discriminant,
  * which the caller narrows before it can reach the typed `output` anyway — so
@@ -28,21 +31,41 @@ export const ToolResult = ({
   label: string;
 }) => {
   if (errorText) {
-    return <ToolError label={label} text={errorText} />;
+    return (
+      <Trace>
+        <TraceLine status="error">
+          <TraceIcon>
+            <TriangleAlertIcon />
+          </TraceIcon>
+          <TraceTitle>{`${label} failed: ${errorText}`}</TraceTitle>
+        </TraceLine>
+      </Trace>
+    );
   }
 
   if (isPending) {
-    return <ToolRunning label={`${label}…`} />;
+    return (
+      <Trace>
+        <TraceLine status="running">
+          <TraceIcon>
+            <Leap size={14} />
+          </TraceIcon>
+          <TraceTitle>{`${label}…`}</TraceTitle>
+        </TraceLine>
+      </Trace>
+    );
   }
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Marker render={<output />}>
-        <MarkerIcon>
-          <CheckIcon />
-        </MarkerIcon>
-        <MarkerContent>{label}</MarkerContent>
-      </Marker>
+      <Trace>
+        <TraceLine>
+          <TraceIcon>
+            <CheckIcon />
+          </TraceIcon>
+          <TraceTitle>{label}</TraceTitle>
+        </TraceLine>
+      </Trace>
       {children ?? null}
     </div>
   );
