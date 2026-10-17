@@ -69,6 +69,7 @@ Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
 - `pnpm lint` — `ultracite check`.
 - `pnpm fix` — `ultracite fix` (auto-fixes most issues).
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:push` / `pnpm db:studio` / `pnpm db:seed` — Drizzle operations.
+- `pnpm db:fixture [--email <address>] [--apply] [--force]` — provision a deterministic, sign-in-able test account with a curated receipt corpus (dry run unless `--apply`; `--email` defaults to the agent test account; requires `NODE_ENV=development` or `test`, which `.env.local` supplies). See ADR-0013.
 - `pnpm categorize:backfill` — queue categorization for done receipts that have no `categorized_at` stamp (idempotent; sends `receipt/extracted` to Inngest).
 
 Before committing, run the checks in this order:
@@ -196,12 +197,15 @@ Key properties:
 - Migrations live in `drizzle/` and are generated with `pnpm db:generate`.
 - For local dev you can either run `pnpm db:migrate` after generating or use `pnpm db:push`.
 - `pnpm db:seed` writes demo data through the `drizzle-seed` library (reset + seed) to a dedicated `receipts_seed` database — never the app's `receipts` database. Point it elsewhere with `SEED_DATABASE_URL`. One-time setup per dev machine: create the database and migrate it, then run the app against it to view the data:
+
   ```
   docker exec receipt-app-postgres-1 createdb -U postgres receipts_seed
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm db:migrate
   pnpm db:seed
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm dev
   ```
+
+- `pnpm db:fixture` is the **test fixture** path, distinct from demo data (ADR-0013). It writes to the app database named by `DATABASE_URL` — never `receipts_seed` — and is a dry run unless `--apply` is passed. It targets the agent test account by default (`trace-test@example.com`); `--email` selects another, and the owner's account needs `--force` too. It creates the Better Auth `credential` account the seed omits, so the printed credentials sign in at `/sign-in`; the corpus is 36 receipts over the trailing twelve months with coherent line-item arithmetic, categories drawn from the taxonomy the migrations seed, and one receipt carrying an integrity warning. Deterministic ids make a re-run a no-op. It refuses an account that already has receipts of its own unless `--force`, never touches another owner's rows, and refuses to run unless `NODE_ENV` is `development` or `test` (production is the named case; an unset value in a deployed container is refused for the same reason). Fixture receipts have no `object_key`, so the detail page shows "No image available" — that is deliberate, so the command needs Postgres only. Remember that `.env.local` supplies `DATABASE_URL`, so the command targets whatever database the app is pointed at.
 
 ---
 
@@ -212,6 +216,22 @@ Key properties:
 - Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
 - Current tests are mostly unit tests with mocked DB / AI / storage; they do not require Postgres, RustFS, or LM Studio.
 - **Storage smoke check (post-deploy).** After any change to storage, the webhook, or the upload flow, upload a file in the app and confirm the receipt moves `uploading → pending` and a run appears in Inngest. A webhook that silently drops events (e.g. an object-key mismatch) produces no error and no run — this is the check that catches it.
+
+### Agent / browser testing
+
+Any end-to-end or UI check uses the fixture account. Do not make one by hand.
+
+- **Account:** `trace-test@example.com`, password `fixture-pass-1234` (`FIXTURE_PASSWORD` in `lib/db/fixture.ts`).
+- **Ensure it exists before signing in.** The command is idempotent and a no-op when the fixture is already there:
+
+  ```sh
+  pnpm db:fixture --apply
+  ```
+
+  `--email` defaults to that account, so this command cannot accidentally provision a different one. Sign in at `/sign-in`, or drive the browser with the same credentials. `--apply` also verifies that account's stored password against the fixture password and resets it only if it has drifted, so these credentials always work; when it already matches, nothing is written.
+
+- **Do not** sign up through the UI, copy receipts between accounts, or insert rows by hand. If the fixture is missing or stale, re-run the command.
+- **The owner's account** (`kr38996@gmail.com`) is not part of agent testing. Adding fixture rows to it is an explicit owner decision and needs `--email kr38996@gmail.com --force`.
 
 ---
 

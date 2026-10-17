@@ -29,6 +29,7 @@ The `drizzle-kit` CLI (rc.4) has no `seed` command, so the standard seeding path
 
 ## Related
 
+- ADR-0013 — test fixtures write to the app database, opt-in and development only; the `receipts_seed` rule here still holds for demo data.
 - Issue #32 (seed standardisation and baseline migration)
 - Issue #25 (schema normalization parent)
 - Issue #31 (flat schema that the baseline captures)
