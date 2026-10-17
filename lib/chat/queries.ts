@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import "temporal-polyfill/global";
 
@@ -64,25 +64,35 @@ const optionalDateFilters = (from?: string, to?: string) => {
  */
 export type CategorySpendGroupBy = "subcategory" | "category";
 
+export interface CategorySpendQuery {
+  /**
+   * Narrows to one branch of the taxonomy: a top-level name ("Health") selects
+   * that whole subtree, a leaf name ("Pharmacy") selects the single leaf.
+   */
+  category?: string;
+  groupBy?: CategorySpendGroupBy;
+}
+
 export const spendByCategory = async (
   ownerId: string,
   from: string,
   to: string,
-  groupBy: CategorySpendGroupBy = "subcategory"
+  { category, groupBy = "subcategory" }: CategorySpendQuery = {}
 ): Promise<CategorySpend> => {
   const parentCategories = alias(categories, "parent_categories");
 
   // A leaf rolls up to its parent's name; a leaf that is already top-level has
   // no parent and so rolls up to itself; an uncategorised line has neither and
   // falls to the placeholder.
-  const category =
+  const topLevelName = sql<string>`coalesce(${parentCategories.name}, ${categories.name}, 'Uncategorised')`;
+  const groupLabel =
     groupBy === "category"
-      ? sql<string>`coalesce(${parentCategories.name}, ${categories.name}, 'Uncategorised')`
+      ? topLevelName
       : sql<string>`coalesce(${categories.name}, 'Uncategorised')`;
 
   const rows = await db
     .select({
-      category,
+      category: groupLabel,
       total: sql<number>`sum(${receiptItems.lineTotal})::double precision`,
     })
     .from(receiptItems)
@@ -95,10 +105,13 @@ export const spendByCategory = async (
         eq(receipts.status, "done"),
         eq(receiptItems.kind, "product"),
         gte(receipts.transactionDateTime, startOfReceiptDay(from)),
-        lt(receipts.transactionDateTime, startOfNextReceiptDay(to))
+        lt(receipts.transactionDateTime, startOfNextReceiptDay(to)),
+        category
+          ? or(eq(topLevelName, category), eq(categories.name, category))
+          : undefined
       )
     )
-    .groupBy(category)
+    .groupBy(groupLabel)
     .orderBy(desc(sql`sum(${receiptItems.lineTotal})`));
 
   return {

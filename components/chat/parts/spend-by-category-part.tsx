@@ -24,11 +24,14 @@ export const SpendByCategoryPart = ({
 }: {
   part: SpendByCategoryToolPart;
 }) => {
-  // The tool rolls rows up either way, so the label names which one the table
-  // shows — CONTEXT.md keeps "category" (top-level) and "subcategory" (leaf)
-  // distinct, and a leaf line item is what is actually assigned.
-  const groupsTopLevel = part.input?.groupBy === "category";
-  const label = groupsTopLevel ? "Totals by category" : "Totals by subcategory";
+  // The tool rolls rows up either way and can be narrowed to one branch, so
+  // the label names what the table actually shows — CONTEXT.md keeps
+  // "category" (top-level) and "subcategory" (leaf) distinct, and a leaf line
+  // item is what is actually assigned.
+  const scope = part.input?.category;
+  const grouping =
+    part.input?.groupBy === "category" ? "category" : "subcategory";
+  const label = scope ?? `Totals by ${grouping}`;
 
   if (part.state !== "output-available") {
     return (
@@ -46,7 +49,9 @@ export const SpendByCategoryPart = ({
   return (
     <ToolResult isPending={false} label={`${label} · ${formatAmount(total)}`}>
       <ResultTable
-        caption={groupsTopLevel ? "Spend by category" : "Spend by subcategory"}
+        caption={
+          scope ? `Spend by ${grouping} in ${scope}` : `Spend by ${grouping}`
+        }
         columns={[
           {
             header: "Category",

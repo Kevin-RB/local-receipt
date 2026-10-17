@@ -65,7 +65,21 @@ describe("owner scoping", () => {
       OWNER,
       "2026-01-01",
       "2026-01-31",
-      "category"
+      { category: undefined, groupBy: "category" }
+    );
+  });
+
+  it("passes a single-category filter through to the query", async () => {
+    await buildChatTools(OWNER).spend_by_category.execute?.(
+      { category: "Health", from: "2026-01-01", to: "2026-01-31" },
+      {} as never
+    );
+
+    expect(mocks.spendByCategory).toHaveBeenCalledWith(
+      OWNER,
+      "2026-01-01",
+      "2026-01-31",
+      { category: "Health", groupBy: undefined }
     );
   });
 
@@ -73,8 +87,12 @@ describe("owner scoping", () => {
     const range = { from: "2026-01-01", to: "2026-01-31" };
 
     expect(
-      spendByCategoryInput.parse({ ...range, groupBy: "category" })
-    ).toStrictEqual({ ...range, groupBy: "category" });
+      spendByCategoryInput.parse({
+        ...range,
+        category: "Health",
+        groupBy: "category",
+      })
+    ).toStrictEqual({ ...range, category: "Health", groupBy: "category" });
     expect(
       spendByCategoryInput.safeParse({ ...range, groupBy: "leaf" }).success
     ).toBeFalsy();
