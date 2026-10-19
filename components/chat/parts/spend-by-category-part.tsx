@@ -24,23 +24,34 @@ export const SpendByCategoryPart = ({
 }: {
   part: SpendByCategoryToolPart;
 }) => {
+  // The tool rolls rows up either way and can be narrowed to one branch, so
+  // the label names what the table actually shows — CONTEXT.md keeps
+  // "category" (top-level) and "subcategory" (leaf) distinct, and a leaf line
+  // item is what is actually assigned.
+  const scope = part.input?.category;
+  const grouping =
+    part.input?.groupBy === "category" ? "category" : "subcategory";
+  const label = scope ?? `Totals by ${grouping}`;
+
   if (part.state !== "output-available") {
     return (
       <ToolResult
         errorText={part.state === "output-error" ? part.errorText : undefined}
         isPending={part.state !== "output-error"}
-        label="Totals by category"
+        label={label}
       />
     );
   }
 
-  const rows = part.output;
-  const largest = largestTotal(rows);
+  const { categories, total } = part.output;
+  const largest = largestTotal(categories);
 
   return (
-    <ToolResult isPending={false} label="Totals by category">
+    <ToolResult isPending={false} label={`${label} · ${formatAmount(total)}`}>
       <ResultTable
-        caption="Spend by category"
+        caption={
+          scope ? `Spend by ${grouping} in ${scope}` : `Spend by ${grouping}`
+        }
         columns={[
           {
             header: "Category",
@@ -71,7 +82,7 @@ export const SpendByCategoryPart = ({
           },
         ]}
         empty="No categorised spend in that period."
-        rows={rows}
+        rows={categories}
         rowKey={(row) => row.category}
       />
     </ToolResult>

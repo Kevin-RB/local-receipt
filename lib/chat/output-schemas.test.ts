@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  categorySpendSchema,
   lineItemSearchSchema,
+  merchantSpendSchema,
   receiptDetailSchema,
   receiptSummariesSchema,
 } from "./output-schemas";
@@ -92,5 +94,29 @@ describe("tool output schemas", () => {
 
   it("accepts a null receipt detail for a missing receipt", () => {
     expect(receiptDetailSchema.nullable().parse(null)).toBeNull();
+  });
+
+  it("carries the overall total beside the category rows", () => {
+    const spend = {
+      categories: [
+        { category: "Groceries > Meat & Seafood", total: 191.18 },
+        { category: "Fees & Charges > Card Surcharge", total: 0.37 },
+      ],
+      total: 191.55,
+    };
+
+    expect(categorySpendSchema.parse(spend)).toStrictEqual(spend);
+  });
+
+  it("carries the overall total beside the merchant rows", () => {
+    const spend = {
+      merchants: [
+        { merchant: "Woolworths", receipts: 4, total: 102.4 },
+        { merchant: "ALDI STORES", receipts: 2, total: 78.97 },
+      ],
+      total: 181.37,
+    };
+
+    expect(merchantSpendSchema.parse(spend)).toStrictEqual(spend);
   });
 });
