@@ -42,7 +42,7 @@ The fixture's guarantees:
 - Fixture rows carry recognisable receipt numbers (`FIXTURE-1` …) and deterministic ids, so they can be identified and deleted without matching on amounts.
 - Categories come from the migration-seeded taxonomy. The command fails with an explicit message if a slug is missing, which is the same signal that `pnpm db:migrate` has not run.
 - The anchor date moves from day to day, so a fresh run on a later day dates the corpus differently. Ids do not move (they hash the seed, email and name), which is what keeps the second run a no-op; determinism of the data itself is asserted at the generator seam with an explicit `asOf`, not against a fixed wall clock.
-- CI does not run the fixture: it needs neither RustFS nor LM Studio, but it does need a migrated Postgres, which the unit suite deliberately does not require.
+- CI does not run the fixture: it needs neither RustFS nor LM Studio, but it does need a migrated Postgres, which the unit suite deliberately does not require. The DB-writing half lives in `lib/db/fixture-provision.ts` with an optional Postgres-backed integration test behind `FIXTURE_TEST_DATABASE_URL`; `pnpm test` skips it, and it refuses a database whose name does not contain `test` or `fixture`.
 
 ## Related
 

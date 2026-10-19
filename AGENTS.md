@@ -215,6 +215,15 @@ Key properties:
 - Run the whole suite: `pnpm test`.
 - Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
 - Current tests are mostly unit tests with mocked DB / AI / storage; they do not require Postgres, RustFS, or LM Studio.
+- **Fixture integration test (optional).** The DB-writing half of `pnpm db:fixture` (`lib/db/fixture-provision.ts`) has a Postgres-backed test, skipped unless you point it at a scratch database:
+
+  ```sh
+  docker exec receipt-app-postgres-1 createdb -U postgres receipts_fixture_test
+  FIXTURE_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_fixture_test pnpm vitest run lib/db/fixture-provision.integration.test.ts
+  ```
+
+  It migrates then truncates that database, so the name must contain `test` or `fixture` — pointing it anywhere else fails loudly. `pnpm test` skips it, so the suite and CI stay Postgres-free.
+
 - **Storage smoke check (post-deploy).** After any change to storage, the webhook, or the upload flow, upload a file in the app and confirm the receipt moves `uploading → pending` and a run appears in Inngest. A webhook that silently drops events (e.g. an object-key mismatch) produces no error and no run — this is the check that catches it.
 
 ### Agent / browser testing
