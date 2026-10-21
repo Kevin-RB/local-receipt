@@ -233,6 +233,26 @@
   }
 }
 
+/* The phone's receipt list arrives top-to-bottom, once, when the rows first
+   render. 30ms apart is the low end of the stagger range, which is what a dense
+   working list earns; the delay is capped at the eighth card, so a
+   twelve-month list queues for 210ms at most and the card the reader is hunting
+   for never waits behind the twenty above it. Cards are interactive from the
+   first frame — the entrance is opacity and position only. Existing rows keep
+   their nodes across a filter or a realtime refresh, so only the cards actually
+   added animate. */
+.receipt-cards > * {
+  transition:
+    opacity 220ms var(--ease-out),
+    translate 220ms var(--ease-out);
+  transition-delay: calc(min(var(--i, 0), 7) * 30ms);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
 /* The OCR transcript is a native `<details>` in a server component, so the
    opening is bridged in CSS rather than by adding a client accordion. The
    `@supports` gate is the fallback: browsers without keyword interpolation
@@ -270,6 +290,17 @@
   .enter-rise,
   .enter-rise-sm {
     transition: opacity 120ms ease;
+
+    @starting-style {
+      translate: none;
+    }
+  }
+
+  /* The stagger is the movement here, so it goes too: the list fades in as one
+     block rather than rippling. */
+  .receipt-cards > * {
+    transition: opacity 150ms ease;
+    transition-delay: 0ms;
 
     @starting-style {
       translate: none;
