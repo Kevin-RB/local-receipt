@@ -127,7 +127,51 @@
   }
   html {
     @apply font-sans;
+
+    /* The app frame is `100dvh` with its own scroll areas, so a page-level
+       rubber band or pull-to-refresh only fights the shell. */
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    /* Taps get their feedback from `:active`; the browser's grey flash on top
+       of it is the loudest "this is a web page" signal there is. */
+    -webkit-tap-highlight-color: transparent;
   }
+
+  /* A tap that never waits to see whether a double-tap zoom is coming. */
+  a[href],
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    touch-action: manipulation;
+  }
+
+  /* Controls are not copy — content is, so this never goes on `body`. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* iOS zooms the page when a field under 16px takes focus and never zooms
+     back, which is the real reason `maximum-scale` gets reached for. */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Relative bar behind a category total, sized by the share passed in as the

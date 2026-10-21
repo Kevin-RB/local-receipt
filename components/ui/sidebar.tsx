@@ -187,7 +187,9 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          // The sheet paints edge to edge; without these the logo sits under
+          // the notch and the last nav item under the home indicator.
+          className="px-0 pt-safe pb-safe w-(--sidebar-width) bg-sidebar text-sidebar-foreground [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
