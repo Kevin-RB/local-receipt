@@ -180,10 +180,27 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (!(entry.isIntersecting && entry.target instanceof HTMLElement)) {
+        // Sorted top-to-bottom so a batch crossing the fold together cascades
+        // down the list. `boundingClientRect` is captured at observation time,
+        // which is the moment the batch is considering, not wherever the
+        // element has scrolled to by the time this runs.
+        const entering = entries
+          .filter(
+            (entry) =>
+              entry.isIntersecting && entry.target instanceof HTMLElement
+          )
+          .toSorted(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+          );
+
+        for (const [index, entry] of entering.entries()) {
+          if (!(entry.target instanceof HTMLElement)) {
             continue;
           }
+          entry.target.style.setProperty(
+            "--reveal-delay",
+            `${Math.min(index, 4) * 40}ms`
+          );
           entry.target.dataset.reveal = "in";
           observer.unobserve(entry.target);
         }

@@ -243,13 +243,13 @@
    added animate. */
 .receipt-cards > * {
   transition:
-    opacity 220ms var(--ease-out),
-    translate 220ms var(--ease-out);
-  transition-delay: calc(min(var(--i, 0), 7) * 30ms);
+    opacity 280ms var(--ease-out),
+    translate 280ms var(--ease-out);
+  transition-delay: calc(min(var(--i, 0), 6) * 40ms);
 
   @starting-style {
     opacity: 0;
-    translate: 0 8px;
+    translate: 0 24px;
   }
 }
 
@@ -259,19 +259,20 @@
    first viewport, not to a card the reader has scrolled to. */
 .receipt-cards > [data-reveal="pending"] {
   opacity: 0;
-  translate: 0 8px;
+  translate: 0 24px;
   transition-delay: 0ms;
 }
 
 /* Revealed, and then left alone — the observer unobserves the card, so this is
-   a first look rather than something the list does on every scroll. Shorter
-   than the load entrance because it is answering a scroll: it has to be
-   finished before the card reaches reading position. */
+   a first look rather than something the list does on every scroll. The delay
+   is the card's place in the batch that just entered, capped at four: a group
+   crossing the fold together ripples top to bottom instead of rising as a
+   block, which is what makes the reveal legible at scroll speed. */
 .receipt-cards > [data-reveal="in"] {
   opacity: 1;
   translate: none;
-  transition-delay: 0ms;
-  transition-duration: 150ms;
+  transition-delay: var(--reveal-delay, 0ms);
+  transition-duration: 280ms;
 }
 
 /* The OCR transcript is a native `<details>` in a server component, so the
