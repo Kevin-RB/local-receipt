@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import type { DateRange } from "react-day-picker";
 
 import type { ReceiptTable } from "@/components/receipts/columns";
@@ -143,12 +144,63 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
     data,
     features,
   });
+  const listRef = useRef<HTMLUListElement>(null);
   const merchantColumn = table.getColumn("merchantName");
   const dateColumn = table.getColumn("transactionDateTime");
   const dateRange =
     (dateColumn?.getFilterValue() as DateRange | undefined) ?? undefined;
   const today = getToday();
   const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
+
+  // Reveals the phone list's cards as they scroll into view, once each.
+  //
+  // Arming is JS-only on purpose: a card is hidden by `data-reveal="pending"`
+  // only after this runs, so the server-rendered list — and anything with
+  // scripting off — shows every card. Only cards that start below the fold are
+  // armed; arming one the reader can already see would flash it. The desktop
+  // table's list is `display: none`, so its rects are all zero and nothing is
+  // armed there. Cards added later are not armed either: the observer is set up
+  // once, and a receipt that arrives while the page is open has already been
+  // announced by its toast.
+  useEffect(() => {
+    const list = listRef.current;
+    if (
+      !list ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    const offscreen = [
+      ...list.querySelectorAll<HTMLElement>(":scope > li"),
+    ].filter((card) => card.getBoundingClientRect().top > window.innerHeight);
+    if (offscreen.length === 0) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!(entry.isIntersecting && entry.target instanceof HTMLElement)) {
+            continue;
+          }
+          entry.target.dataset.reveal = "in";
+          observer.unobserve(entry.target);
+        }
+      },
+      // Starts the rise as the card's top edge crosses the fold, so it is
+      // settled rather than still arriving when the card reaches reading
+      // position.
+      { rootMargin: "0px 0px -40px 0px" }
+    );
+
+    for (const card of offscreen) {
+      card.dataset.reveal = "pending";
+      observer.observe(card);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const rangeLabel = (() => {
     if (!dateRange?.from) {
@@ -207,7 +259,7 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
           </PopoverContent>
         </Popover>
       </div>
-      <ul className="receipt-cards flex flex-col gap-2 md:hidden">
+      <ul className="receipt-cards flex flex-col gap-2 md:hidden" ref={listRef}>
         {table.getRowModel().rows.length ? (
           table
             .getRowModel()
