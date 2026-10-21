@@ -16,17 +16,23 @@ const AppLayout = async ({ children }: { children: React.ReactNode }) => {
 
   return (
     <TooltipProvider>
-      <SidebarProvider defaultOpen={defaultOpen}>
+      <SidebarProvider className="h-dvh min-h-0" defaultOpen={defaultOpen}>
         <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-12 shrink-0 items-center gap-2 px-4">
+        <SidebarInset className="min-h-0">
+          {/* The shell owns the viewport height, so the header has to clear the
+              notch itself rather than letting the browser letterbox the page. */}
+          <header className="pt-safe flex h-[calc(3rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 px-4">
             <SidebarTrigger />
             <div className="ml-auto flex items-center gap-2">
               <ThemeToggle />
               <SignOutButton />
             </div>
           </header>
-          {children}
+          {/* The one scroll area for every page: no document scrolling, so the
+              header stays put and the iOS URL bar cannot resize mid-scroll. */}
+          <div className="pb-safe flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
