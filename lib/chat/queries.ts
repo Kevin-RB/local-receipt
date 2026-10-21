@@ -1,4 +1,5 @@
-import { and, desc, eq, gte, ilike, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import "temporal-polyfill/global";
 
 import {
@@ -14,9 +15,9 @@ import {
 } from "@/lib/receipt/datetime";
 
 import type {
-  CategoryTotal,
+  CategorySpend,
   LineItemSearch,
-  MerchantTotal,
+  MerchantSpend,
   ReceiptDetail,
   ReceiptSummary,
 } from "./output-schemas";
@@ -54,38 +55,76 @@ const optionalDateFilters = (from?: string, to?: string) => {
   return filters;
 };
 
+/**
+ * How `spendByCategory` rolls its rows up. `subcategory` is the leaf taxonomy
+ * a line item is actually assigned; `category` rolls each leaf up to its
+ * top-level parent, so a question about a whole group ("how much on
+ * Groceries?") is answered by the query rather than by the model adding
+ * subcategory rows up.
+ */
+export type CategorySpendGroupBy = "subcategory" | "category";
+
+export interface CategorySpendQuery {
+  /**
+   * Narrows to one branch of the taxonomy: a top-level name ("Health") selects
+   * that whole subtree, a leaf name ("Pharmacy") selects the single leaf.
+   */
+  category?: string;
+  groupBy?: CategorySpendGroupBy;
+}
+
 export const spendByCategory = async (
   ownerId: string,
   from: string,
-  to: string
-): Promise<CategoryTotal[]> => {
+  to: string,
+  { category, groupBy = "subcategory" }: CategorySpendQuery = {}
+): Promise<CategorySpend> => {
+  const parentCategories = alias(categories, "parent_categories");
+
+  // A leaf rolls up to its parent's name; a leaf that is already top-level has
+  // no parent and so rolls up to itself; an uncategorised line has neither and
+  // falls to the placeholder.
+  const topLevelName = sql<string>`coalesce(${parentCategories.name}, ${categories.name}, 'Uncategorised')`;
+  const groupLabel =
+    groupBy === "category"
+      ? topLevelName
+      : sql<string>`coalesce(${categories.name}, 'Uncategorised')`;
+
   const rows = await db
     .select({
-      category: sql<string>`coalesce(${categories.name}, 'Uncategorised')`,
+      category: groupLabel,
       total: sql<number>`sum(${receiptItems.lineTotal})::double precision`,
     })
     .from(receiptItems)
     .innerJoin(receipts, eq(receiptItems.receiptId, receipts.id))
     .leftJoin(categories, eq(receiptItems.categoryId, categories.id))
+    .leftJoin(parentCategories, eq(categories.parentId, parentCategories.id))
     .where(
       and(
         eq(receipts.userId, ownerId),
         eq(receipts.status, "done"),
         eq(receiptItems.kind, "product"),
         gte(receipts.transactionDateTime, startOfReceiptDay(from)),
-        lt(receipts.transactionDateTime, startOfNextReceiptDay(to))
+        lt(receipts.transactionDateTime, startOfNextReceiptDay(to)),
+        category
+          ? or(eq(topLevelName, category), eq(categories.name, category))
+          : undefined
       )
     )
-    .groupBy(categories.id, categories.name)
+    .groupBy(groupLabel)
     .orderBy(desc(sql`sum(${receiptItems.lineTotal})`));
-  return rows;
+
+  return {
+    categories: rows,
+    total: roundToCents(rows.reduce((sum, row) => sum + row.total, 0)),
+  };
 };
 
 export const spendByMerchant = async (
   ownerId: string,
   from: string,
   to: string
-): Promise<MerchantTotal[]> => {
+): Promise<MerchantSpend> => {
   const rows = await db
     .select({
       merchant: sql<string>`coalesce(${receipts.merchantName}, 'Unknown')`,
@@ -103,7 +142,11 @@ export const spendByMerchant = async (
     )
     .groupBy(receipts.merchantName)
     .orderBy(desc(sql`sum(${receipts.total})`));
-  return rows;
+
+  return {
+    merchants: rows,
+    total: roundToCents(rows.reduce((sum, row) => sum + row.total, 0)),
+  };
 };
 
 export const searchLineItems = async (

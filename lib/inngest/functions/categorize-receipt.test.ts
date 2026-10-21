@@ -67,8 +67,18 @@ describe("categorizeReceipt function", () => {
     mocks.listCategoryOptions.mockResolvedValue(options);
     mocks.findFirst.mockResolvedValue({
       receiptItems: [
-        { id: "item-1", kind: "product", name: "Milk 2L" },
-        { id: "item-2", kind: "product", name: "Bananas" },
+        {
+          categorySource: "ai",
+          id: "item-1",
+          kind: "product",
+          name: "Milk 2L",
+        },
+        {
+          categorySource: "ai",
+          id: "item-2",
+          kind: "product",
+          name: "Bananas",
+        },
       ],
     });
     mocks.categorizeItems.mockResolvedValue(["dairy-eggs", "other"]);
@@ -86,6 +96,53 @@ describe("categorizeReceipt function", () => {
       options
     );
     expect(mocks.update).toHaveBeenCalledTimes(3);
+  });
+
+  it("leaves a user-set category untouched", async () => {
+    mocks.findFirst.mockResolvedValue({
+      receiptItems: [
+        {
+          categorySource: "user",
+          id: "item-1",
+          kind: "product",
+          name: "Milk 2L",
+        },
+        {
+          categorySource: "ai",
+          id: "item-2",
+          kind: "product",
+          name: "Bananas",
+        },
+      ],
+    });
+    mocks.categorizeItems.mockResolvedValue(["other"]);
+
+    const { result } = await createEngine().execute();
+
+    expect(result).toStrictEqual({ categorized: 1, receiptId: "receipt-1" });
+    expect(mocks.categorizeItems).toHaveBeenCalledWith(
+      [{ id: "item-2", kind: "product", name: "Bananas" }],
+      options
+    );
+  });
+
+  it("does not run the model when every category was set by a user", async () => {
+    mocks.findFirst.mockResolvedValue({
+      receiptItems: [
+        {
+          categorySource: "user",
+          id: "item-1",
+          kind: "product",
+          name: "Milk 2L",
+        },
+      ],
+    });
+
+    const { result } = await createEngine().execute();
+
+    expect(result).toStrictEqual({ categorized: 0, receiptId: "receipt-1" });
+    expect(mocks.categorizeItems).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledOnce();
   });
 
   it("fails when the receipt is missing", async () => {

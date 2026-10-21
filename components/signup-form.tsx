@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -40,7 +39,6 @@ export const SignupForm = ({
   className,
   ...props
 }: React.ComponentProps<"div">) => {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const {
     formState: { errors, isSubmitting },
@@ -58,8 +56,9 @@ export const SignupForm = ({
       setError("root", { message: error.message ?? "Failed to sign up" });
       return;
     }
-    router.push("/");
-    router.refresh();
+    // A real navigation so the server layout re-reads the new session — see
+    // the note in `login-form.tsx`.
+    window.location.assign("/");
   };
 
   return (

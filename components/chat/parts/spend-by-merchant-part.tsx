@@ -22,10 +22,13 @@ export const SpendByMerchantPart = ({
     );
   }
 
-  const { output: rows } = part;
+  const { merchants, total } = part.output;
 
   return (
-    <ToolResult isPending={false} label="Totals by merchant">
+    <ToolResult
+      isPending={false}
+      label={`Totals by merchant · ${formatAmount(total)}`}
+    >
       <ResultTable
         caption="Spend by merchant"
         columns={[
@@ -42,7 +45,7 @@ export const SpendByMerchantPart = ({
           },
         ]}
         empty="No receipts in that period."
-        rows={rows}
+        rows={merchants}
         rowKey={(row) => row.merchant}
       />
     </ToolResult>

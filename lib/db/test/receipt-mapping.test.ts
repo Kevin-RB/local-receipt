@@ -18,6 +18,7 @@ const flatReceipt: ReceiptSelect = {
   merchantStoreId: "0342",
   objectKey: "abc.jpg",
   paymentMethod: "card",
+  processingStartedAt: dtypeReceipt,
   receiptNumber: "0342-0087-1234",
   status: "done",
   subtotal: 9.9,
@@ -137,6 +138,30 @@ describe(receiptToFlat, () => {
         },
       }).transactionDateTime
     ).toBeNull();
+  });
+
+  it("nulls an absent optional rather than leaving it undefined", () => {
+    // Drizzle drops `undefined` from an update, which would leave the stored
+    // value in place instead of clearing it.
+    const minimal: ReceiptNested = {
+      merchant: { name: "Coles" },
+      payment: { method: "card" },
+      totals: { total: 10.9 },
+      transaction: {},
+    };
+
+    expect(receiptToFlat(minimal)).toStrictEqual({
+      gst: null,
+      merchantAbn: null,
+      merchantAddress: null,
+      merchantName: "Coles",
+      merchantStoreId: null,
+      paymentMethod: "card",
+      receiptNumber: null,
+      subtotal: null,
+      total: 10.9,
+      transactionDateTime: null,
+    });
   });
 
   it("round-trips a nested receipt through the flat columns", () => {

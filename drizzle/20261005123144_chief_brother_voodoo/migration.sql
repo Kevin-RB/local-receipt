@@ -1,0 +1,1 @@
+ALTER TABLE "receipt_items" ADD COLUMN "category_source" text DEFAULT 'ai' NOT NULL;

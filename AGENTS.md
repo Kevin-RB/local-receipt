@@ -69,6 +69,7 @@ Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
 - `pnpm lint` — `ultracite check`.
 - `pnpm fix` — `ultracite fix` (auto-fixes most issues).
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:push` / `pnpm db:studio` / `pnpm db:seed` — Drizzle operations.
+- `pnpm db:fixture [--email <address>] [--apply] [--force]` — provision a deterministic, sign-in-able test account with a curated receipt corpus (dry run unless `--apply`; `--email` defaults to the agent test account; requires `NODE_ENV=development` or `test`, which `.env.local` supplies). See ADR-0013.
 - `pnpm categorize:backfill` — queue categorization for done receipts that have no `categorized_at` stamp (idempotent; sends `receipt/extracted` to Inngest).
 
 Before committing, run the checks in this order:
@@ -142,8 +143,9 @@ Key properties:
   - **Not covered**: `rustfs-data`, which holds the receipt images. A database-only restore yields receipts whose images are gone. Back that volume up too, or accept that restores are database-only.
   - **Note**: Coolify has no native scheduled _database_ backup for Git-based Compose apps. The feature was proposed upstream ([#9019](https://github.com/coollabsio/coolify/pull/9019), [#9721](https://github.com/coollabsio/coolify/pull/9721)) but never merged, and `ServiceDatabase` has no `application_id` column, so a Compose **Application** cannot register one. `list_database_backups` returns "Database not found" for both resources. Don't go looking in the UI for it.
 - **Migrations**: never at app startup. Warm `DATABASE_URL` against a throwaway DB and run `pnpm db:generate` locally; apply with the `migrate` service at deploy.
+- **Inngest sync on deploy** (`.github/workflows/sync-inngest.yml`): Inngest only learns about a function after an app **sync**, and Coolify is not one of Inngest's hosting integrations, so without this a merge leaves Inngest serving the _previous_ manifest until someone resyncs by hand. On `push` to `main`/`staging` the workflow waits for the Coolify deployment of that exact commit to finish — ordering is load-bearing, since an early sync registers the old definitions — then calls the documented `POST https://api.inngest.com/v2/apps/receipt-analyser/syncs`. The app is not involved beyond serving `/api/inngest`; nothing about the deploy is added to the app. The branch selects a GitHub **environment** (`main` → `production`, `staging` → `staging`) whose variables carry the target (`COOLIFY_APP_UUID`, `APP_URL`) and whose secret `INNGEST_API_KEY` is an environment-scoped Inngest API key (write permission; one per environment, so a sync cannot touch the other environment). Repo-level secrets it needs: `COOLIFY_API_KEY` (a **read-only** token — the sync never deploys), `CF_ACCESS_CLIENT_ID` + `CF_ACCESS_CLIENT_SECRET` (a Cloudflare Access service token, because the Coolify API is behind Access). See ADR-0005.
 
-**Redeploys** (T18 merge-gate CD): open a PR → branch protection requires the CI `quality` job (typecheck/lint/test) plus pullfrog review → merge to `main` → the Coolify GitHub App auto-deploys. No deploy workflow or webhook secret (both retired). Rollback is one click in Coolify.
+**Redeploys** (T18 merge-gate CD): open a PR → branch protection requires the CI `quality` job (typecheck/lint/test) plus pullfrog review → merge to `main` → the Coolify GitHub App auto-deploys. No deploy workflow or webhook secret (both retired). Rollback is one click in Coolify. The `sync-inngest` workflow then resyncs Inngest Cloud once the deployment of that commit is live (see above).
 
 ---
 
@@ -156,14 +158,14 @@ Key properties:
   2. Download the image from RustFS.
   3. OCR with a vision model (`ORC_MODEL`).
   4. Parse the transcript into structured JSON (`PARSE_MODEL`, structured output).
-  5. Store the result in Postgres and publish realtime state on `receipt:<id>`.
-- **Categorization workflow**: once the receipt is stored, `transcribe-receipt` emits `receipt/extracted`; `lib/inngest/functions/categorize-receipt.ts` then assigns every line item a leaf category from the seeded taxonomy (`lib/ai/categorize.ts`, `CATEGORIZE_MODEL`) and stamps `receipts.categorized_at`, leaving `status` untouched. Categories are a derived, re-runnable layer (ADR-0009); `pnpm categorize:backfill` re-queues receipts that have no stamp.
+  5. Store the result in Postgres and publish realtime state on the owner's channel (`user:<ownerId>`), carrying the receipt id.
+- **Categorization workflow**: once the receipt is stored, `transcribe-receipt` emits `receipt/extracted`; `lib/inngest/functions/categorize-receipt.ts` then assigns every line item a leaf category from the seeded taxonomy (`lib/ai/categorize.ts`, `CATEGORIZE_MODEL`) and stamps `receipts.categorized_at`, leaving `status` untouched. It **skips items whose `category_source` is `user`** — a category the owner set on the receipt detail page is a decision, so a re-run must not re-classify it. Categories are a derived, re-runnable layer (ADR-0009); `pnpm categorize:backfill` re-queues receipts that have no stamp.
 - **Chat**: the chat is the front door — `/` (`app/(app)/page.tsx`) renders a `useChat` client (`components/chat/chat.tsx`) that streams from `POST /api/chat`. There is no `/chat` route. The route authenticates, validates the client-supplied messages with `validateUIMessages`, builds a per-request `ToolLoopAgent` (`lib/chat/agent.ts`, `CHAT_MODEL`), and streams the response. The taxonomy and today's date are in the system prompt. Chat history is client-side only — there is no `conversations`/`messages` persistence yet, so a reload loses the thread. `/receipts` holds the receipts table and the upload flow.
   - **Tools**: one file per tool in `lib/chat/tools/`, the filename being the model-facing name. Five owner-scoped read-only queries over `lib/chat/queries.ts` (`list_receipts`, `receipt_detail`, `search_line_items`, `spend_by_category`, `spend_by_merchant`) plus `ask_user`, a UI-answered clarifying-question tool. `buildChatTools(ownerId)` closes the owner over server-side, so no tool takes an owner argument and the model can never supply one. `lib/chat/output-schemas.ts` holds the output contracts, which the AI SDK validates the client's copy against. All chat types live in `lib/chat/tools/index.ts` next to the tool set they are inferred from, and they use the AI SDK's own inference (`InferUITools`, `ToolUIPart`, `UIMessage`) rather than re-deriving them. A per-tool part alias is `ToolUIPart<InferUITools<Pick<ChatTools, "name">>>` — keying by the tool set means a typo fails at the alias, not later as `never`.
   - **Tool parts**: `components/chat/chat-message.tsx` switches on `part.type` and narrows to each tool's own part type, so no cast is needed to reach a renderer's typed `input`/`output`. The `default` branch hands the unhandled part to a `never` parameter, so a tool added to `buildChatTools` without a case is a build error — a plain `default: return null` was tried first and rejected, because it compiled fine and rendered nothing. Renderers live in `components/chat/parts/<name>-part.tsx` and show the actual data (compact tables, linking through to `/receipts/[id]`) rather than only a status label.
   - **Client-supplied tool results are untrusted** (`lib/chat/trust.ts`). Only `ask_user` output may come from the browser; every other `output-available` tool part in an incoming request is replaced with an error, so a crafted request cannot talk the model into reporting figures no tool produced. Dates in tool results are receipt-local `YYYY-MM-DD` strings, never `Date` — they cross the wire as JSON.
-  - **Prompt** (`lib/chat/agent.ts`): deliberately tells the model _not_ to use `ask_user` except when a request cannot be answered without guessing. `gemma-4-e4b` calls it far too eagerly when invited to — verified against a local run.
-- **Realtime**: UI subscribes to `receipt:<id>` via `lib/inngest/channels.ts` and `lib/inngest/actions.ts`.
+  - **Prompt** (`lib/chat/agent.ts`): directs the model to `ask_user` when a request is missing something a tool call needs — the time period above all, or which of several things the user means — and never to ask when the request already carries its period. Tiers matter: eager questions cost a round trip, so phrasing-only ambiguity resolves by taking the likely reading instead. Keep the tiers in the prompt if you touch it; an earlier version banned `ask_user` outright and the model assumed a period instead of asking.
+- **Realtime**: one channel per owner (`user:<ownerId>`, ADR-0012). `lib/inngest/channels.ts` defines it; `lib/inngest/actions.ts` mints the token from the session, never from a caller-supplied id. The receipts page opens a single subscription (`components/receipts/receipts-realtime.tsx`) and routes each message to its row by `receiptId`.
 - **Processing status lifecycle**: `uploading` → `pending` → `processing` → `done`/`error`. See `CONTEXT.md` for domain terms.
 
 ---
@@ -191,16 +193,19 @@ Key properties:
 ## Database
 
 - Drizzle ORM (`1.0.0-rc.4`) with `pg` and Postgres.
-- Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`, `lib/db/schema/category.ts`. Relations: `lib/db/relations.ts`. Line items carry a nullable `category_id` (leaf category); receipts carry `categorized_at`.
+- Schemas: `lib/db/schema/receipt.ts`, `lib/db/schema/receipt-item.ts`, `lib/db/schema/category.ts`. Relations: `lib/db/relations.ts`. Line items carry a nullable `category_id` (leaf category) and a `category_source` (`ai` | `user`); receipts carry `categorized_at`.
 - Migrations live in `drizzle/` and are generated with `pnpm db:generate`.
 - For local dev you can either run `pnpm db:migrate` after generating or use `pnpm db:push`.
 - `pnpm db:seed` writes demo data through the `drizzle-seed` library (reset + seed) to a dedicated `receipts_seed` database — never the app's `receipts` database. Point it elsewhere with `SEED_DATABASE_URL`. One-time setup per dev machine: create the database and migrate it, then run the app against it to view the data:
+
   ```
   docker exec receipt-app-postgres-1 createdb -U postgres receipts_seed
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm db:migrate
   pnpm db:seed
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_seed pnpm dev
   ```
+
+- `pnpm db:fixture` is the **test fixture** path, distinct from demo data (ADR-0013). It writes to the app database named by `DATABASE_URL` — never `receipts_seed` — and is a dry run unless `--apply` is passed. It targets the agent test account by default (`trace-test@example.com`); `--email` selects another, and the owner's account needs `--force` too. It creates the Better Auth `credential` account the seed omits, so the printed credentials sign in at `/sign-in`; the corpus is 36 receipts over the trailing twelve months with coherent line-item arithmetic, categories drawn from the taxonomy the migrations seed, and one receipt carrying an integrity warning. Deterministic ids make a re-run a no-op. It refuses an account that already has receipts of its own unless `--force`, never touches another owner's rows, and refuses to run unless `NODE_ENV` is `development` or `test` (production is the named case; an unset value in a deployed container is refused for the same reason). Fixture receipts have no `object_key`, so the detail page shows "No image available" — that is deliberate, so the command needs Postgres only. Remember that `.env.local` supplies `DATABASE_URL`, so the command targets whatever database the app is pointed at.
 
 ---
 
@@ -210,7 +215,32 @@ Key properties:
 - Run the whole suite: `pnpm test`.
 - Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
 - Current tests are mostly unit tests with mocked DB / AI / storage; they do not require Postgres, RustFS, or LM Studio.
+- **Fixture integration test (optional).** The DB-writing half of `pnpm db:fixture` (`lib/db/fixture-provision.ts`) has a Postgres-backed test, skipped unless you point it at a scratch database:
+
+  ```sh
+  docker exec receipt-app-postgres-1 createdb -U postgres receipts_fixture_test
+  FIXTURE_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/receipts_fixture_test pnpm vitest run lib/db/fixture-provision.integration.test.ts
+  ```
+
+  It migrates then truncates that database, so the name must contain `test` or `fixture` — pointing it anywhere else fails loudly. `pnpm test` skips it, so the suite and CI stay Postgres-free.
+
 - **Storage smoke check (post-deploy).** After any change to storage, the webhook, or the upload flow, upload a file in the app and confirm the receipt moves `uploading → pending` and a run appears in Inngest. A webhook that silently drops events (e.g. an object-key mismatch) produces no error and no run — this is the check that catches it.
+
+### Agent / browser testing
+
+Any end-to-end or UI check uses the fixture account. Do not make one by hand.
+
+- **Account:** `trace-test@example.com`, password `fixture-pass-1234` (`FIXTURE_PASSWORD` in `lib/db/fixture.ts`).
+- **Ensure it exists before signing in.** The command is idempotent and a no-op when the fixture is already there:
+
+  ```sh
+  pnpm db:fixture --apply
+  ```
+
+  `--email` defaults to that account, so this command cannot accidentally provision a different one. Sign in at `/sign-in`, or drive the browser with the same credentials. `--apply` also verifies that account's stored password against the fixture password and resets it only if it has drifted, so these credentials always work; when it already matches, nothing is written.
+
+- **Do not** sign up through the UI, copy receipts between accounts, or insert rows by hand. If the fixture is missing or stale, re-run the command.
+- **The owner's account** (`kr38996@gmail.com`) is not part of agent testing. Adding fixture rows to it is an explicit owner decision and needs `--email kr38996@gmail.com --force`.
 
 ---
 
@@ -219,7 +249,7 @@ Key properties:
 - The AI provider is in `lib/ai/provider.ts` and uses `@ai-sdk/openai-compatible` pointing at LM Studio.
 - Default models are `glm-ocr` (OCR) and `google/gemma-4-e4b` (parsing and categorization), configurable via `ORC_MODEL`, `PARSE_MODEL`, and `CATEGORIZE_MODEL` (defaults to `PARSE_MODEL`); use exactly the id LM Studio serves (from `GET /v1/models`) — it strips quant suffixes (e.g. `glm-ocr`, not `glm-ocr@q8_0`).
 - Categorization (`lib/ai/categorize.ts`) is one `generateText` + `Output.object` call per chunk: the taxonomy is written into the prompt **once**, and the model returns an array of `{ index, category }` constrained by a Zod enum of leaf slugs. Do **not** reimplement it with `experimental_evaluate`: that API repeats each question's criteria per question, so the taxonomy is duplicated once per item and blows the local model's context window (it also wedges the LM Studio engine on overflow). This function is the seam that swaps for TypeSafe Jev later.
-- The chat agent (`lib/chat/agent.ts`) is a `ToolLoopAgent` over the five read-only tools; its model is `CHAT_MODEL` (defaults to `PARSE_MODEL`). It must support tool calling — `gemma-4-e4b` does, but weakly, so the system prompt is deliberately strict (today's date, no clarifying questions) and `CHAT_MODEL` is the knob to swap in a stronger model.
+- The chat agent (`lib/chat/agent.ts`) is a `ToolLoopAgent` over the five read-only tools; its model is `CHAT_MODEL` (defaults to `PARSE_MODEL`). It must support tool calling — `gemma-4-e4b` does, but weakly, so the system prompt is deliberately strict (today's date, tiered ask_user rules) and `CHAT_MODEL` is the knob to swap in a stronger model.
 - Production runs LM Studio headless on the Mac mini host (`llmster`), bound to loopback only: no API auth (nothing is LAN-exposed), reached by containers via `LM_STUDIO_URL=http://host.docker.internal:1234/v1`. It does **not** auto-start on reboot — after a mini reboot run: `lms daemon up && lms load glm-ocr && lms load google/gemma-4-e4b --context-length 8192 && lms server start --port 1234` (models pinned, no idle TTL).
 - The extraction contract is `lib/db/contract.ts` (`ReceiptInformationExtractionSchema`).
 

@@ -11,16 +11,40 @@ import {
   receiptItemInsertSchema,
 } from "@/lib/db/schema/receipt-item";
 
+/** An amount the receipt states: never negative, except a discount's unit price. */
 const money = z.number().min(0);
+
+/**
+ * The unit price of a line item. Unlike quantity and the receipt totals, this
+ * may be negative — a discount's unit price is negated alongside its line total
+ * so `quantity × unitPrice` still reconciles, and the sign follows the kind
+ * rather than the input. Rejecting it here would make a stored discount
+ * unsaveable.
+ */
+const unitPrice = z.number();
 
 export const updateReceiptSchema = z.object({
   items: z.array(
-    receiptItemInsertSchema.omit({ id: true, receiptId: true }).extend({
-      kind: lineItemKindEnum.default("product"),
-      lineTotal: z.number(),
-      quantity: money.nullable().optional(),
-      unitPrice: money.nullable().optional(),
-    })
+    receiptItemInsertSchema
+      .omit({ categorySource: true, id: true, receiptId: true })
+      .extend({
+        // Whether the user changed this item's category in the form. The
+        // submitted `categoryId` is only meaningful alongside it: without the
+        // signal, a category filled in by a categorization run after the page
+        // loaded would be overwritten by the stale form value and recorded as
+        // a user decision.
+        categoryTouched: z.boolean().default(false),
+        // Named `itemId` rather than `id` because `useFieldArray` generates its
+        // own `id` for each row and overwrites the field of that name, so a
+        // payload key of `id` would be ambiguous.
+        itemId: z.uuid({ message: "Invalid line item ID" }).optional(),
+        kind: lineItemKindEnum.default("product"),
+        lineTotal: z.number(),
+        quantity: money.nullable().optional(),
+        // `unitPrice`, not `money`: a discount's unit price is negative, and
+        // rejecting it here would make a stored discount unsaveable.
+        unitPrice: unitPrice.nullable().optional(),
+      })
   ),
   merchant: merchantSchema.extend({ name: z.string().min(1) }),
   payment: paymentSchema,

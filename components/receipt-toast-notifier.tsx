@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  UseRealtimeConnectionStatus,
-  UseRealtimeRunStatus,
-} from "inngest/react";
+import type { UseRealtimeConnectionStatus } from "inngest/react";
 import { CircleCheckIcon, Loader2Icon, OctagonXIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
@@ -19,9 +16,7 @@ import {
   createToastManager,
   useToastManager,
 } from "@/components/ui/toast";
-import type { ReceiptRealtime } from "@/hooks/use-receipt-realtime";
-
-const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
+import type { ReceiptState } from "@/lib/inngest/channels";
 
 const receiptToastManager = createToastManager();
 
@@ -90,16 +85,18 @@ interface ToastBody {
   type: "error" | "loading" | "success";
 }
 
-const resolveToastBody = (input: {
+export const resolveToastBody = (input: {
   connectionStatus: UseRealtimeConnectionStatus;
   error: Error | null;
-  runStatus: UseRealtimeRunStatus;
-  state: "done" | "extracting" | "failed" | "parsing" | "storing" | undefined;
+  state: ReceiptState | undefined;
   stateError: string | undefined;
 }): ToastBody => {
-  const { connectionStatus, error, runStatus, state, stateError } = input;
+  const { connectionStatus, error, state, stateError } = input;
 
-  if (error && !TERMINAL_RUN_STATUSES.has(runStatus)) {
+  // A socket drop must not replace a toast that already reports the outcome:
+  // once the receipt is done or failed, the stored result is what the owner
+  // needs to see, not a sticky connection error about a run that finished.
+  if (error && state !== "done" && state !== "failed") {
     return {
       description: error.message,
       timeout: 0,
@@ -154,43 +151,6 @@ const resolveToastBody = (input: {
     }
   }
 
-  if (connectionStatus === "open" && runStatus === "running" && !state) {
-    return {
-      description: "Starting processing of your receipt",
-      timeout: 0,
-      title: "Possuming...",
-      type: "loading",
-    };
-  }
-
-  if (runStatus === "unknown") {
-    return {
-      description: "Staring into the void...",
-      timeout: 0,
-      title: "hold on...",
-      type: "loading",
-    };
-  }
-
-  if (runStatus === "completed") {
-    return {
-      description: "Receipt data is now available",
-      timeout: 10_000,
-      title: "Receipt processed!",
-      type: "success",
-    };
-  }
-
-  if (runStatus === "failed" || runStatus === "cancelled") {
-    console.error("Run failed or cancelled", { error, runStatus });
-    return {
-      description: stateError ?? error?.message ?? "An unknown error occurred",
-      timeout: 0,
-      title: "Processing failed",
-      type: "error",
-    };
-  }
-
   return {
     description:
       connectionStatus === "open" ? "Connected" : "Waiting for server...",
@@ -201,30 +161,28 @@ const resolveToastBody = (input: {
 };
 
 export const ReceiptToastNotifier = ({
-  realtime,
+  connectionStatus,
+  error,
+  state,
+  stateError,
 }: {
-  realtime: ReceiptRealtime;
+  connectionStatus: UseRealtimeConnectionStatus;
+  error: Error | null;
+  state: ReceiptState | undefined;
+  stateError: string | undefined;
 }) => {
   const toastIdRef = useRef<string | null>(null);
   const isTerminalRef = useRef(false);
-
-  const { connectionStatus, error, runStatus, messages } = realtime;
-  const state = messages.byTopic.state?.data.state;
-  const stateError = messages.byTopic.state?.data.error;
 
   useEffect(() => {
     const { description, timeout, title, type } = resolveToastBody({
       connectionStatus,
       error,
-      runStatus,
       state,
       stateError,
     });
 
-    isTerminalRef.current =
-      TERMINAL_RUN_STATUSES.has(runStatus) ||
-      state === "done" ||
-      state === "failed";
+    isTerminalRef.current = state === "done" || state === "failed";
 
     if (toastIdRef.current) {
       receiptToastManager.update(toastIdRef.current, {
@@ -241,7 +199,7 @@ export const ReceiptToastNotifier = ({
         type,
       });
     }
-  }, [state, stateError, runStatus, connectionStatus, error]);
+  }, [state, stateError, connectionStatus, error]);
 
   useEffect(
     () => () => {

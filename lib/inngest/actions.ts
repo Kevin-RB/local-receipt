@@ -1,28 +1,28 @@
 "use server";
 
 import { getClientSubscriptionToken } from "inngest/react";
-import { headers } from "next/headers";
 
-import { auth } from "@/lib/auth";
-import { findReceiptByIdForOwner } from "@/lib/db";
-import { receiptChannel } from "@/lib/inngest/channels";
+import { getSession } from "@/lib/auth/dal";
+import { receiptsChannel } from "@/lib/inngest/channels";
 import { inngest } from "@/lib/inngest/client";
 
-export const fetchReceiptSubscriptionToken = async (receiptId: string) => {
-  const session = await auth.api.getSession({ headers: await headers() });
+/**
+ * Mints the token for the signed-in owner's own channel.
+ *
+ * The channel name comes from the session, never from the caller, so there is
+ * no id to forge and no per-receipt ownership check to make: a caller can only
+ * ever subscribe to the channel their own session names. The receipts page
+ * subscribes once; every receipt the owner can see is a message on it.
+ */
+export const fetchReceiptsSubscriptionToken = async () => {
+  const session = await getSession();
 
   if (!session) {
     throw new Error("Unauthorized");
   }
 
-  const receipt = await findReceiptByIdForOwner(receiptId, session.user.id);
-
-  if (!receipt) {
-    throw new Error("Receipt not found");
-  }
-
   return getClientSubscriptionToken(inngest, {
-    channel: receiptChannel(receiptId),
+    channel: receiptsChannel(session.user.id),
     topics: ["state"],
   });
 };

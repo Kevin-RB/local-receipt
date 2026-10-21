@@ -5,9 +5,11 @@ import type { NextRequest } from "next/server";
 const PUBLIC_PATHS = new Set(["/sign-in", "/sign-up"]);
 
 export const proxy = (request: NextRequest) => {
-  // Optimistic check only — real validation happens server-side in layouts.
-  // Public paths are never redirected here: a stale cookie must not bounce
-  // users away from /sign-in, or the layout check would loop forever.
+  // Optimistic check only — the real validation is server-side, in each page's
+  // `requireSession()` (see `lib/auth/dal.ts`), which is where the session is
+  // read close to the data. Public paths are never redirected here: a stale
+  // cookie must not bounce users away from /sign-in, or the page's own check
+  // would send them back forever.
   if (
     !PUBLIC_PATHS.has(request.nextUrl.pathname) &&
     !getSessionCookie(request)
