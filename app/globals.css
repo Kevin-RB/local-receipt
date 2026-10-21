@@ -72,6 +72,12 @@
   --chart-4: oklch(0.532 0.157 131.589);
   --chart-5: oklch(0.453 0.124 130.933);
   --radius: 0.45rem;
+  /* Tailwind's built-in curves are too weak to read as deliberate. These are
+     the only two the app uses: `ease-out` for anything entering or leaving,
+     `ease-in-out` for something already on screen that moves. `ease-in` is
+     never used on UI — it delays the exact moment the user is watching. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --sidebar: oklch(0.987 0.002 197.1);
   --sidebar-foreground: oklch(0.148 0.004 228.8);
   --sidebar-primary: oklch(0.648 0.2 131.684);
@@ -198,9 +204,79 @@
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
+/* Entrance for a surface that replaces another one — the chat's empty state
+   giving way to the transcript, the question card arriving at the bottom edge.
+   It bridges a change that would otherwise teleport; it never delays anything,
+   because the element is interactive the moment it is painted. */
+.enter-rise {
+  transition:
+    opacity 200ms var(--ease-out),
+    translate 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+/* The same bridge, for a block that lands inside content already on screen — a
+   tool result settling into a streaming transcript. Faster and shorter travel,
+   because it happens several times per answer. */
+.enter-rise-sm {
+  transition:
+    opacity 150ms var(--ease-out),
+    translate 150ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 2px;
+  }
+}
+
+/* The OCR transcript is a native `<details>` in a server component, so the
+   opening is bridged in CSS rather than by adding a client accordion. The
+   `@supports` gate is the fallback: browsers without keyword interpolation
+   open it instantly, which is what the element did before. */
+@supports (interpolate-size: allow-keywords) {
+  .transcript-details {
+    interpolate-size: allow-keywords;
+  }
+
+  .transcript-details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      block-size 200ms var(--ease-out),
+      opacity 200ms var(--ease-out),
+      content-visibility 200ms allow-discrete;
+  }
+
+  .transcript-details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shimmer {
     animation: none;
     opacity: 0.6;
+  }
+
+  /* Gentler, not gone: the fade still marks the change, the movement does not.
+     The accordion gives up its height transition entirely — a box that grows
+     over 200ms is the movement, and there is no fade worth keeping. */
+  .enter-rise,
+  .enter-rise-sm {
+    transition: opacity 120ms ease;
+
+    @starting-style {
+      translate: none;
+    }
+  }
+
+  .transcript-details::details-content {
+    transition: none;
   }
 }

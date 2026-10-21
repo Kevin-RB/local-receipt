@@ -64,7 +64,7 @@ const ReceiptImage = ({
 );
 
 const ReceiptTranscript = ({ transcript }: { transcript: string }) => (
-  <details className="border-border bg-card mt-8 rounded-lg border">
+  <details className="transcript-details border-border bg-card mt-8 rounded-lg border">
     <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
       OCR transcript
     </summary>

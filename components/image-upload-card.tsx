@@ -233,7 +233,7 @@ export const ImageUploadCard = ({
                   )}
                 >
                   {preview ? (
-                    <div className="relative h-[50vh] max-h-96 w-full">
+                    <div className="enter-rise relative h-[50vh] max-h-96 w-full">
                       <Image
                         src={preview}
                         alt="Receipt preview"

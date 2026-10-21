@@ -7,7 +7,7 @@ import {
 } from "ai";
 import { Leap } from "loading-dev";
 import { PlusIcon } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useState } from "react";
 
 import { PossumMark } from "@/components/brand/possum-mark";
 import { Button } from "@/components/ui/button";
@@ -109,6 +109,16 @@ export const Chat = ({ firstName }: { firstName: string }) => {
   const lastMessage = messages.at(-1);
   const pendingQuestion = findPendingQuestion(lastMessage);
 
+  // The empty state's entrance is a bridge back from a conversation, not a page
+  // entry animation: `/` is the front door, so arriving here is core navigation
+  // and gets no motion. Adjusted during render rather than in an effect, the
+  // same pattern `upload-flow.tsx` uses — the flag only ever flips one way, so
+  // it settles after the first message.
+  const [hasConversed, setHasConversed] = useState(false);
+  if (!isEmpty && !hasConversed) {
+    setHasConversed(true);
+  }
+
   // Null on the server and the first client render, so there is no wrong
   // greeting to correct — the title is filled in once the browser's clock is
   // available. See `lib/chat/greeting.ts`.
@@ -133,7 +143,12 @@ export const Chat = ({ firstName }: { firstName: string }) => {
       {isEmpty ? (
         // A column, so the dev panel sits below the greeting instead of
         // competing with it for width on a phone.
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col",
+            hasConversed && "enter-rise"
+          )}
+        >
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <Empty>
               <EmptyHeader>
@@ -169,7 +184,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
         </div>
       ) : (
         <>
-          <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div className="enter-rise relative min-h-0 flex-1 overflow-hidden">
             <MessageScrollerProvider autoScroll>
               <MessageScroller>
                 <MessageScrollerViewport>
@@ -228,7 +243,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
             </MessageScrollerProvider>
           </div>
 
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
+          <div className="enter-rise mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
             {error ? (
               <p className="text-destructive text-xs">
                 Something went wrong. Please try again.
