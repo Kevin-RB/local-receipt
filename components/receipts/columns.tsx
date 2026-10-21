@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
+import { formatReceiptDateTime } from "@/lib/receipt/datetime";
 
 export const receiptTableSchema = z.object({
   hasIntegrityWarning: z.boolean(),
@@ -49,12 +50,6 @@ export const receiptTableSchema = z.object({
 });
 
 export type ReceiptTable = z.infer<typeof receiptTableSchema>;
-
-const dateFormatter = new Intl.DateTimeFormat("en-AU", {
-  dateStyle: "full",
-  timeStyle: "short",
-  timeZone: "Australia/Brisbane",
-});
 
 const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
 
@@ -176,11 +171,13 @@ export const receiptColumns = columnHelper.columns([
     sortFn: "alphanumeric",
   }),
   columnHelper.accessor("transactionDateTime", {
-    cell: ({ row }) => {
-      const { transactionDateTime } = row.original;
-      const instant = transactionDateTime.toTemporalInstant();
-      return <div className="text-right">{dateFormatter.format(instant)}</div>;
-    },
+    cell: ({ row }) => (
+      // The `Date` goes straight to the formatter: `formatReceiptDateTime`
+      // explains why a `Temporal.Instant` here is a hydration error.
+      <div className="text-right">
+        {formatReceiptDateTime(row.original.transactionDateTime)}
+      </div>
+    ),
     filterFn: dateRangeFilterFn,
     header: "Date",
     sortFn: "datetime",

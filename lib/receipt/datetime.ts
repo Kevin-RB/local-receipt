@@ -21,6 +21,28 @@ export const receiptDateTimeToDate = (
 
 const pad = (value: number) => value.toString().padStart(2, "0");
 
+const RECEIPT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  dateStyle: "full",
+  timeStyle: "short",
+  timeZone: RECEIPT_TIMEZONE,
+});
+
+/**
+ * Displays a receipt's timestamp in the receipt's own timezone.
+ *
+ * Takes a `Date`, and must keep taking one: handing a `Temporal` object to
+ * `Intl.DateTimeFormat#format` is not portable between implementations. With
+ * en-AU `dateStyle: "full"`, Node's native bridge drops the comma after the
+ * weekday ("Saturday 17 October 2026") while the browser and the polyfill keep
+ * it ("Saturday, 17 October 2026"). That string is server-rendered and then
+ * re-rendered during hydration, so one comma is a hydration error on every
+ * receipts page. A `Date` is the only argument every runtime formats the same
+ * way, and the explicit `timeZone` already fixes the zone the instant is read
+ * in — the `Temporal.Instant` hop bought nothing.
+ */
+export const formatReceiptDateTime = (date: Date): string =>
+  RECEIPT_DATE_TIME_FORMATTER.format(date);
+
 export const receiptDateToLocalString = (
   date: Date,
   timezone = RECEIPT_TIMEZONE
