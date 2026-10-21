@@ -3,9 +3,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Geist, IBM_Plex_Sans } from "next/font/google";
 
-import { THEME_COLORS, ThemeColor } from "@/components/theme-color";
+import { ThemeColor } from "@/components/theme-color";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
+import { THEME_COLORS } from "@/lib/theme-colors";
 import { cn } from "@/lib/utils";
 
 const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });

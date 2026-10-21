@@ -3,14 +3,7 @@
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
 
-/**
- * The colour at the very top of the page — the app header's background, not the
- * brand green. `#090b0c` is `--background` in the dark theme.
- */
-export const THEME_COLORS = {
-  dark: "#090b0c",
-  light: "#ffffff",
-} as const;
+import { THEME_COLORS } from "@/lib/theme-colors";
 
 /**
  * `theme-color` is what the iOS status bar and the Android toolbar are painted
@@ -18,6 +11,9 @@ export const THEME_COLORS = {
  * the theme is a class chosen in the app, so "light on a dark OS" would leave a
  * light status bar over a dark page. Once the resolved theme is known, every
  * tag is pinned to it.
+ *
+ * The two tags are identical after this runs; the media queries they carried
+ * are what the class-based theme cannot express.
  */
 export const ThemeColor = () => {
   const { resolvedTheme } = useTheme();
