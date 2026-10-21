@@ -36,7 +36,16 @@ const ReceiptImage = ({
   receiptId: string;
   className?: string;
 }) => (
-  <div className={cn("relative min-h-[400px]", className)}>
+  <div
+    className={cn(
+      "relative",
+      // A receipt is tall, not wide: half the phone's viewport shows the top of
+      // it, and the whole image is a tap away. "No image available" needs none
+      // of that, so it collapses instead of holding 400px of empty space.
+      hasImage ? "min-h-[50svh] lg:min-h-[400px]" : "min-h-40",
+      className
+    )}
+  >
     {hasImage ? (
       <Image
         alt="Receipt image"

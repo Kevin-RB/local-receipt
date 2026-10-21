@@ -2,12 +2,21 @@
 
 import "temporal-polyfill/global";
 import { useTable } from "@tanstack/react-table";
-import type { ColumnDef, RowData } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, CalendarIcon, ChevronsUpDown } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
+import {
+  ArrowDown,
+  ArrowUp,
+  BadgeAlert,
+  CalendarIcon,
+  ChevronsUpDown,
+} from "lucide-react";
+import Link from "next/link";
 import type { DateRange } from "react-day-picker";
 
+import type { ReceiptTable } from "@/components/receipts/columns";
 import { features } from "@/components/receipts/features";
 import type { DataTableFeatures } from "@/components/receipts/features";
+import { ReceiptStatus } from "@/components/receipts/receipt-status";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -25,9 +34,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface DataTableProps<TData extends RowData> {
-  columns: ColumnDef<DataTableFeatures, TData>[];
-  data: TData[];
+interface DataTableProps {
+  columns: ColumnDef<DataTableFeatures, ReceiptTable>[];
+  data: ReceiptTable[];
 }
 
 const SortIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
@@ -66,6 +75,51 @@ const rangeDateFormatter = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
 });
 
+const cardDateFormatter = new Intl.DateTimeFormat("en-AU", {
+  dateStyle: "medium",
+  timeZone: "Australia/Brisbane",
+});
+
+const currencyFormatter = new Intl.NumberFormat("en-AU", {
+  currency: "AUD",
+  style: "currency",
+});
+
+/**
+ * The phone's version of a table row. Four of the table's seven columns are
+ * off-screen at 390px, and the two that matter — merchant and total — are the
+ * ones furthest right, so a scrolling table hides exactly what the list is for.
+ */
+const ReceiptCard = ({ receipt }: { receipt: ReceiptTable }) => (
+  <li>
+    <Link
+      className="active:bg-muted/60 flex flex-col gap-1 rounded-lg border p-3 transition-colors"
+      href={`/receipts/${receipt.id}`}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="truncate font-medium">{receipt.merchantName}</span>
+        <span className="shrink-0 font-medium tabular-nums">
+          {currencyFormatter.format(receipt.total)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground text-xs">
+          {cardDateFormatter.format(receipt.transactionDateTime)}
+        </span>
+        {receipt.hasIntegrityWarning ? (
+          <BadgeAlert
+            aria-label="Integrity warning"
+            className="text-destructive size-3.5 shrink-0"
+          />
+        ) : null}
+        <span className="ml-auto">
+          <ReceiptStatus id={receipt.id} status={receipt.status} />
+        </span>
+      </div>
+    </Link>
+  </li>
+);
+
 export const getToday = () =>
   new Date(Temporal.Now.instant().epochMilliseconds);
 
@@ -74,10 +128,7 @@ export const getStartOfPreviousMonth = () => {
   return new Date(previousMonth.year, previousMonth.month - 1, 1);
 };
 
-export const DataTable = <TData extends RowData>({
-  columns,
-  data,
-}: DataTableProps<TData>) => {
+export const DataTable = ({ columns, data }: DataTableProps) => {
   const table = useTable({
     columns,
     data,
@@ -147,7 +198,20 @@ export const DataTable = <TData extends RowData>({
           </PopoverContent>
         </Popover>
       </div>
-      <div className="overflow-hidden rounded-md border">
+      <ul className="flex flex-col gap-2 md:hidden">
+        {table.getRowModel().rows.length ? (
+          table
+            .getRowModel()
+            .rows.map((row) => (
+              <ReceiptCard key={row.id} receipt={row.original} />
+            ))
+        ) : (
+          <li className="text-muted-foreground py-12 text-center text-sm">
+            No results.
+          </li>
+        )}
+      </ul>
+      <div className="hidden overflow-hidden rounded-md border md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

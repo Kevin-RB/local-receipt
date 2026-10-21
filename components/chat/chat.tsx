@@ -131,36 +131,40 @@ export const Chat = ({ firstName }: { firstName: string }) => {
   return (
     <div className="flex h-full w-full flex-col">
       {isEmpty ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <Empty>
-            <EmptyHeader>
-              {/* No reserved height needed: the mark renders unconditionally
-                  and is taller than the text, so the row cannot change height
-                  when the greeting eases in after hydration — see
-                  `lib/chat/greeting.ts`. */}
-              <div className="flex items-center justify-center gap-3">
-                <PossumMark className="size-16" ground="var(--background)" />
-                {greeting ? (
-                  <h1 className="font-heading text-2xl font-semibold tracking-tight">
-                    {greeting}
-                  </h1>
-                ) : null}
-              </div>
-              <EmptyDescription>
-                Ask about your spending — for example “how much did I spend on
-                groceries last month?”
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent className="w-full max-w-3xl">
-              <PromptForm
-                isBusy={busy}
-                onStop={stop}
-                onSubmit={(text) => sendMessage({ text })}
-                placeholder="How can I help you today?"
-              />
-              <Suggestions onSelect={(text) => sendMessage({ text })} />
-            </EmptyContent>
-          </Empty>
+        // A column, so the dev panel sits below the greeting instead of
+        // competing with it for width on a phone.
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <Empty>
+              <EmptyHeader>
+                {/* No reserved height needed: the mark renders unconditionally
+                    and is taller than the text, so the row cannot change height
+                    when the greeting eases in after hydration — see
+                    `lib/chat/greeting.ts`. */}
+                <div className="flex items-center justify-center gap-3">
+                  <PossumMark className="size-16" ground="var(--background)" />
+                  {greeting ? (
+                    <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
+                      {greeting}
+                    </h1>
+                  ) : null}
+                </div>
+                <EmptyDescription>
+                  Ask about your spending — for example “how much did I spend on
+                  groceries last month?”
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent className="w-full max-w-3xl">
+                <PromptForm
+                  isBusy={busy}
+                  onStop={stop}
+                  onSubmit={(text) => sendMessage({ text })}
+                  placeholder="How can I help you today?"
+                />
+                <Suggestions onSelect={(text) => sendMessage({ text })} />
+              </EmptyContent>
+            </Empty>
+          </div>
           {debugPanel}
         </div>
       ) : (
@@ -169,37 +173,41 @@ export const Chat = ({ firstName }: { firstName: string }) => {
             <MessageScrollerProvider autoScroll>
               <MessageScroller>
                 <MessageScrollerViewport>
-                  <MessageScrollerContent className="mx-auto w-full max-w-3xl">
-                    {messages.map((message) => (
-                      <MessageScrollerItem
-                        key={message.id}
-                        messageId={message.id}
-                        scrollAnchor={message.role === "user"}
-                      >
-                        <ChatMessage
-                          isStreaming={isLastStreaming(
-                            message,
-                            lastMessage?.id,
-                            busy
-                          )}
-                          message={message}
-                        />
-                      </MessageScrollerItem>
-                    ))}
+                  {/* The scroller's content owns its own spacing, so the
+                      phone gutter goes on this wrapper rather than on it. */}
+                  <div className="flex h-full flex-col px-4">
+                    <MessageScrollerContent className="mx-auto w-full max-w-3xl shrink-0">
+                      {messages.map((message) => (
+                        <MessageScrollerItem
+                          key={message.id}
+                          messageId={message.id}
+                          scrollAnchor={message.role === "user"}
+                        >
+                          <ChatMessage
+                            isStreaming={isLastStreaming(
+                              message,
+                              lastMessage?.id,
+                              busy
+                            )}
+                            message={message}
+                          />
+                        </MessageScrollerItem>
+                      ))}
 
-                    {status === "submitted" ? (
-                      <MessageScrollerItem messageId="thinking">
-                        <Trace>
-                          <TraceLine aria-live="polite" status="running">
-                            <TraceIcon>
-                              <Leap size={14} />
-                            </TraceIcon>
-                            <TraceTitle>Thinking…</TraceTitle>
-                          </TraceLine>
-                        </Trace>
-                      </MessageScrollerItem>
-                    ) : null}
-                  </MessageScrollerContent>
+                      {status === "submitted" ? (
+                        <MessageScrollerItem messageId="thinking">
+                          <Trace>
+                            <TraceLine aria-live="polite" status="running">
+                              <TraceIcon>
+                                <Leap size={14} />
+                              </TraceIcon>
+                              <TraceTitle>Thinking…</TraceTitle>
+                            </TraceLine>
+                          </Trace>
+                        </MessageScrollerItem>
+                      ) : null}
+                    </MessageScrollerContent>
+                  </div>
 
                   {pendingQuestion ? (
                     <QuestionCard
@@ -220,7 +228,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
             </MessageScrollerProvider>
           </div>
 
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 py-3">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
             {error ? (
               <p className="text-destructive text-xs">
                 Something went wrong. Please try again.
