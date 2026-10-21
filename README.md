@@ -83,7 +83,7 @@ There are five moving parts. Only one of them is part of this repository.
 | --- | --- | --- | --- |
 | Browser | App | HTTPS: page loads, `POST /api/upload`, `POST /api/chat`, server actions | Session cookie; `proxy.ts` does an optimistic cookie check, real checks happen in layouts and per route |
 | Browser | RustFS | HTTPS `PUT` to a presigned URL | Direct, credential-free, one object key, 5-minute expiry |
-| Browser | Inngest | SSE subscription over a realtime channel | Token minted by a server action, scoped to one receipt |
+| Browser | Inngest | SSE subscription over a realtime channel | One channel per owner (`user:<id>`); token minted by a server action from the session |
 | App | Postgres | `pg` over TCP | Drizzle; every query is owner-scoped |
 | App | RustFS | S3 API (`GetObject`, `PutObject`, `DeleteObject`, presign) | App authenticates as a least-privilege IAM user, not root |
 | App | LM Studio | OpenAI-compatible HTTP (`/v1/chat/completions`) | AI SDK with `structuredOutputs`; model ids come from `GET /v1/models` |
@@ -105,8 +105,8 @@ Two boundaries are worth calling out, because they are the reason the pipeline i
 3. **Upload.** The browser PUTs the bytes straight to RustFS. Storage credentials never leave the server.
 4. **Notification.** RustFS POSTs a bucket event to `/api/storage-events`, authenticated by the shared secret. The handler promotes the row `uploading → pending` and sends `receipt/uploaded` with a deterministic event id, so redelivery is deduped by Inngest rather than starting a second run. A non-2xx makes RustFS retry, and the retry re-enqueues instead of losing the extraction.
 5. **Extract.** `transcribe-receipt` claims the row (`pending → processing`), downloads the image, and OCRs it with the vision model. The transcript is written as soon as it exists — if parsing then fails, it is the only evidence of what the image said. Next the transcript is parsed into the fixed extraction contract (`lib/db/contract.ts`) and validated against it, and in a final step the flat receipt fields, the line items, and the integrity warning are written and the row marked `done`. The warning is raised when the line items do not reconcile against the stated total.
-6. **Categorize.** Extraction emits `receipt/extracted`; `categorize-receipt` loads the line items and the seeded leaf taxonomy, asks the model for one category per item, writes the assignments, and stamps `categorized_at`. Because the taxonomy is a derived layer, a re-run reapplies it to every item; preserving hand-picked categories requires a `category_source` marker, which does not exist yet (see [ADR-0009](docs/adr/0009-categories-are-derived-and-re-runnable.md)).
-7. **Notify the UI.** Throughout, the function publishes `extracting` / `parsing` / `storing` / `done` / `failed` on the receipt's realtime channel.
+6. **Categorize.** Extraction emits `receipt/extracted`; `categorize-receipt` loads the line items and the seeded leaf taxonomy, asks the model for one category per item, writes the assignments, and stamps `categorized_at`. Because the taxonomy is a derived layer, a re-run reapplies it to every item whose `category_source` is `ai`; an item the owner categorised by hand is `user` and is skipped, because that is a decision rather than a draft (see [ADR-0010](docs/adr/0010-user-set-categories-are-decisions.md)).
+7. **Notify the UI.** Throughout, the function publishes `extracting` / `parsing` / `storing` / `done` / `failed` on the owner's realtime channel, carrying the receipt id so the table can route each message to its row.
 
 Each step is memoized by Inngest, so a crash or retry resumes rather than restarts.
 
@@ -124,7 +124,7 @@ A failed upload is not the same as a failed extraction: a receipt can be re-sign
 
 ### Realtime
 
-Each receipt has a channel `receipt:<id>`. Workers publish on it via `step.realtime.publish`; the browser subscribes with `useRealtime` (`hooks/use-receipt-realtime.ts`) using a token minted by `fetchReceiptSubscriptionToken`, which verifies the session and ownership first. The upload card uses it to follow a run in flight without polling.
+Each owner has a channel `user:<ownerId>` (ADR-0012). Workers publish on it via `step.realtime.publish`, carrying `{ receiptId, state }` so one message addresses one row; the receipts page opens a single `useRealtime` subscription (`components/receipts/receipts-realtime.tsx`) with a token minted by `fetchReceiptsSubscriptionToken`, which derives the channel from the session rather than from any id the caller supplies. The table and the upload toast read that one stream, so they agree by construction, and a page with fifty queued receipts still holds one connection.
 
 ### Chat
 
@@ -241,17 +241,17 @@ app/
     inngest/           function registry for the dev server
     auth/[...all]/     Better Auth
 components/            chat UI (with one renderer per tool part), receipts table, charts
-hooks/                 realtime subscription
+hooks/                 small client hooks (viewport breakpoint, mounted flag)
 lib/
   ai/                  provider, models, transcribe, categorize
   chat/                agent, tools, queries, output schemas, trust boundary
-  db/                  Drizzle client, schema, queries, contract, seed
+  db/                  Drizzle client, schema, queries, contract, seed, fixtures
   images/              browser-side compression
   inngest/             client, channels, functions
   receipt/             integrity, line-item money, datetime
   storage/             S3 client, content types, event schema
 docs/adr/              architecture decision records
-scripts/               backfill, LM Studio check, production boot
+scripts/               backfill, fixtures, deploy wait, LM Studio check, production boot
 ```
 
 `lib/db/schema/` is the source of truth for domain types; derive new ones with Drizzle's Zod helpers rather than re-declaring fields.
