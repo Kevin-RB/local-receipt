@@ -30,7 +30,7 @@ export const QuestionCard = ({
 
   return (
     <div className="pointer-events-none sticky bottom-2 z-50 mx-auto w-full max-w-3xl px-4 pt-2">
-      <div className="bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 pointer-events-auto w-full rounded-2xl p-4 text-sm shadow-lg ring-1">
+      <div className="enter-rise bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 pointer-events-auto w-full rounded-2xl p-4 text-sm shadow-lg ring-1">
         {questions.length === 0 ? (
           <div className="shimmer text-muted-foreground flex items-center gap-2 py-2">
             <Leap size={14} />

@@ -11,6 +11,8 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 import Link from "next/link";
+import type { CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import type { DateRange } from "react-day-picker";
 
 import type { ReceiptTable } from "@/components/receipts/columns";
@@ -90,8 +92,16 @@ const currencyFormatter = new Intl.NumberFormat("en-AU", {
  * off-screen at 390px, and the two that matter — merchant and total — are the
  * ones furthest right, so a scrolling table hides exactly what the list is for.
  */
-const ReceiptCard = ({ receipt }: { receipt: ReceiptTable }) => (
-  <li>
+const ReceiptCard = ({
+  index,
+  receipt,
+}: {
+  index: number;
+  receipt: ReceiptTable;
+}) => (
+  // `--i` is the card's position in the list: the entrance stagger reads it in
+  // `globals.css`, and Tailwind cannot express a value only known at runtime.
+  <li style={{ "--i": index } as CSSProperties}>
     <Link
       className="active:bg-muted/60 flex flex-col gap-1 rounded-lg border p-3 transition-colors"
       href={`/receipts/${receipt.id}`}
@@ -134,12 +144,80 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
     data,
     features,
   });
+  const listRef = useRef<HTMLUListElement>(null);
   const merchantColumn = table.getColumn("merchantName");
   const dateColumn = table.getColumn("transactionDateTime");
   const dateRange =
     (dateColumn?.getFilterValue() as DateRange | undefined) ?? undefined;
   const today = getToday();
   const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
+
+  // Reveals the phone list's cards as they scroll into view, once each.
+  //
+  // Arming is JS-only on purpose: a card is hidden by `data-reveal="pending"`
+  // only after this runs, so the server-rendered list — and anything with
+  // scripting off — shows every card. Only cards that start below the fold are
+  // armed; arming one the reader can already see would flash it. The desktop
+  // table's list is `display: none`, so its rects are all zero and nothing is
+  // armed there. Cards added later are not armed either: the observer is set up
+  // once, and a receipt that arrives while the page is open has already been
+  // announced by its toast.
+  useEffect(() => {
+    const list = listRef.current;
+    if (
+      !list ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    const offscreen = [
+      ...list.querySelectorAll<HTMLElement>(":scope > li"),
+    ].filter((card) => card.getBoundingClientRect().top > window.innerHeight);
+    if (offscreen.length === 0) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Sorted top-to-bottom so a batch crossing the fold together cascades
+        // down the list. `boundingClientRect` is captured at observation time,
+        // which is the moment the batch is considering, not wherever the
+        // element has scrolled to by the time this runs.
+        const entering = entries
+          .filter(
+            (entry) =>
+              entry.isIntersecting && entry.target instanceof HTMLElement
+          )
+          .toSorted(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+          );
+
+        for (const [index, entry] of entering.entries()) {
+          if (!(entry.target instanceof HTMLElement)) {
+            continue;
+          }
+          entry.target.style.setProperty(
+            "--reveal-delay",
+            `${Math.min(index, 4) * 40}ms`
+          );
+          entry.target.dataset.reveal = "in";
+          observer.unobserve(entry.target);
+        }
+      },
+      // Starts the rise as the card's top edge crosses the fold, so it is
+      // settled rather than still arriving when the card reaches reading
+      // position.
+      { rootMargin: "0px 0px -40px 0px" }
+    );
+
+    for (const card of offscreen) {
+      card.dataset.reveal = "pending";
+      observer.observe(card);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const rangeLabel = (() => {
     if (!dateRange?.from) {
@@ -198,12 +276,12 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
           </PopoverContent>
         </Popover>
       </div>
-      <ul className="flex flex-col gap-2 md:hidden">
+      <ul className="receipt-cards flex flex-col gap-2 md:hidden" ref={listRef}>
         {table.getRowModel().rows.length ? (
           table
             .getRowModel()
-            .rows.map((row) => (
-              <ReceiptCard key={row.id} receipt={row.original} />
+            .rows.map((row, index) => (
+              <ReceiptCard index={index} key={row.id} receipt={row.original} />
             ))
         ) : (
           <li className="text-muted-foreground py-12 text-center text-sm">
