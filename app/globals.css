@@ -234,9 +234,9 @@
 }
 
 /* The phone's receipt list arrives top-to-bottom, once, when the rows first
-   render. 30ms apart is the low end of the stagger range, which is what a dense
-   working list earns; the delay is capped at the eighth card, so a
-   twelve-month list queues for 210ms at most and the card the reader is hunting
+   render. 40ms apart, which is inside the band a dense working list earns; the
+   delay is capped at the seventh card (`min(var(--i, 0), 6)`), so a
+   twelve-month list queues for 240ms at most and the card the reader is hunting
    for never waits behind the twenty above it. Cards are interactive from the
    first frame — the entrance is opacity and position only. Existing rows keep
    their nodes across a filter or a realtime refresh, so only the cards actually

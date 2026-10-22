@@ -1,6 +1,5 @@
 "use client";
 
-import "temporal-polyfill/global";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
   BadgeAlert,
