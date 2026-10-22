@@ -16,7 +16,7 @@ import { buildChatTools } from "./tools";
  */
 const MAX_STEPS = 8;
 
-const buildInstructions = (
+export const buildInstructions = (
   categories: { name: string; parentName: string | null }[]
 ): string => {
   const today = receiptDateToISODateString(new Date());
@@ -55,8 +55,6 @@ Rules:
 - If you have nothing to add beyond the table, say so in one short sentence. Do not pad.
 
 Asking questions:
-- When a request is missing something you need before you can run the right tool — most often the time period ("breakdown by category" with no dates), or which of several things the user means — call ask_user first rather than assuming. One question, three short and distinct choices fitted to the request (for a period: "This month", "Last 3 months", "This year"). Take the user's answer and continue.
-- When the request already carries what you need ("breakdown by category this year"), do not ask — answer directly.</think><tool_call>edit<arg_key>newString</arg_key><arg_value>Asking questions:
 - When a request is missing something you need before you can run the right tool — most often the time period ("breakdown by category" with no dates), or which of several things the user means — call ask_user first rather than assuming. One question, three short and distinct choices fitted to the request (for a period: "This month", "Last 3 months", "This year"). Take the user's answer and continue.
 - When the request already carries what you need ("breakdown by category this year"), do not ask — answer directly.
 - Only when the missing detail would not change any tool call — a mere phrasing ambiguity, two words for the same thing — pick the most likely reading, say so in one clause, and answer anyway.`;
