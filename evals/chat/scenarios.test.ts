@@ -66,6 +66,21 @@ describe(expectTools, () => {
       ).ok
     ).toBeFalsy();
   });
+
+  it("allows an extra tool that the scenario names", () => {
+    expect(
+      expectTools([{ name: "spend_by_merchant" }], {
+        allowExtra: ["list_receipts"],
+      }).run(
+        observation({
+          tools: [
+            { input: {}, name: "spend_by_merchant", output: {} },
+            { input: {}, name: "list_receipts", output: {} },
+          ],
+        })
+      ).ok
+    ).toBeTruthy();
+  });
 });
 
 describe(expectNoClaim, () => {
@@ -86,6 +101,28 @@ describe(expectNoClaim, () => {
     expect(
       check.run(observation({ answer: "You have yogurt at home." })).ok
     ).toBeFalsy();
+  });
+
+  it("ignores a disclaimer about not having information", () => {
+    expect(
+      check.run(
+        observation({
+          answer:
+            "I do not have any information about what you currently have stored at home.",
+        })
+      ).ok
+    ).toBeTruthy();
+  });
+
+  it("ignores a sentence that contrasts purchases with current stock", () => {
+    expect(
+      check.run(
+        observation({
+          answer:
+            "Receipts only show purchases, not what you currently have at home.",
+        })
+      ).ok
+    ).toBeTruthy();
   });
 
   it("does not treat a reassurance as a hedge", () => {
@@ -121,10 +158,24 @@ describe(expectAnswerNamesNewestDate, () => {
     ).toBeTruthy();
   });
 
-  it("fails when the tool returned no rows", () => {
+  it("passes when no rows came back and the answer says so", () => {
     expect(
       check.run(
         observation({
+          answer: "I could not find any records of you buying yogurt.",
+          tools: [
+            { input: {}, name: "search_line_items", output: { items: [] } },
+          ],
+        })
+      ).ok
+    ).toBeTruthy();
+  });
+
+  it("fails when no rows came back but the answer invents a date", () => {
+    expect(
+      check.run(
+        observation({
+          answer: "You last bought yogurt on 2026-09-12.",
           tools: [
             { input: {}, name: "search_line_items", output: { items: [] } },
           ],

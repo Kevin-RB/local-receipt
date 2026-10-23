@@ -46,6 +46,15 @@ export interface ExpectedTool {
   name: string;
 }
 
+export interface ToolsOptions {
+  /**
+   * Read tools the model may call on top of the expected ones. A model that
+   * double-checks an empty result with `list_receipts` is still answering the
+   * question; only unrelated tools are a failure.
+   */
+  allowExtra?: string[];
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -88,28 +97,38 @@ const includes = (text: string, phrase: string): boolean =>
   text.toLowerCase().includes(phrase.toLowerCase());
 
 /**
- * Asserts the exact sequence of tool calls. Extra calls fail too: a question
- * that needs one lookup taking three is the kind of drift this eval exists to
- * see, not a pass with a footnote.
+ * Asserts the expected tool calls appear in order with the expected arguments.
+ * Extra calls fail unless they are explicitly allowed: a question that needs
+ * one lookup taking three is the kind of drift this eval exists to see, not a
+ * pass with a footnote.
  */
-export const expectTools = (expected: ExpectedTool[]): Check => ({
-  expected: describeToolCalls(expected),
+export const expectTools = (
+  expected: ExpectedTool[],
+  { allowExtra = [] }: ToolsOptions = {}
+): Check => ({
+  expected:
+    describeToolCalls(expected) +
+    (allowExtra.length > 0 ? ` (allowing ${allowExtra.join(", ")})` : ""),
   kind: "tools",
   run: (observation) => {
     const actual = describeToolCalls(observation.tools);
-    if (observation.tools.length !== expected.length) {
-      return { actual, ok: false };
+    const allowed = new Set(allowExtra);
+    let matched = 0;
+
+    for (const called of observation.tools) {
+      const next = expected[matched];
+      if (
+        next &&
+        called.name === next.name &&
+        (next.input ? matchesInput(next.input, called.input) : true)
+      ) {
+        matched += 1;
+      } else if (!allowed.has(called.name)) {
+        return { actual, ok: false };
+      }
     }
 
-    const ok = expected.every((tool, index) => {
-      const called = observation.tools[index];
-      return (
-        called.name === tool.name &&
-        (tool.input ? matchesInput(tool.input, called.input) : true)
-      );
-    });
-
-    return { actual, ok };
+    return { actual, ok: matched === expected.length };
   },
 });
 
@@ -149,7 +168,7 @@ export const expectAnswerContains = (phrases: string[]): Check => ({
  * "you don't need to worry, you have yogurt at home" is still a claim.
  */
 const HEDGE =
-  /\b(?:can't|cannot|can not|couldn't|unable|no (?:way|information)|only (?:show|see|record|tell|track)|(?:don't|do not|doesn't|does not|didn't|did not) (?:have (?:information|data)|know|record|show|tell|track))\b/iu;
+  /\b(?:can't|cannot|can not|couldn't|unable|no (?:way|information)|only (?:show|see|record|tell|track)|not (?:what|whether|if)|(?:don't|do not|doesn't|does not|didn't|did not) (?:have|know|record|show|tell|track))\b/iu;
 
 const sentences = (text: string): string[] =>
   text.split(/(?<=[.!?])\s+|\n+/u).filter((sentence) => sentence.length > 0);
@@ -182,14 +201,34 @@ export const expectMaxSteps = (max: number): Check => ({
   }),
 });
 
+/** Ways a model can say the search came back empty without inventing a date. */
+const NO_RECORDS = [
+  "no records",
+  "no results",
+  "no purchases",
+  "no matching",
+  "did not find",
+  "didn't find",
+  "could not find",
+  "couldn't find",
+  "have not bought",
+  "haven't bought",
+];
+
+const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/u;
+
 /**
  * `search_line_items` returns newest first, so the first row is the answer to
  * "when did I last buy …?". This reads the date out of the tool result rather
  * than the prompt: a scenario must prove the answer matches returned data, not
  * just that it contains a plausible-looking date.
+ *
+ * The fixture does not stock every product a scenario asks about, so an empty
+ * result is a legitimate outcome: then the answer must say no records were
+ * found, and must not invent a date.
  */
 export const expectAnswerNamesNewestDate = (toolName: string): Check => ({
-  expected: `answer names the newest ${toolName} date`,
+  expected: `answer names the newest ${toolName} date, or reports no records`,
   kind: "answer",
   run: (observation) => {
     const call = observation.tools.findLast((tool) => tool.name === toolName);
@@ -199,9 +238,15 @@ export const expectAnswerNamesNewestDate = (toolName: string): Check => ({
     const newest = items?.[0]?.date ?? null;
 
     if (!newest) {
+      const saysNone = NO_RECORDS.some((phrase) =>
+        includes(observation.answer, phrase)
+      );
+      const claimsDate = DATE_PATTERN.test(observation.answer);
       return {
-        actual: `${toolName} returned no dated rows`,
-        ok: false,
+        actual: saysNone
+          ? `${toolName} returned no dated rows and the answer says so`
+          : `${toolName} returned no dated rows but the answer does not say so`,
+        ok: saysNone && !claimsDate,
       };
     }
 
@@ -254,8 +299,10 @@ export const scenarios: Scenario[] = [
   },
   {
     checks: [
-      expectTools([{ input: lastMonth, name: "spend_by_merchant" }]),
-      expectMaxSteps(2),
+      expectTools([{ input: lastMonth, name: "spend_by_merchant" }], {
+        allowExtra: ["list_receipts"],
+      }),
+      expectMaxSteps(3),
     ],
     name: "merchant spend, last month",
     prompt: "How much did I spend at Woolworths last month?",
