@@ -149,34 +149,29 @@ export const spendByMerchant = async (
   };
 };
 
-export const searchLineItems = async (
-  ownerId: string,
-  { from, query, to }: { from?: string; query: string; to?: string }
-): Promise<LineItemSearch> => {
-  const items = await db
-    .select({
-      category: categories.name,
-      date: receipts.transactionDateTime,
-      item: receiptItems.name,
-      kind: receiptItems.kind,
-      lineTotal: receiptItems.lineTotal,
-      merchant: receipts.merchantName,
-      receiptId: receipts.id,
-    })
-    .from(receiptItems)
-    .innerJoin(receipts, eq(receiptItems.receiptId, receipts.id))
-    .leftJoin(categories, eq(receiptItems.categoryId, categories.id))
-    .where(
-      and(
-        eq(receipts.userId, ownerId),
-        eq(receipts.status, "done"),
-        ilike(receiptItems.name, `%${escapeLike(query)}%`),
-        ...optionalDateFilters(from, to)
-      )
-    )
-    .orderBy(desc(receipts.transactionDateTime))
-    .limit(SEARCH_LIMIT);
+const FUZZY_SIMILARITY_THRESHOLD = 0.4;
 
+interface SearchRow {
+  category: string | null;
+  date: Date | null;
+  item: string;
+  kind: string;
+  lineTotal: number;
+  merchant: string | null;
+  receiptId: string;
+}
+
+const searchSelection = {
+  category: categories.name,
+  date: receipts.transactionDateTime,
+  item: receiptItems.name,
+  kind: receiptItems.kind,
+  lineTotal: receiptItems.lineTotal,
+  merchant: receipts.merchantName,
+  receiptId: receipts.id,
+};
+
+const toLineItemSearch = (items: SearchRow[]): LineItemSearch => {
   let total = 0;
   for (const item of items) {
     if (item.kind === "product") {
@@ -192,6 +187,47 @@ export const searchLineItems = async (
     })),
     total: roundToCents(total),
   };
+};
+
+export const searchLineItems = async (
+  ownerId: string,
+  { from, query, to }: { from?: string; query: string; to?: string }
+): Promise<LineItemSearch> => {
+  const filters = [
+    eq(receipts.userId, ownerId),
+    eq(receipts.status, "done"),
+    ...optionalDateFilters(from, to),
+  ];
+
+  const exact = await db
+    .select(searchSelection)
+    .from(receiptItems)
+    .innerJoin(receipts, eq(receiptItems.receiptId, receipts.id))
+    .leftJoin(categories, eq(receiptItems.categoryId, categories.id))
+    .where(and(...filters, ilike(receiptItems.name, `%${escapeLike(query)}%`)))
+    .orderBy(desc(receipts.transactionDateTime))
+    .limit(SEARCH_LIMIT);
+
+  if (exact.length > 0) {
+    return toLineItemSearch(exact);
+  }
+
+  // Receipt names are abbreviated and often misspelt — "Greek Yoghurt" for
+  // "yogurt", "COLES COT CHEESE" for "cottage cheese" — so a literal substring
+  // search can miss a product the user knows they bought. Fall back to trigram
+  // word similarity, closest first, but only when the literal search found
+  // nothing: a successful exact search must not gain fuzzy noise.
+  const similarity = sql<number>`word_similarity(${query}, ${receiptItems.name})`;
+  const fuzzy = await db
+    .select(searchSelection)
+    .from(receiptItems)
+    .innerJoin(receipts, eq(receiptItems.receiptId, receipts.id))
+    .leftJoin(categories, eq(receiptItems.categoryId, categories.id))
+    .where(and(...filters, sql`${similarity} >= ${FUZZY_SIMILARITY_THRESHOLD}`))
+    .orderBy(desc(similarity), desc(receipts.transactionDateTime))
+    .limit(SEARCH_LIMIT);
+
+  return toLineItemSearch(fuzzy);
 };
 
 export const listReceiptSummaries = async (
