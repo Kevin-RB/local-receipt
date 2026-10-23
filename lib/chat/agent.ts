@@ -12,9 +12,10 @@ import { buildChatTools } from "./tools";
 /**
  * Each step is one model call, and a question needs at most a couple of
  * tool calls. The cap is a backstop against a model that loops on tool calls
- * (or keeps re-asking), not a budget.
+ * (or keeps re-asking), not a budget. Exported so the loop contract test can
+ * stop at the same ceiling the agent does.
  */
-const MAX_STEPS = 8;
+export const MAX_STEPS = 8;
 
 export const buildInstructions = (
   categories: { name: string; parentName: string | null }[]
