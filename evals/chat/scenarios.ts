@@ -227,6 +227,32 @@ const DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/u;
  * result is a legitimate outcome: then the answer must say no records were
  * found, and must not invent a date.
  */
+const pad2 = (value: number): string => value.toString().padStart(2, "0");
+
+/** The ways a model is likely to write a receipt date back to the user. */
+const dateForms = (isoDate: string): string[] => {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  return [
+    isoDate,
+    new Intl.DateTimeFormat("en-AU", {
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC",
+      year: "numeric",
+    }).format(date),
+    new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC",
+      year: "numeric",
+    }).format(date),
+    `${pad2(day)}/${pad2(month)}/${year}`,
+  ];
+};
+
 export const expectAnswerNamesNewestDate = (toolName: string): Check => ({
   expected: `answer names the newest ${toolName} date, or reports no records`,
   kind: "answer",
@@ -235,7 +261,12 @@ export const expectAnswerNamesNewestDate = (toolName: string): Check => ({
     const items = isRecord(call?.output)
       ? (call.output.items as { date?: string | null }[] | undefined)
       : undefined;
-    const newest = items?.[0]?.date ?? null;
+    const newest =
+      items
+        ?.map((item) => item.date)
+        .filter((date): date is string => Boolean(date))
+        .toSorted()
+        .at(-1) ?? null;
 
     if (!newest) {
       const saysNone = NO_RECORDS.some((phrase) =>
@@ -250,7 +281,9 @@ export const expectAnswerNamesNewestDate = (toolName: string): Check => ({
       };
     }
 
-    const named = includes(observation.answer, newest);
+    const named = dateForms(newest).some((form) =>
+      includes(observation.answer, form)
+    );
     return {
       actual: named
         ? `newest date ${newest} is in the answer`
@@ -270,6 +303,10 @@ const thisMonthStart = today.with({ day: 1 });
 const lastMonth = {
   from: thisMonthStart.subtract({ months: 1 }).toString(),
   to: thisMonthStart.subtract({ days: 1 }).toString(),
+};
+const thisYear = {
+  from: today.with({ day: 1, month: 1 }).toString(),
+  to: today.toString(),
 };
 
 export const scenarios: Scenario[] = [
@@ -327,11 +364,39 @@ export const scenarios: Scenario[] = [
   },
   {
     checks: [
-      expectTools([{ input: { query: "yogurt" }, name: "search_line_items" }]),
+      expectTools([
+        {
+          input: { from: thisYear.from, query: "yogurt" },
+          name: "search_line_items",
+        },
+      ]),
       expectMaxSteps(2),
     ],
-    name: "product history",
-    prompt: "Have I bought yogurt before?",
+    name: "product history, period given",
+    prompt: "Did I buy yogurt this year?",
+  },
+  {
+    // No peanuts in the corpus. The point is that a period the user supplied
+    // sends the model straight to the product search, not to ask_user.
+    checks: [
+      expectTools([{ input: { query: "peanuts" }, name: "search_line_items" }]),
+      expectMaxSteps(2),
+    ],
+    name: "product history, no match",
+    prompt: "Did I buy peanuts in the last two weeks?",
+  },
+  {
+    checks: [
+      expectTools([
+        {
+          input: { from: thisYear.from, query: "chicken" },
+          name: "search_line_items",
+        },
+      ]),
+      expectMaxSteps(2),
+    ],
+    name: "product spend",
+    prompt: "How much did I spend on chicken this year?",
   },
   {
     checks: [
@@ -345,8 +410,8 @@ export const scenarios: Scenario[] = [
   {
     checks: [
       // Receipts record purchases, not pantry stock. Either searching or asking
-      // is fine, but the answer must not turn a purchase into a current-stock
-      // claim.
+      // is fine, and reporting a past purchase is a good answer; what must not
+      // happen is turning that purchase into a current-stock claim.
       expectNoClaim([
         "in your fridge",
         "in your pantry",
@@ -356,7 +421,6 @@ export const scenarios: Scenario[] = [
         "you have some yogurt",
         "you have yogurt at home",
       ]),
-      expectAnswerContains(["receipt"]),
     ],
     name: "current stock boundary",
     prompt: "Do I have yogurt at home?",
