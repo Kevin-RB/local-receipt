@@ -278,8 +278,6 @@ const main = async () => {
   console.log(
     `\nOverall: ${passedRuns}/${totalRuns} runs passed (${Math.round((passedRuns / totalRuns) * 100)}%)`
   );
-  console.log(`Wrote ${RESULTS_PATH}`);
-
   await mkdir(path.dirname(RESULTS_PATH), { recursive: true });
   await writeFile(
     RESULTS_PATH,
@@ -295,6 +293,7 @@ const main = async () => {
       2
     )}\n`
   );
+  console.log(`Wrote ${RESULTS_PATH}`);
 };
 
 try {

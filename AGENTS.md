@@ -71,7 +71,7 @@ Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:push` / `pnpm db:studio` / `pnpm db:seed` — Drizzle operations.
 - `pnpm db:fixture [--email <address>] [--apply] [--force]` — provision a deterministic, sign-in-able test account with a curated receipt corpus (dry run unless `--apply`; `--email` defaults to the agent test account; requires `NODE_ENV=development` or `test`, which `.env.local` supplies). See ADR-0013.
 - `pnpm categorize:backfill` — queue categorization for done receipts that have no `categorized_at` stamp (idempotent; sends `receipt/extracted` to Inngest).
-- `pnpm eval:chat` — real-model chat evals: nine scenarios x 3 runs against the fixture account, printing a pass-rate table and writing `evals/results/latest.json` (gitignored). Needs Postgres and LM Studio; never run in CI. See Testing.
+- `pnpm eval:chat` — real-model chat evals: eleven scenarios x 3 runs against the fixture account, printing a pass-rate table and writing `evals/results/latest.json` (gitignored). Needs Postgres and LM Studio; never run in CI. See Testing.
 
 Before committing, run the checks in this order:
 
