@@ -17,7 +17,9 @@ FROM node:${NODE_VERSION} AS base
 
 # Node 25+ no longer bundles Corepack (removed from the runtime), so install
 # pnpm directly. Pinned to the same version as the repo's packageManager.
-RUN npm install --global pnpm@11.20.0
+# npm 11.17+ blocks lifecycle scripts by default; pnpm 12's install script
+# links the platform binary, so allow it explicitly.
+RUN npm install --global --allow-scripts=pnpm pnpm@12.15.0
 
 WORKDIR /app
 

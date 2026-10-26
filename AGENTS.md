@@ -58,7 +58,7 @@ Confirm the set with `opencode mcp list`.
 
 ## Developer commands
 
-Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
+Use `pnpm` (package manager is pinned to `pnpm@12.15.0` in `packageManager`).
 
 - `pnpm install` — install dependencies.
 - `pnpm dev` — Next.js dev server, bound to `0.0.0.0`.
@@ -259,7 +259,7 @@ Any end-to-end or UI check uses the fixture account. Do not make one by hand.
 
 ## Gotchas
 
-- pnpm is pinned to `pnpm@11.20.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`ci.yml`), and this field in sync.
+- pnpm is pinned to `pnpm@12.15.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`ci.yml` and `sync-inngest.yml`), and this field in sync.
 - The pre-commit hook will auto-format and re-stage files. If it fails, inspect the hook output rather than manually re-running `git add`.
 - The dev server binds to `0.0.0.0` so the Docker-hosted services can reach it via `host.docker.internal`.
 - RustFS webhook auth must match `STORAGE_WEBHOOK_SECRET` (the bucket notification uses `Authorization: Bearer <secret>`).
