@@ -148,6 +148,11 @@ Key properties:
 
 **Redeploys** (T18 merge-gate CD): open a PR → branch protection requires the CI `quality` job (typecheck/lint/test) plus pullfrog review → merge to `main` → the Coolify GitHub App auto-deploys. No deploy workflow or webhook secret (both retired). Rollback is one click in Coolify. The `sync-inngest` workflow then resyncs Inngest Cloud once the deployment of that commit is live (see above).
 
+**Promoting `staging` to `main`.** Feature work merges into `staging`; a `staging → main` PR is the only path to production, so it carries two duties the feature PRs cannot:
+
+- **Re-state every `Closes #N` in the promotion PR body.** GitHub only auto-closes on a merge into the **default** branch. A `Closes #177` written on a PR targeting `staging` does nothing — the work ships and the issue silently stays open, which is exactly how #177 outlived its fix. Sweep the promoted range (`git log <prod-sha>..origin/main --format='%h %s%n%b'`) for issue references and copy the closing lines into the promotion body, so the merge itself is the record and nothing has to be closed by hand afterwards.
+- **Confirm the deploy landed, not just the merge.** Coolify builds `main`, `migrate` applies any new migration, then `sync-inngest` resyncs once that exact commit is live. A promotion is finished when prod runs the commit, not when the PR is merged.
+
 ---
 
 ## App architecture
