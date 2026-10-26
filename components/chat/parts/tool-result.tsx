@@ -66,7 +66,7 @@ export const ToolResult = ({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="enter-rise-sm flex flex-col gap-1.5">
       <Trace>
         <TraceLine>
           <TraceIcon>

@@ -58,7 +58,7 @@ Confirm the set with `opencode mcp list`.
 
 ## Developer commands
 
-Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
+Use `pnpm` (package manager is pinned to `pnpm@12.15.0` in `packageManager`).
 
 - `pnpm install` — install dependencies.
 - `pnpm dev` — Next.js dev server, bound to `0.0.0.0`.
@@ -71,6 +71,7 @@ Use `pnpm` (package manager is pinned to `pnpm@11.20.0` in `packageManager`).
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:push` / `pnpm db:studio` / `pnpm db:seed` — Drizzle operations.
 - `pnpm db:fixture [--email <address>] [--apply] [--force]` — provision a deterministic, sign-in-able test account with a curated receipt corpus (dry run unless `--apply`; `--email` defaults to the agent test account; requires `NODE_ENV=development` or `test`, which `.env.local` supplies). See ADR-0013.
 - `pnpm categorize:backfill` — queue categorization for done receipts that have no `categorized_at` stamp (idempotent; sends `receipt/extracted` to Inngest).
+- `pnpm eval:chat` — real-model chat evals: eleven scenarios x 3 runs against the fixture account, printing a pass-rate table and writing `evals/results/latest.json` (gitignored). Needs Postgres and LM Studio; never run in CI. See Testing.
 
 Before committing, run the checks in this order:
 
@@ -215,6 +216,7 @@ Key properties:
 - Run the whole suite: `pnpm test`.
 - Run a focused file: `pnpm vitest run <path>` or `pnpm vitest <path>`.
 - Current tests are mostly unit tests with mocked DB / AI / storage; they do not require Postgres, RustFS, or LM Studio.
+- **Real-model chat evals.** `pnpm eval:chat` drives `createChatAgent` directly against the fixture account, three runs per scenario, and reports a pass rate plus the expected vs actual tool calls and arguments. It needs Postgres (the fixture owner) and LM Studio, so it is **not** part of `pnpm test` or CI. Run `pnpm db:fixture --apply` first; the runner refuses an account that does not exist. Results land in the gitignored `evals/results/latest.json` for before/after diffs. Scenario definitions and the assertion helpers (`expectTools`, `expectClarification`, …) live in `evals/chat/`.
 - **Fixture integration test (optional).** The DB-writing half of `pnpm db:fixture` (`lib/db/fixture-provision.ts`) has a Postgres-backed test, skipped unless you point it at a scratch database:
 
   ```sh
@@ -257,7 +259,7 @@ Any end-to-end or UI check uses the fixture account. Do not make one by hand.
 
 ## Gotchas
 
-- pnpm is pinned to `pnpm@11.20.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`ci.yml`), and this field in sync.
+- pnpm is pinned to `pnpm@12.15.0` via `packageManager` in `package.json`; keep the `Dockerfile`, CI (`ci.yml` and `sync-inngest.yml`), and this field in sync.
 - The pre-commit hook will auto-format and re-stage files. If it fails, inspect the hook output rather than manually re-running `git add`.
 - The dev server binds to `0.0.0.0` so the Docker-hosted services can reach it via `host.docker.internal`.
 - RustFS webhook auth must match `STORAGE_WEBHOOK_SECRET` (the bucket notification uses `Authorization: Bearer <secret>`).

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatReceiptDateTime,
   RECEIPT_TIMEZONE,
   receiptDayToLocalString,
   receiptLocalStringToDay,
@@ -229,5 +230,20 @@ describe(receiptDayToLocalString, () => {
     expect(
       receiptDayToLocalString(day, receiptLocalStringToTime(original))
     ).toBe(original);
+  });
+});
+
+describe(formatReceiptDateTime, () => {
+  /**
+   * Pinned deliberately. This string is rendered on the server and rendered
+   * again by React during hydration, so a difference of one comma fails the
+   * receipts page. The comma is also the exact character that disappears when a
+   * `Temporal` object is handed to `Intl.DateTimeFormat#format` under Node, so
+   * this test catches that regression rather than merely describing the format.
+   */
+  it("renders the receipt-local date and time identically on both runtimes", () => {
+    expect(formatReceiptDateTime(new Date("2026-10-17T09:35:00Z"))).toBe(
+      "Saturday, 17 October 2026 at 7:35 pm"
+    );
   });
 });

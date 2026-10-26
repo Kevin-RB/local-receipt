@@ -8,7 +8,7 @@ import { isoDateRange } from "./date-range";
 export const list_receipts = (ownerId: string) =>
   tool({
     description:
-      "List the user's receipts, optionally filtered by date range and merchant. Returns receipt ids for use with receipt_detail.",
+      "List the user's individual receipts, optionally filtered by date range and merchant. Use to show or find receipts ('my Woolworths receipts from last month'), not to calculate spending — use spend_by_merchant for a merchant total. Returns receipt ids for use with receipt_detail.",
     execute: ({ from, merchant, to }) =>
       listReceiptSummaries(ownerId, { from, merchant, to }),
     inputSchema: z.object({

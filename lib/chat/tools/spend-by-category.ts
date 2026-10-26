@@ -26,7 +26,7 @@ export const spendByCategoryInput = z.object({
 export const spend_by_category = (ownerId: string) =>
   tool({
     description:
-      "Total spend between two inclusive dates, counting products only, broken down by subcategory (the leaf categories, the default) or by top-level category, and optionally narrowed to one category. The overall total is included.",
+      "Total spend between two inclusive dates, counting products only, broken down by subcategory (the leaf categories, the default) or by top-level category, and optionally narrowed to one category. Use for category questions such as 'how much did I spend on groceries?'. The overall total is included.",
     execute: ({ category, from, groupBy, to }) =>
       spendByCategory(ownerId, from, to, { category, groupBy }),
     inputSchema: spendByCategoryInput,
