@@ -150,16 +150,13 @@ Key properties:
 
 **Promoting `staging` to `main`.** Feature work merges into `staging`; a `staging → main` PR is the only path to production, so it carries two duties the feature PRs cannot:
 
-- **Re-state every `Closes #N` in the promotion PR body.** GitHub only auto-closes on a merge into the **default** branch. A `Closes #177` written on a PR targeting `staging` does nothing — the work ships and the issue silently stays open, which is exactly how #177 outlived its fix. The keywords live in the **feature PR bodies**, not in the commits: no commit promoted by #180 carried one, because a merge commit records only the branch name. So sweep the merge subjects and read each PR, before the promotion merges while `staging` is still ahead of `main`:
+- **Carry the `Closes #N` lines into the promotion PR.** GitHub only auto-closes on a merge into the **default** branch, so a `Closes #177` written on a PR targeting `staging` is ignored: the work ships and the issue silently stays open, which is exactly how #177 outlived its fix. Before opening the promotion, skim what is going in and copy any closing lines into its body:
 
   ```sh
-  git log --merges --format='%s' origin/main..origin/staging \
-    | grep -oE '#[0-9]+' | tr -d '#' \
-    | xargs -r -I{} gh pr view {} --json body --jq '.body' \
-    | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#[0-9]+'
+  gh pr list --state merged --base staging --limit 20
   ```
 
-  Copy each hit into the promotion body, so the merge is the record and nothing has to be closed by hand afterwards.
+  Read the body of a PR you are unsure about with `gh pr view <N> --json body -q .body`. An issue that slips through unclosed is closed by hand with a note pointing at the promotion — the merge is a record, not a guarantee.
 
 - **Confirm the deploy landed, not just the merge.** Coolify builds `main`, `migrate` applies any new migration, then `sync-inngest` resyncs once that exact commit is live. A promotion is finished when prod runs the commit, not when the PR is merged.
 
