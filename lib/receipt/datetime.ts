@@ -27,6 +27,11 @@ const RECEIPT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-AU", {
   timeZone: RECEIPT_TIMEZONE,
 });
 
+const RECEIPT_DATE_FORMATTER = new Intl.DateTimeFormat("en-AU", {
+  dateStyle: "full",
+  timeZone: RECEIPT_TIMEZONE,
+});
+
 /**
  * Displays a receipt's timestamp in the receipt's own timezone.
  *
@@ -42,6 +47,14 @@ const RECEIPT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-AU", {
  */
 export const formatReceiptDateTime = (date: Date): string =>
   RECEIPT_DATE_TIME_FORMATTER.format(date);
+
+/**
+ * The date without a time, for tool output the model quotes back in prose.
+ * Receipts carry a local calendar day, so format it in the receipt timezone
+ * rather than the server's.
+ */
+export const formatReceiptDate = (date: Date): string =>
+  RECEIPT_DATE_FORMATTER.format(date);
 
 export const receiptDateToLocalString = (
   date: Date,

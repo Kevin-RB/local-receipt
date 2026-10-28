@@ -181,8 +181,8 @@
 }
 
 /* Relative bar behind a category total, sized by the share passed in as the
-   `--share` custom property by `components/chat/parts/spend-by-category-part.tsx`.
-   Kept here rather than as a utility because the value is only known at runtime. */
+   `--share` custom property by `components/chat/agent-steps.tsx`. Kept here
+   rather than as a utility because the value is only known at runtime. */
 .share-bar {
   scale: var(--share, 0) 1;
 }

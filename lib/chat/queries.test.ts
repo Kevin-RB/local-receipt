@@ -80,6 +80,7 @@ describe(searchLineItems, () => {
       {
         category: "dairy-eggs",
         date: "2026-05-17",
+        dateLabel: "Sunday, 17 May 2026",
         item: "Greek Yoghurt 1kg",
         kind: "product",
         lineTotal: 6.5,
