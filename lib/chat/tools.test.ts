@@ -139,13 +139,13 @@ describe("tool/UI coverage", () => {
     expect(buildChatTools(OWNER).ask_user.execute).toBeUndefined();
   });
 
-  it("renders every tool in chat-message.tsx", () => {
-    // `AssistantToolPart`'s `default` branch passes the unhandled part to a
+  it("renders every tool in agent-steps.tsx", () => {
+    // `AgentStep`'s `default` branch passes the unhandled part to a
     // `never` parameter, so TypeScript already rejects a missing case. This
     // asserts the same pairing at runtime, which also catches a `case` whose
     // label has drifted from the tool set.
     const source = readFileSync(
-      new URL("../../components/chat/chat-message.tsx", import.meta.url),
+      new URL("../../components/chat/agent-steps.tsx", import.meta.url),
       "utf-8"
     );
     const names = [...source.matchAll(/case "tool-(?<name>[a-z_]+)":/gu)].map(
