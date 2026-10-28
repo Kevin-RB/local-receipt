@@ -22,13 +22,14 @@ export const PromptForm = ({
   placeholder: string;
 }) => {
   const [input, setInput] = useState("");
+  const trimmed = input.trim();
+  const canSend = trimmed.length > 0;
 
   const submit = () => {
-    const text = input.trim();
-    if (!text || isBusy) {
+    if (!canSend || isBusy) {
       return;
     }
-    onSubmit(text);
+    onSubmit(trimmed);
     setInput("");
   };
 
@@ -59,11 +60,10 @@ export const PromptForm = ({
           rows={1}
           value={input}
         />
-        <InputGroupAddon align="block-end">
+        <InputGroupAddon align="inline-end">
           {isBusy ? (
             <InputGroupButton
               aria-label="Stop generating"
-              className="ml-auto"
               onClick={onStop}
               size="icon-sm"
               type="button"
@@ -74,11 +74,13 @@ export const PromptForm = ({
           ) : (
             <InputGroupButton
               aria-label="Send"
-              className="ml-auto"
-              disabled={input.trim().length === 0}
+              disabled={!canSend}
               size="icon-sm"
               type="submit"
-              variant="default"
+              // A disabled `default` button dims lime to ~2:1 against the page.
+              // `secondary` keeps the icon above 3:1 in both themes until
+              // there is something to send.
+              variant={canSend ? "default" : "secondary"}
             >
               <SendIcon />
             </InputGroupButton>
