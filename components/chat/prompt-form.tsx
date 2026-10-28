@@ -59,11 +59,13 @@ export const PromptForm = ({
           rows={1}
           value={input}
         />
-        <InputGroupAddon align="inline-end">
+        <InputGroupAddon align="block-end">
           {isBusy ? (
             <InputGroupButton
               aria-label="Stop generating"
+              className="ml-auto"
               onClick={onStop}
+              size="icon-sm"
               type="button"
               variant="secondary"
             >
@@ -72,9 +74,11 @@ export const PromptForm = ({
           ) : (
             <InputGroupButton
               aria-label="Send"
+              className="ml-auto"
               disabled={input.trim().length === 0}
+              size="icon-sm"
               type="submit"
-              variant="secondary"
+              variant="default"
             >
               <SendIcon />
             </InputGroupButton>

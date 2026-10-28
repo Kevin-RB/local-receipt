@@ -19,7 +19,7 @@ export const ChatMessage = ({
     return (
       <Message align="end">
         <MessageContent>
-          <Bubble variant="tinted">
+          <Bubble align="end" variant="muted">
             <BubbleContent className="whitespace-pre-wrap">
               {message.parts
                 .filter((part) => part.type === "text")

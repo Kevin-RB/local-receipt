@@ -188,10 +188,13 @@ export const Chat = ({ firstName }: { firstName: string }) => {
             <MessageScrollerProvider autoScroll>
               <MessageScroller>
                 <MessageScrollerViewport>
-                  {/* The scroller's content owns its own spacing, so the
-                      phone gutter goes on this wrapper rather than on it. */}
+                  {/* The scroller content owns its spacing, so the phone
+                      gutter goes on a plain wrapper around it. */}
                   <div className="flex h-full flex-col px-4">
-                    <MessageScrollerContent className="mx-auto w-full max-w-3xl shrink-0">
+                    <MessageScrollerContent
+                      aria-busy={busy}
+                      className="mx-auto w-full max-w-3xl"
+                    >
                       {messages.map((message) => (
                         <MessageScrollerItem
                           key={message.id}

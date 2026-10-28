@@ -193,6 +193,7 @@ Key properties:
 
 - Use existing **shadcn/ui** primitives from `components/ui/` before building a custom component. The project already has button, card, dialog, input, label, table, toast, etc.
 - Add new shadcn components via the shadcn CLI; generated files land in `components/ui/` and are ignored by the linter/formatter.
+- The project is on shadcn's **Base UI** base (`components.json` style `base-nova`, which the CLI resolves to `base: "base"`), not Radix. Generated primitives import from `@base-ui/react`, and there are no `@radix-ui/*` dependencies. Do not switch bases, or mix Radix primitives in, without an explicit decision.
 - Use the theme tokens in `app/globals.css` (Tailwind CSS v4, CSS variables, `base-nova` style). Do not introduce one-off color/spacing values or duplicate the theme elsewhere.
 
 ## Types
