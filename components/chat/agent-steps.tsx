@@ -79,6 +79,7 @@ export const AskUserStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={HelpCircleIcon}
         label="Question failed"
         status="complete"
@@ -91,6 +92,7 @@ export const AskUserStep = ({
   if (part.state !== "output-available") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={HelpCircleIcon}
         label="Asking you a question"
         status={status}
@@ -126,6 +128,7 @@ const ListReceiptsStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={ListIcon}
         label="Listing receipts failed"
         status="complete"
@@ -138,6 +141,7 @@ const ListReceiptsStep = ({
   if (part.state !== "output-available") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={ListIcon}
         label="Listing receipts"
         status={status}
@@ -204,6 +208,7 @@ const ReceiptDetailStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={ReceiptIcon}
         label="Reading receipt failed"
         status="complete"
@@ -216,6 +221,7 @@ const ReceiptDetailStep = ({
   if (part.state !== "output-available") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={ReceiptIcon}
         label="Reading receipt"
         status={status}
@@ -228,6 +234,7 @@ const ReceiptDetailStep = ({
   if (!receipt) {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={ReceiptIcon}
         label="Receipt not found"
         status="complete"
@@ -309,6 +316,7 @@ const SearchLineItemsStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={SearchIcon}
         label="Item search failed"
         status="complete"
@@ -321,6 +329,7 @@ const SearchLineItemsStep = ({
   if (part.state !== "output-available") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={SearchIcon}
         label="Searching items"
         status={status}
@@ -397,6 +406,7 @@ const SpendByCategoryStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={BarChart3Icon}
         label="Category breakdown failed"
         status="complete"
@@ -413,7 +423,12 @@ const SpendByCategoryStep = ({
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep icon={BarChart3Icon} label={title} status={status} />
+      <ChainOfThoughtStep
+        aria-live="polite"
+        icon={BarChart3Icon}
+        label={title}
+        status={status}
+      />
     );
   }
 
@@ -474,6 +489,7 @@ const SpendByMerchantStep = ({
   if (part.state === "output-error") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={StoreIcon}
         label="Merchant totals failed"
         status="complete"
@@ -486,6 +502,7 @@ const SpendByMerchantStep = ({
   if (part.state !== "output-available") {
     return (
       <ChainOfThoughtStep
+        aria-live="polite"
         icon={StoreIcon}
         label="Totals by merchant"
         status={status}
@@ -600,6 +617,7 @@ export const AgentSteps = ({
         ))}
         {hasActiveReasoning && isStreaming ? (
           <ChainOfThoughtStep
+            aria-live="polite"
             icon={BrainIcon}
             label="Thinking"
             status="active"
