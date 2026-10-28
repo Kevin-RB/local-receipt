@@ -18,6 +18,7 @@ describe("tool output schemas", () => {
     const parsed = receiptSummariesSchema.parse([
       {
         date: "2026-08-25",
+        dateLabel: "Tuesday, 25 August 2026",
         hasIntegrityWarning: false,
         id: "8b1c2a44-0f5e-4a1b-9c3d-2e6f7a8b9c0d",
         merchant: "Woolworths",
@@ -25,6 +26,7 @@ describe("tool output schemas", () => {
       },
       {
         date: null,
+        dateLabel: null,
         hasIntegrityWarning: true,
         id: "1a2b3c4d-5e6f-4a8b-9c0d-1e2f3a4b5c6d",
         merchant: null,
@@ -39,6 +41,7 @@ describe("tool output schemas", () => {
     const result = receiptSummariesSchema.safeParse([
       {
         date: "2026-08-25T00:00:00.000Z",
+        dateLabel: "Tuesday, 25 August 2026",
         hasIntegrityWarning: false,
         id: "8b1c2a44-0f5e-4a1b-9c3d-2e6f7a8b9c0d",
         merchant: "Woolworths",
@@ -59,6 +62,7 @@ describe("tool output schemas", () => {
         {
           category: "Dairy > Cheese",
           date: new Date("2026-08-25T00:00:00.000Z"),
+          dateLabel: "Tuesday, 25 August 2026",
           item: "BRICK 250G",
           kind: "product",
           lineTotal: 4.5,
@@ -79,6 +83,7 @@ describe("tool output schemas", () => {
         {
           category: "Dairy > Cheese",
           date: "2026-08-25",
+          dateLabel: "Tuesday, 25 August 2026",
           item: "BRICK 250G",
           kind: "product",
           lineTotal: 4.5,

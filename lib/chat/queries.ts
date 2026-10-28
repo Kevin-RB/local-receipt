@@ -10,6 +10,7 @@ import {
   receipts,
 } from "@/lib/db";
 import {
+  formatReceiptDate,
   RECEIPT_TIMEZONE,
   receiptDateToISODateString,
 } from "@/lib/receipt/datetime";
@@ -184,6 +185,7 @@ const toLineItemSearch = (items: SearchRow[]): LineItemSearch => {
     items: items.map((item) => ({
       ...item,
       date: item.date ? receiptDateToISODateString(item.date) : null,
+      dateLabel: item.date ? formatReceiptDate(item.date) : null,
     })),
     total: roundToCents(total),
   };
@@ -258,6 +260,7 @@ export const listReceiptSummaries = async (
   return rows.map((row) => ({
     ...row,
     date: row.date ? receiptDateToISODateString(row.date) : null,
+    dateLabel: row.date ? formatReceiptDate(row.date) : null,
   }));
 };
 
@@ -273,6 +276,9 @@ export const receiptDetail = async (
   return {
     date: receipt.transactionDateTime
       ? receiptDateToISODateString(receipt.transactionDateTime)
+      : null,
+    dateLabel: receipt.transactionDateTime
+      ? formatReceiptDate(receipt.transactionDateTime)
       : null,
     gst: receipt.gst,
     id: receipt.id,

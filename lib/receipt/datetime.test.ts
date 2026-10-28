@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatReceiptDate,
   formatReceiptDateTime,
   RECEIPT_TIMEZONE,
   receiptDayToLocalString,
@@ -230,6 +231,14 @@ describe(receiptDayToLocalString, () => {
     expect(
       receiptDayToLocalString(day, receiptLocalStringToTime(original))
     ).toBe(original);
+  });
+});
+
+describe(formatReceiptDate, () => {
+  it("renders a full date in the receipt timezone without a time", () => {
+    expect(formatReceiptDate(new Date("2026-05-17T04:00:00Z"))).toBe(
+      "Sunday, 17 May 2026"
+    );
   });
 });
 
