@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   Trace,
@@ -37,6 +38,9 @@ import type { ChatMessagePart } from "@/lib/chat/tools";
 import { formatAmount, formatDay } from "./format";
 import { ResultTable } from "./parts/result-table";
 
+const plural = (count: number, singular: string, pluralForm: string) =>
+  `${count} ${count === 1 ? singular : pluralForm}`;
+
 const useTimer = (running: boolean) => {
   const [seconds, setSeconds] = useState(0);
 
@@ -55,6 +59,49 @@ const useTimer = (running: boolean) => {
   return seconds;
 };
 
+/**
+ * One step of the trace. A step with output is a `TraceCollapsible`: the line
+ * sits in the trigger and the detail (a table, a list, an error) sits in the
+ * content, below and indented. A step with nothing to show is a plain line.
+ *
+ * Titles are written in the tense the status implies (present while running,
+ * past when done, "Failed to …" on error) so the line is readable on its own.
+ */
+const Step = ({
+  children,
+  description,
+  icon,
+  status,
+  title,
+}: {
+  children?: ReactNode;
+  description?: ReactNode;
+  icon: ReactNode;
+  status?: "running" | "error" | "pending";
+  title: string;
+}) => {
+  const line = (
+    <TraceLine aria-live={status ? "polite" : "off"} status={status}>
+      <TraceIcon>{icon}</TraceIcon>
+      <TraceTitle>{title}</TraceTitle>
+      {description === undefined ? null : (
+        <TraceDescription>{description}</TraceDescription>
+      )}
+    </TraceLine>
+  );
+
+  if (children === undefined) {
+    return line;
+  }
+
+  return (
+    <TraceCollapsible defaultOpen>
+      <TraceCollapsibleTrigger>{line}</TraceCollapsibleTrigger>
+      <TraceCollapsibleContent>{children}</TraceCollapsibleContent>
+    </TraceCollapsible>
+  );
+};
+
 export const AskUserStep = ({
   part,
 }: {
@@ -62,37 +109,33 @@ export const AskUserStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <HelpCircleIcon />
-          </TraceIcon>
-          <TraceTitle>Question failed</TraceTitle>
-        </TraceLine>
+      <Step
+        icon={<HelpCircleIcon />}
+        status="error"
+        title="Failed to ask a question"
+      >
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <HelpCircleIcon />
-        </TraceIcon>
-        <TraceTitle>Asking you a question</TraceTitle>
-      </TraceLine>
+      <Step
+        icon={<HelpCircleIcon />}
+        status="running"
+        title="Asking you a question"
+      />
     );
   }
 
+  const count = part.output.length;
+
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <HelpCircleIcon />
-        </TraceIcon>
-        <TraceTitle>{`${part.output.length} answered`}</TraceTitle>
-      </TraceLine>
+    <Step
+      icon={<HelpCircleIcon />}
+      title={`Answered ${plural(count, "question", "questions")}`}
+    >
       <ol className="flex flex-col gap-1 text-xs">
         {part.output.map((entry) => (
           <li key={entry.question}>
@@ -101,7 +144,7 @@ export const AskUserStep = ({
           </li>
         ))}
       </ol>
-    </div>
+    </Step>
   );
 };
 
@@ -112,37 +155,29 @@ const ListReceiptsStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <ListIcon />
-          </TraceIcon>
-          <TraceTitle>Listing receipts failed</TraceTitle>
-        </TraceLine>
+      <Step icon={<ListIcon />} status="error" title="Failed to list receipts">
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <ListIcon />
-        </TraceIcon>
-        <TraceTitle>Listing receipts</TraceTitle>
-      </TraceLine>
+      <Step icon={<ListIcon />} status="running" title="Listing receipts" />
     );
   }
 
+  const count = part.output.length;
+
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <ListIcon />
-        </TraceIcon>
-        <TraceTitle>{`Found ${part.output.length} receipts`}</TraceTitle>
-      </TraceLine>
+    <Step
+      icon={<ListIcon />}
+      title={
+        count === 0
+          ? "Found no receipts"
+          : `Found ${plural(count, "receipt", "receipts")}`
+      }
+    >
       <ResultTable
         caption="Receipts"
         columns={[
@@ -182,7 +217,7 @@ const ListReceiptsStep = ({
         rows={part.output}
         rowKey={(row) => row.id}
       />
-    </div>
+    </Step>
   );
 };
 
@@ -193,52 +228,40 @@ const ReceiptDetailStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <ReceiptIcon />
-          </TraceIcon>
-          <TraceTitle>Reading receipt failed</TraceTitle>
-        </TraceLine>
+      <Step
+        icon={<ReceiptIcon />}
+        status="error"
+        title="Failed to read receipt"
+      >
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <ReceiptIcon />
-        </TraceIcon>
-        <TraceTitle>Reading receipt</TraceTitle>
-      </TraceLine>
+      <Step icon={<ReceiptIcon />} status="running" title="Reading receipt" />
     );
   }
 
   const receipt = part.output;
 
   if (!receipt) {
-    return (
-      <TraceLine aria-live="polite">
-        <TraceIcon>
-          <ReceiptIcon />
-        </TraceIcon>
-        <TraceTitle>Receipt not found</TraceTitle>
-      </TraceLine>
-    );
+    return <Step icon={<ReceiptIcon />} title="Receipt not found" />;
   }
 
   type DetailItem = ReceiptDetail["items"][number];
 
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <ReceiptIcon />
-        </TraceIcon>
-        <TraceTitle>{`${receipt.merchant ?? "Unknown merchant"} · ${formatDay(receipt.date)}`}</TraceTitle>
-      </TraceLine>
+    <Step
+      description={formatDay(receipt.date)}
+      icon={<ReceiptIcon />}
+      title={
+        receipt.merchant
+          ? `Read the ${receipt.merchant} receipt`
+          : "Read the receipt"
+      }
+    >
       <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span>{formatAmount(receipt.total)}</span>
         {receipt.paymentMethod ? <span>{receipt.paymentMethod}</span> : null}
@@ -281,7 +304,7 @@ const ReceiptDetailStep = ({
         rows={receipt.items}
         rowKey={(row, index) => `${index}-${row.name}`}
       />
-    </div>
+    </Step>
   );
 };
 
@@ -302,40 +325,30 @@ const SearchLineItemsStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <SearchIcon />
-          </TraceIcon>
-          <TraceTitle>Item search failed</TraceTitle>
-        </TraceLine>
+      <Step icon={<SearchIcon />} status="error" title="Failed to search items">
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <SearchIcon />
-        </TraceIcon>
-        <TraceTitle>Searching items</TraceTitle>
-      </TraceLine>
+      <Step icon={<SearchIcon />} status="running" title="Searching items" />
     );
   }
 
   const { count, items, total } = part.output;
   const query = part.input?.query;
+  const found =
+    count === 0
+      ? "Found no matches"
+      : `Found ${plural(count, "match", "matches")}`;
 
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <SearchIcon />
-        </TraceIcon>
-        <TraceTitle>{`${count} ${count === 1 ? "match" : "matches"}${query ? ` for “${query}”` : ""}`}</TraceTitle>
-      </TraceLine>
+    <Step
+      icon={<SearchIcon />}
+      title={`${found}${query ? ` for “${query}”` : ""}`}
+    >
       {count > 0 ? (
         <p className="text-muted-foreground text-xs">
           {formatAmount(total)} across products
@@ -382,7 +395,7 @@ const SearchLineItemsStep = ({
         rows={items}
         rowKey={(row, index) => `${row.receiptId}-${index}-${row.item}`}
       />
-    </div>
+    </Step>
   );
 };
 
@@ -393,31 +406,28 @@ const SpendByCategoryStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <BarChart3Icon />
-          </TraceIcon>
-          <TraceTitle>Category breakdown failed</TraceTitle>
-        </TraceLine>
+      <Step
+        icon={<BarChart3Icon />}
+        status="error"
+        title="Failed to total spend by category"
+      >
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   const scope = part.input?.category;
   const grouping =
     part.input?.groupBy === "category" ? "category" : "subcategory";
-  const title = scope ?? `Totals by ${grouping}`;
+  const subject = scope ? `${scope} spend` : `spend by ${grouping}`;
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <BarChart3Icon />
-        </TraceIcon>
-        <TraceTitle>{title}</TraceTitle>
-      </TraceLine>
+      <Step
+        icon={<BarChart3Icon />}
+        status="running"
+        title={`Totalling ${subject}`}
+      />
     );
   }
 
@@ -425,13 +435,11 @@ const SpendByCategoryStep = ({
   const largest = largestTotal(categories);
 
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <BarChart3Icon />
-        </TraceIcon>
-        <TraceTitle>{`${title} · ${formatAmount(total)}`}</TraceTitle>
-      </TraceLine>
+    <Step
+      description={formatAmount(total)}
+      icon={<BarChart3Icon />}
+      title={`Totalled ${subject}`}
+    >
       <ResultTable
         caption={
           scope ? `Spend by ${grouping} in ${scope}` : `Spend by ${grouping}`
@@ -466,7 +474,7 @@ const SpendByCategoryStep = ({
         rows={categories}
         rowKey={(row) => row.category}
       />
-    </div>
+    </Step>
   );
 };
 
@@ -477,39 +485,34 @@ const SpendByMerchantStep = ({
 }) => {
   if (part.state === "output-error") {
     return (
-      <div>
-        <TraceLine aria-live="polite" status="error">
-          <TraceIcon>
-            <StoreIcon />
-          </TraceIcon>
-          <TraceTitle>Merchant totals failed</TraceTitle>
-        </TraceLine>
+      <Step
+        icon={<StoreIcon />}
+        status="error"
+        title="Failed to total spend by merchant"
+      >
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </div>
+      </Step>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <TraceLine aria-live="polite" status="running">
-        <TraceIcon>
-          <StoreIcon />
-        </TraceIcon>
-        <TraceTitle>Totals by merchant</TraceTitle>
-      </TraceLine>
+      <Step
+        icon={<StoreIcon />}
+        status="running"
+        title="Totalling spend by merchant"
+      />
     );
   }
 
   const { merchants, total } = part.output;
 
   return (
-    <div>
-      <TraceLine>
-        <TraceIcon>
-          <StoreIcon />
-        </TraceIcon>
-        <TraceTitle>{`Totals by merchant · ${formatAmount(total)}`}</TraceTitle>
-      </TraceLine>
+    <Step
+      description={formatAmount(total)}
+      icon={<StoreIcon />}
+      title="Totalled spend by merchant"
+    >
       <ResultTable
         caption="Spend by merchant"
         columns={[
@@ -532,7 +535,7 @@ const SpendByMerchantStep = ({
         rows={merchants}
         rowKey={(row) => row.merchant}
       />
-    </div>
+    </Step>
   );
 };
 
