@@ -1,7 +1,7 @@
 "use client";
 
-import { SendIcon, SquareIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { useRef, useState } from "react";
 
 import {
   InputGroup,
@@ -10,7 +10,48 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 
-export const PromptForm = ({
+const PromptInputSubmit = ({
+  canSend,
+  isBusy,
+  onStop,
+}: {
+  canSend: boolean;
+  isBusy: boolean;
+  onStop: () => void;
+}) => {
+  if (isBusy) {
+    return (
+      <InputGroupButton
+        aria-label="Stop generating"
+        className="ml-auto"
+        onClick={onStop}
+        size="icon-sm"
+        type="button"
+        variant="secondary"
+      >
+        <SquareIcon />
+      </InputGroupButton>
+    );
+  }
+
+  return (
+    <InputGroupButton
+      aria-label="Send"
+      className="ml-auto"
+      disabled={!canSend}
+      size="icon-sm"
+      type="submit"
+      // A disabled `default` button dims lime to ~2:1 against the page.
+      // `secondary` keeps the icon above 3:1 in both themes until there is
+      // something to send.
+      variant={canSend ? "default" : "secondary"}
+    >
+      <ArrowUpIcon />
+    </InputGroupButton>
+  );
+};
+
+export const PromptInput = ({
   isBusy,
   onStop,
   onSubmit,
@@ -21,6 +62,7 @@ export const PromptForm = ({
   onSubmit: (text: string) => void;
   placeholder: string;
 }) => {
+  const formRef = useRef<HTMLFormElement>(null);
   const [input, setInput] = useState("");
   const trimmed = input.trim();
   const canSend = trimmed.length > 0;
@@ -40,9 +82,11 @@ export const PromptForm = ({
         event.preventDefault();
         submit();
       }}
+      ref={formRef}
     >
       <InputGroup>
         <InputGroupTextarea
+          className="min-h-10"
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             // `isComposing` guards against Enter firing mid-IME input, which
@@ -53,38 +97,19 @@ export const PromptForm = ({
               !event.nativeEvent.isComposing
             ) {
               event.preventDefault();
-              submit();
+              formRef.current?.requestSubmit();
             }
           }}
           placeholder={placeholder}
           rows={1}
           value={input}
         />
-        <InputGroupAddon align="inline-end">
-          {isBusy ? (
-            <InputGroupButton
-              aria-label="Stop generating"
-              onClick={onStop}
-              size="icon-sm"
-              type="button"
-              variant="secondary"
-            >
-              <SquareIcon />
-            </InputGroupButton>
-          ) : (
-            <InputGroupButton
-              aria-label="Send"
-              disabled={!canSend}
-              size="icon-sm"
-              type="submit"
-              // A disabled `default` button dims lime to ~2:1 against the page.
-              // `secondary` keeps the icon above 3:1 in both themes until
-              // there is something to send.
-              variant={canSend ? "default" : "secondary"}
-            >
-              <SendIcon />
-            </InputGroupButton>
-          )}
+        <InputGroupAddon align="block-end">
+          <PromptInputSubmit
+            canSend={canSend}
+            isBusy={isBusy}
+            onStop={onStop}
+          />
         </InputGroupAddon>
       </InputGroup>
     </form>

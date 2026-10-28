@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 
 import { ChatMessage } from "./chat-message";
 import { ChatDebugPanel } from "./debug-panel";
-import { PromptForm } from "./prompt-form";
+import { PromptInput } from "./prompt-input";
 import { QuestionCard } from "./question-card";
 import { Suggestions } from "./suggestions";
 
@@ -170,7 +170,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className="w-full max-w-3xl">
-                <PromptForm
+                <PromptInput
                   isBusy={busy}
                   onStop={stop}
                   onSubmit={(text) => sendMessage({ text })}
@@ -253,7 +253,7 @@ export const Chat = ({ firstName }: { firstName: string }) => {
                 {error.message ? ` (${error.message})` : ""}
               </p>
             ) : null}
-            <PromptForm
+            <PromptInput
               isBusy={busy}
               onStop={stop}
               onSubmit={(text) => sendMessage({ text })}
