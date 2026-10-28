@@ -26,13 +26,24 @@ const answered = {
 
 describe(AskUserStep, () => {
   it("shows the running label while the question is unanswered", () => {
-    const html = renderToStaticMarkup(<AskUserStep part={pending} />);
+    const html = renderToStaticMarkup(<AskUserStep part={pending} streaming />);
 
     expect(html).toContain("Asking you a question");
   });
 
+  it("keeps waiting for the answer after the stream pauses", () => {
+    const html = renderToStaticMarkup(
+      <AskUserStep part={pending} streaming={false} />
+    );
+
+    expect(html).toContain("Asking you a question");
+    expect(html).not.toContain("Failed to ask a question");
+  });
+
   it("shows each question and its answer once the user answers", () => {
-    const html = renderToStaticMarkup(<AskUserStep part={answered} />);
+    const html = renderToStaticMarkup(
+      <AskUserStep part={answered} streaming />
+    );
 
     expect(html).toContain("Which period?");
     expect(html).toContain("This year");
