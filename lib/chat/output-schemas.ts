@@ -48,6 +48,7 @@ export type MerchantSpend = z.infer<typeof merchantSpendSchema>;
 export const lineItemMatchSchema = z.object({
   category: z.string().nullable(),
   date: z.iso.date().nullable(),
+  dateLabel: z.string().nullable(),
   item: z.string(),
   kind: z.string(),
   lineTotal: z.number(),
@@ -65,6 +66,7 @@ export type LineItemSearch = z.infer<typeof lineItemSearchSchema>;
 
 export const receiptSummarySchema = z.object({
   date: z.iso.date().nullable(),
+  dateLabel: z.string().nullable(),
   hasIntegrityWarning: z.boolean(),
   id: z.string(),
   merchant: z.string().nullable(),
@@ -75,6 +77,7 @@ export type ReceiptSummary = z.infer<typeof receiptSummarySchema>;
 
 export const receiptDetailSchema = z.object({
   date: z.iso.date().nullable(),
+  dateLabel: z.string().nullable(),
   gst: z.number().nullable(),
   id: z.string(),
   items: z.array(
