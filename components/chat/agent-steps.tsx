@@ -602,14 +602,18 @@ const StepRow = ({
 const ChainOfThought = ({
   hasActiveReasoning,
   isStreaming,
+  onOpenChange,
+  open,
+  seconds,
   steps,
 }: {
   hasActiveReasoning: boolean;
   isStreaming: boolean;
+  onOpenChange: (open: boolean) => void;
+  open: boolean | undefined;
+  seconds: number;
   steps: ToolPart[];
 }) => {
-  const [open, setOpen] = useState<boolean>();
-  const seconds = useTimer(isStreaming);
   const failed = steps.filter((part) => part.state === "output-error").length;
 
   let status: StepStatus | undefined;
@@ -623,7 +627,7 @@ const ChainOfThought = ({
 
   return (
     <Trace>
-      <TraceCollapsible open={open ?? isStreaming} onOpenChange={setOpen}>
+      <TraceCollapsible open={open ?? isStreaming} onOpenChange={onOpenChange}>
         <TraceCollapsibleTrigger>
           <TraceLine status={status}>
             <TraceIcon>
@@ -667,12 +671,23 @@ export const AgentSteps = ({
   isStreaming: boolean;
   parts: ChatMessagePart[];
 }) => {
+  const [open, setOpen] = useState<boolean>();
+  const seconds = useTimer(isStreaming);
   const steps = parts.filter(isToolPart);
   const hasActiveReasoning = parts.some(
     (part) => part.type === "reasoning" && part.state === "streaming"
   );
+  const hasAnswer = parts.some(
+    (part) => part.type === "text" && part.text.trim().length > 0
+  );
 
-  if (steps.length === 0 && !hasActiveReasoning) {
+  // The model briefly emits a message with no tool or reasoning part between
+  // steps. Keep the panel visible while the turn is still working so it does
+  // not flash off and on. The timer and open state live above this component,
+  // so even a hidden panel cannot reset them.
+  const isStarting = isStreaming && !hasAnswer;
+
+  if (steps.length === 0 && !hasActiveReasoning && !isStarting) {
     return null;
   }
 
@@ -680,6 +695,9 @@ export const AgentSteps = ({
     <ChainOfThought
       hasActiveReasoning={hasActiveReasoning}
       isStreaming={isStreaming}
+      onOpenChange={setOpen}
+      open={open}
+      seconds={seconds}
       steps={steps}
     />
   );
