@@ -11,7 +11,6 @@ export default defineConfig({
     ...(core.ignorePatterns ?? []),
     "README.md",
     "components/ui/**",
-    "components/ai-elements/**",
     "hooks/use-mobile.ts",
   ],
   jsPlugins: shadcn.jsPlugins,

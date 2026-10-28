@@ -16,11 +16,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-  ChainOfThoughtStep,
-} from "@/components/ai-elements/chain-of-thought";
+  Trace,
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceDescription,
+  TraceIcon,
+  TraceLine,
+  TraceTitle,
+} from "@/components/ui/trace";
 import type {
   CategoryTotal,
   LineItemMatch,
@@ -32,24 +36,6 @@ import type { ChatMessagePart } from "@/lib/chat/tools";
 
 import { formatAmount, formatDay } from "./format";
 import { ResultTable } from "./parts/result-table";
-
-const toolStateStatus = (
-  state: Extract<ChatMessagePart, { type: `tool-${string}` }>["state"]
-): "complete" | "active" | "pending" => {
-  switch (state) {
-    case "input-streaming":
-    case "input-available": {
-      return "active";
-    }
-    case "output-available":
-    case "output-error": {
-      return "complete";
-    }
-    default: {
-      return "pending";
-    }
-  }
-};
 
 const useTimer = (running: boolean) => {
   const [seconds, setSeconds] = useState(0);
@@ -74,38 +60,39 @@ export const AskUserStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-ask_user" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={HelpCircleIcon}
-        label="Question failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <HelpCircleIcon />
+          </TraceIcon>
+          <TraceTitle>Question failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={HelpCircleIcon}
-        label="Asking you a question"
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <HelpCircleIcon />
+        </TraceIcon>
+        <TraceTitle>Asking you a question</TraceTitle>
+      </TraceLine>
     );
   }
 
   return (
-    <ChainOfThoughtStep
-      icon={HelpCircleIcon}
-      label={`${part.output.length} answered`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <HelpCircleIcon />
+        </TraceIcon>
+        <TraceTitle>{`${part.output.length} answered`}</TraceTitle>
+      </TraceLine>
       <ol className="flex flex-col gap-1 text-xs">
         {part.output.map((entry) => (
           <li key={entry.question}>
@@ -114,7 +101,7 @@ export const AskUserStep = ({
           </li>
         ))}
       </ol>
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -123,38 +110,39 @@ const ListReceiptsStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-list_receipts" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={ListIcon}
-        label="Listing receipts failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <ListIcon />
+          </TraceIcon>
+          <TraceTitle>Listing receipts failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={ListIcon}
-        label="Listing receipts"
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <ListIcon />
+        </TraceIcon>
+        <TraceTitle>Listing receipts</TraceTitle>
+      </TraceLine>
     );
   }
 
   return (
-    <ChainOfThoughtStep
-      icon={ListIcon}
-      label={`Found ${part.output.length} receipts`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <ListIcon />
+        </TraceIcon>
+        <TraceTitle>{`Found ${part.output.length} receipts`}</TraceTitle>
+      </TraceLine>
       <ResultTable
         caption="Receipts"
         columns={[
@@ -194,7 +182,7 @@ const ListReceiptsStep = ({
         rows={part.output}
         rowKey={(row) => row.id}
       />
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -203,29 +191,28 @@ const ReceiptDetailStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-receipt_detail" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={ReceiptIcon}
-        label="Reading receipt failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <ReceiptIcon />
+          </TraceIcon>
+          <TraceTitle>Reading receipt failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={ReceiptIcon}
-        label="Reading receipt"
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <ReceiptIcon />
+        </TraceIcon>
+        <TraceTitle>Reading receipt</TraceTitle>
+      </TraceLine>
     );
   }
 
@@ -233,23 +220,25 @@ const ReceiptDetailStep = ({
 
   if (!receipt) {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={ReceiptIcon}
-        label="Receipt not found"
-        status="complete"
-      />
+      <TraceLine aria-live="polite">
+        <TraceIcon>
+          <ReceiptIcon />
+        </TraceIcon>
+        <TraceTitle>Receipt not found</TraceTitle>
+      </TraceLine>
     );
   }
 
   type DetailItem = ReceiptDetail["items"][number];
 
   return (
-    <ChainOfThoughtStep
-      icon={ReceiptIcon}
-      label={`${receipt.merchant ?? "Unknown merchant"} · ${formatDay(receipt.date)}`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <ReceiptIcon />
+        </TraceIcon>
+        <TraceTitle>{`${receipt.merchant ?? "Unknown merchant"} · ${formatDay(receipt.date)}`}</TraceTitle>
+      </TraceLine>
       <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span>{formatAmount(receipt.total)}</span>
         {receipt.paymentMethod ? <span>{receipt.paymentMethod}</span> : null}
@@ -292,7 +281,7 @@ const ReceiptDetailStep = ({
         rows={receipt.items}
         rowKey={(row, index) => `${index}-${row.name}`}
       />
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -311,29 +300,28 @@ const SearchLineItemsStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-search_line_items" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={SearchIcon}
-        label="Item search failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <SearchIcon />
+          </TraceIcon>
+          <TraceTitle>Item search failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={SearchIcon}
-        label="Searching items"
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <SearchIcon />
+        </TraceIcon>
+        <TraceTitle>Searching items</TraceTitle>
+      </TraceLine>
     );
   }
 
@@ -341,11 +329,13 @@ const SearchLineItemsStep = ({
   const query = part.input?.query;
 
   return (
-    <ChainOfThoughtStep
-      icon={SearchIcon}
-      label={`${count} ${count === 1 ? "match" : "matches"}${query ? ` for “${query}”` : ""}`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <SearchIcon />
+        </TraceIcon>
+        <TraceTitle>{`${count} ${count === 1 ? "match" : "matches"}${query ? ` for “${query}”` : ""}`}</TraceTitle>
+      </TraceLine>
       {count > 0 ? (
         <p className="text-muted-foreground text-xs">
           {formatAmount(total)} across products
@@ -392,7 +382,7 @@ const SearchLineItemsStep = ({
         rows={items}
         rowKey={(row, index) => `${row.receiptId}-${index}-${row.item}`}
       />
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -401,18 +391,17 @@ const SpendByCategoryStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-spend_by_category" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={BarChart3Icon}
-        label="Category breakdown failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <BarChart3Icon />
+          </TraceIcon>
+          <TraceTitle>Category breakdown failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
@@ -423,12 +412,12 @@ const SpendByCategoryStep = ({
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={BarChart3Icon}
-        label={title}
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <BarChart3Icon />
+        </TraceIcon>
+        <TraceTitle>{title}</TraceTitle>
+      </TraceLine>
     );
   }
 
@@ -436,11 +425,13 @@ const SpendByCategoryStep = ({
   const largest = largestTotal(categories);
 
   return (
-    <ChainOfThoughtStep
-      icon={BarChart3Icon}
-      label={`${title} · ${formatAmount(total)}`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <BarChart3Icon />
+        </TraceIcon>
+        <TraceTitle>{`${title} · ${formatAmount(total)}`}</TraceTitle>
+      </TraceLine>
       <ResultTable
         caption={
           scope ? `Spend by ${grouping} in ${scope}` : `Spend by ${grouping}`
@@ -475,7 +466,7 @@ const SpendByCategoryStep = ({
         rows={categories}
         rowKey={(row) => row.category}
       />
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -484,40 +475,41 @@ const SpendByMerchantStep = ({
 }: {
   part: Extract<ChatMessagePart, { type: "tool-spend_by_merchant" }>;
 }) => {
-  const status = toolStateStatus(part.state);
-
   if (part.state === "output-error") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={StoreIcon}
-        label="Merchant totals failed"
-        status="complete"
-      >
+      <div>
+        <TraceLine aria-live="polite" status="error">
+          <TraceIcon>
+            <StoreIcon />
+          </TraceIcon>
+          <TraceTitle>Merchant totals failed</TraceTitle>
+        </TraceLine>
         <p className="text-destructive text-xs">{part.errorText}</p>
-      </ChainOfThoughtStep>
+      </div>
     );
   }
 
   if (part.state !== "output-available") {
     return (
-      <ChainOfThoughtStep
-        aria-live="polite"
-        icon={StoreIcon}
-        label="Totals by merchant"
-        status={status}
-      />
+      <TraceLine aria-live="polite" status="running">
+        <TraceIcon>
+          <StoreIcon />
+        </TraceIcon>
+        <TraceTitle>Totals by merchant</TraceTitle>
+      </TraceLine>
     );
   }
 
   const { merchants, total } = part.output;
 
   return (
-    <ChainOfThoughtStep
-      icon={StoreIcon}
-      label={`Totals by merchant · ${formatAmount(total)}`}
-      status="complete"
-    >
+    <div>
+      <TraceLine>
+        <TraceIcon>
+          <StoreIcon />
+        </TraceIcon>
+        <TraceTitle>{`Totals by merchant · ${formatAmount(total)}`}</TraceTitle>
+      </TraceLine>
       <ResultTable
         caption="Spend by merchant"
         columns={[
@@ -540,7 +532,7 @@ const SpendByMerchantStep = ({
         rows={merchants}
         rowKey={(row) => row.merchant}
       />
-    </ChainOfThoughtStep>
+    </div>
   );
 };
 
@@ -548,7 +540,7 @@ const unreachableToolPart = (part: never): never => {
   throw new Error(`Unhandled tool part: ${JSON.stringify(part)}`);
 };
 
-const AgentStep = ({ part }: { part: ChatMessagePart }) => {
+const StepLine = ({ part }: { part: ChatMessagePart }) => {
   if (!isStaticToolUIPart(part)) {
     return null;
   }
@@ -585,9 +577,11 @@ export const AgentSteps = ({
   isStreaming: boolean;
   parts: ChatMessagePart[];
 }) => {
+  const [open, setOpen] = useState<boolean>();
   const seconds = useTimer(isStreaming);
-  const steps = parts.filter((part): part is ChatMessagePart =>
-    isStaticToolUIPart(part)
+  const steps = parts.filter(
+    (part): part is Extract<ChatMessagePart, { type: `tool-${string}` }> =>
+      part.type.startsWith("tool-")
   );
   const hasActiveReasoning = parts.some(
     (part) => part.type === "reasoning" && part.state === "streaming"
@@ -597,33 +591,48 @@ export const AgentSteps = ({
     return null;
   }
 
+  const failed = steps.some((part) => part.state === "output-error");
+
+  let headerStatus: "running" | "error" | undefined;
+  if (isStreaming) {
+    headerStatus = "running";
+  } else if (failed) {
+    headerStatus = "error";
+  } else {
+    headerStatus = undefined;
+  }
+
   return (
-    <ChainOfThought defaultOpen={isStreaming}>
-      <ChainOfThoughtHeader>
-        <span className="flex items-center gap-2">
-          <Gather
-            color="var(--primary)"
-            key={isStreaming ? "streaming" : "done"}
-            playState={isStreaming ? "running" : "paused"}
-            size={14}
-          />
-          Working
-          <span className="text-muted-foreground tabular-nums">{seconds}s</span>
-        </span>
-      </ChainOfThoughtHeader>
-      <ChainOfThoughtContent>
-        {steps.map((part, index) => (
-          <AgentStep key={`${part.type}-${index}`} part={part} />
-        ))}
-        {hasActiveReasoning && isStreaming ? (
-          <ChainOfThoughtStep
-            aria-live="polite"
-            icon={BrainIcon}
-            label="Thinking"
-            status="active"
-          />
-        ) : null}
-      </ChainOfThoughtContent>
-    </ChainOfThought>
+    <TraceCollapsible open={open ?? isStreaming} onOpenChange={setOpen}>
+      <TraceCollapsibleTrigger>
+        <TraceLine status={headerStatus}>
+          <TraceIcon>
+            <Gather
+              color="var(--primary)"
+              key={isStreaming ? "streaming" : "done"}
+              playState={isStreaming ? "running" : "paused"}
+              size={14}
+            />
+          </TraceIcon>
+          <TraceTitle>Working</TraceTitle>
+          <TraceDescription>{seconds}s</TraceDescription>
+        </TraceLine>
+      </TraceCollapsibleTrigger>
+      <TraceCollapsibleContent keepMounted>
+        <Trace>
+          {steps.map((part, index) => (
+            <StepLine key={`${part.type}-${index}`} part={part} />
+          ))}
+          {hasActiveReasoning && isStreaming ? (
+            <TraceLine aria-live="polite" status="running">
+              <TraceIcon>
+                <BrainIcon />
+              </TraceIcon>
+              <TraceTitle>Thinking</TraceTitle>
+            </TraceLine>
+          ) : null}
+        </Trace>
+      </TraceCollapsibleContent>
+    </TraceCollapsible>
   );
 };
