@@ -1,8 +1,10 @@
 import {
   columnFilteringFeature,
   createFilteredRowModel,
+  createPaginatedRowModel,
   createSortedRowModel,
   filterFn_includesString,
+  rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
   sortFn_alphanumeric,
@@ -14,6 +16,10 @@ export const features = tableFeatures({
   columnFilteringFeature,
   filterFns: { includesString: filterFn_includesString },
   filteredRowModel: createFilteredRowModel(),
+  // Slices whatever filtering and sorting produced, so a page is a window onto
+  // the whole filtered list rather than a slice taken before filtering.
+  paginatedRowModel: createPaginatedRowModel(),
+  rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
   sortFns: {

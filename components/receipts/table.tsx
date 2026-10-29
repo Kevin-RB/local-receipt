@@ -8,6 +8,8 @@ import {
   ArrowUp,
   BadgeAlert,
   CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +20,7 @@ import type { DateRange } from "react-day-picker";
 import type { ReceiptTable } from "@/components/receipts/columns";
 import { features } from "@/components/receipts/features";
 import type { DataTableFeatures } from "@/components/receipts/features";
+import type { DateRangeFilterValue } from "@/components/receipts/filters";
 import { ReceiptStatus } from "@/components/receipts/receipt-status";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -138,19 +141,64 @@ export const getStartOfPreviousMonth = () => {
   return new Date(previousMonth.year, previousMonth.month - 1, 1);
 };
 
+/**
+ * How many receipts one page holds. Every receipt the owner has is already
+ * loaded for filtering and sorting, so this is a rendering window, not a query
+ * limit — the count is what keeps the list scannable on a phone.
+ */
+export const PAGE_SIZE = 10;
+
 export const DataTable = ({ columns, data }: DataTableProps) => {
   const table = useTable({
+    // The page belongs to the reader, not to the data: the page re-renders
+    // whenever a receipt finishes (`router.refresh()` in
+    // `receipts-realtime.tsx`), and the default would walk them back to page one
+    // mid-scroll. Filtering and sorting still return to page one — see the
+    // handlers below, where the reader's own action caused the change.
+    autoResetPageIndex: false,
     columns,
     data,
     features,
+    initialState: { pagination: { pageIndex: 0, pageSize: PAGE_SIZE } },
   });
+  const { pageIndex, pageSize } = table.state.pagination;
+  const pageCount = table.getPageCount();
+  const rowCount = table.getRowCount();
   const listRef = useRef<HTMLUListElement>(null);
+  const previousPageIndex = useRef(pageIndex);
   const merchantColumn = table.getColumn("merchantName");
   const dateColumn = table.getColumn("transactionDateTime");
   const dateRange =
     (dateColumn?.getFilterValue() as DateRange | undefined) ?? undefined;
   const today = getToday();
   const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
+
+  // With `autoResetPageIndex` off, nothing rescues the page when the list
+  // shrinks under it — a delete that empties the last page, or a filter whose
+  // result is shorter than the page being viewed. Landing on page one beats
+  // rendering an empty page with pagination that points past the end.
+  useEffect(() => {
+    if (pageIndex > 0 && pageIndex >= pageCount) {
+      table.setPageIndex(Math.max(0, pageCount - 1));
+    }
+  }, [pageCount, pageIndex, table]);
+
+  // On a phone the cards are a screen or more tall, so tapping "Next" at the
+  // bottom would otherwise land the reader at the bottom of the next page.
+  // The list is `display: none` on desktop, where this is a no-op.
+  useEffect(() => {
+    if (previousPageIndex.current === pageIndex) {
+      return;
+    }
+
+    previousPageIndex.current = pageIndex;
+    listRef.current?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "start",
+    });
+  }, [pageIndex]);
 
   // Reveals the phone list's cards as they scroll into view, once each.
   //
@@ -229,15 +277,31 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
     return rangeDateFormatter.format(dateRange.from);
   })();
 
+  // Filtering and sorting renumber every row, so the page the reader was on no
+  // longer means what it did: page four of the old result is not page four of
+  // the new one, and a narrower filter can leave the current page past the end.
+  // `autoResetPageIndex` is off (see above), so the change that reorders the
+  // list is also the one that goes back to the first page.
+  const setMerchantFilter = (value: string) => {
+    merchantColumn?.setFilterValue(value);
+    table.firstPage();
+  };
+
+  const setDateRangeFilter = (value: DateRangeFilterValue | undefined) => {
+    dateColumn?.setFilterValue(value);
+    table.firstPage();
+  };
+
+  const firstRowOnPage = pageIndex * pageSize + 1;
+  const lastRowOnPage = Math.min(rowCount, (pageIndex + 1) * pageSize);
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Filter by merchant"
           className="max-w-xs"
-          onChange={(event) =>
-            merchantColumn?.setFilterValue(event.target.value)
-          }
+          onChange={(event) => setMerchantFilter(event.target.value)}
           placeholder="Filter merchants…"
           value={(merchantColumn?.getFilterValue() as string | undefined) ?? ""}
         />
@@ -261,12 +325,12 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
               disabled={{ after: today }}
               mode="range"
               numberOfMonths={2}
-              onSelect={(next) => dateColumn?.setFilterValue(next ?? {})}
+              onSelect={(next) => setDateRangeFilter(next ?? {})}
               selected={dateRange}
             />
             <div className="border-t p-1">
               <Button
-                onClick={() => dateColumn?.setFilterValue(undefined)}
+                onClick={() => setDateRangeFilter(undefined)}
                 size="sm"
                 variant="ghost"
               >
@@ -301,7 +365,10 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
                     content = (
                       <button
                         className="hover:text-foreground flex items-center gap-1"
-                        onClick={header.column.getToggleSortingHandler()}
+                        onClick={(event) => {
+                          header.column.getToggleSortingHandler()?.(event);
+                          table.firstPage();
+                        }}
                         type="button"
                       >
                         {content}
@@ -351,6 +418,41 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
           </TableBody>
         </Table>
       </div>
+      {rowCount > 0 ? (
+        <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
+          {/* `aria-live` on a node that stays mounted is what announces a page
+              change; the visible rows themselves are replaced, not focused. */}
+          <p aria-live="polite" className="text-muted-foreground text-sm">
+            Showing {firstRowOnPage}-{lastRowOnPage} of {rowCount}{" "}
+            {rowCount === 1 ? "receipt" : "receipts"}
+          </p>
+          {pageCount > 1 ? (
+            <nav aria-label="Receipt pages" className="flex items-center gap-2">
+              <Button
+                disabled={!table.getCanPreviousPage()}
+                onClick={() => table.previousPage()}
+                size="sm"
+                variant="outline"
+              >
+                <ChevronLeft data-icon="inline-start" />
+                Previous
+              </Button>
+              <span className="text-sm tabular-nums">
+                Page {pageIndex + 1} of {pageCount}
+              </span>
+              <Button
+                disabled={!table.getCanNextPage()}
+                onClick={() => table.nextPage()}
+                size="sm"
+                variant="outline"
+              >
+                Next
+                <ChevronRight data-icon="inline-end" />
+              </Button>
+            </nav>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };
