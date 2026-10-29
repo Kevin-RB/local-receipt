@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+import { USER_ERROR } from "@/lib/errors";
+
 import type { UpdateReceiptInput } from "./schema";
 
 const {
@@ -965,7 +967,7 @@ describe(updateReceipt, () => {
     const result = await updateReceipt(validInput);
 
     expect(result).toStrictEqual({
-      error: "Receipt is not editable",
+      error: USER_ERROR.unauthorized,
       success: false,
     });
     expect(mockFindFirst).not.toHaveBeenCalled();

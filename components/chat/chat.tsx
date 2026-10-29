@@ -27,6 +27,7 @@ import {
   useMessageScrollerScrollable,
 } from "@/components/ui/message-scroller";
 import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
+import { chatErrorText } from "@/lib/chat/errors";
 import { greetingFor } from "@/lib/chat/greeting";
 import { isLastStreaming } from "@/lib/chat/message-parts";
 import type {
@@ -248,9 +249,8 @@ export const Chat = ({ firstName }: { firstName: string }) => {
 
           <div className="enter-rise mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
             {error ? (
-              <p className="text-destructive text-xs">
-                Something went wrong. Please try again.
-                {error.message ? ` (${error.message})` : ""}
+              <p className="text-destructive text-xs" role="alert">
+                {chatErrorText(error)}
               </p>
             ) : null}
             <PromptInput
