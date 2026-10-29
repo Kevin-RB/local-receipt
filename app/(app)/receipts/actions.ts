@@ -18,7 +18,7 @@ export const deleteReceipt = async (receiptId: string) => {
   const session = await getSession();
 
   if (!session) {
-    return { error: USER_ERROR.notFound, success: false as const };
+    return { error: USER_ERROR.unauthorized, success: false as const };
   }
 
   const existing = await db.query.receipts.findFirst({
@@ -105,7 +105,7 @@ export const reprocessReceipt = async (input: unknown) => {
   const session = await getSession();
 
   if (!session) {
-    return { error: USER_ERROR.notFound, success: false as const };
+    return { error: USER_ERROR.unauthorized, success: false as const };
   }
 
   const parsed = reprocessReceiptSchema.safeParse(input);

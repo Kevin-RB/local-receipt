@@ -18,7 +18,7 @@ export const updateReceipt = async (input: UpdateReceiptInput) => {
   const session = await getSession();
 
   if (!session) {
-    return { error: USER_ERROR.receiptNotEditable, success: false as const };
+    return { error: USER_ERROR.unauthorized, success: false as const };
   }
 
   const parsed = updateReceiptSchema.safeParse(input);
