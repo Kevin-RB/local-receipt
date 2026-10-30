@@ -173,9 +173,10 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
   const defaultMonth = dateRange?.from ?? getStartOfPreviousMonth();
 
   // With `autoResetPageIndex` off, nothing rescues the page when the list
-  // shrinks under it — a delete that empties the last page, or a filter whose
-  // result is shorter than the page being viewed. Landing on page one beats
-  // rendering an empty page with pagination that points past the end.
+  // shrinks under it — a delete that empties the last page, for instance.
+  // Filters and sorting reset to page one in the handlers below; this lands on
+  // the last page that still exists, so the table never renders empty with
+  // pagination pointing past the end.
   useEffect(() => {
     if (pageIndex > 0 && pageIndex >= pageCount) {
       table.setPageIndex(Math.max(0, pageCount - 1));
@@ -383,10 +384,14 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
             binding: with auto layout the browser fits every column to the
             longest cell on the page, so each page change re-measured the table
             and the columns jumped. The columns are shares of the container, so
-            they hold their proportions at any width; a long date or merchant
-            that no longer fits is ellipsized rather than allowed to push the
-            column (and the page) wider. */}
-        <Table className="table-fixed">
+            they hold their proportions at any width.
+
+            `min-w` is the width the tightest column needs for its widest
+            content — the `processing`/`extracting` status badge, the longest
+            date. Below it the columns would be narrower than their own content
+            and a badge would spill over the date, so the container scrolls
+            sideways instead (which is what the table did before any of this). */}
+        <Table className="min-w-[58rem] table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
