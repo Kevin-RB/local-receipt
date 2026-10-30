@@ -354,7 +354,14 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
         )}
       </ul>
       <div className="hidden overflow-hidden rounded-md border md:block">
-        <Table>
+        {/* `table-fixed` is what makes the widths in the column definitions
+            binding: with auto layout the browser fits every column to the
+            longest cell on the page, so each page change re-measured the table
+            and the columns jumped. The columns are shares of the container, so
+            they hold their proportions at any width; a long date or merchant
+            that no longer fits is ellipsized rather than allowed to push the
+            column (and the page) wider. */}
+        <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -382,7 +389,17 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
                   return (
                     <TableHead
                       aria-sort={sorted ? ARIA_SORT[sorted] : undefined}
+                      className="w-(--column-width)"
                       key={header.id}
+                      // The width comes from the column definition, so the
+                      // table's geometry is declared with the columns rather
+                      // than inferred from whichever page is showing. Unset for
+                      // the merchant column, which takes the remaining space.
+                      style={
+                        {
+                          "--column-width": header.column.columnDef.meta?.width,
+                        } as CSSProperties
+                      }
                     >
                       {header.isPlaceholder ? null : content}
                     </TableHead>

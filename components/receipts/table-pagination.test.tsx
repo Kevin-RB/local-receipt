@@ -15,7 +15,10 @@ import { DataTable, PAGE_SIZE } from "./table";
 const columnHelper = createColumnHelper<DataTableFeatures, ReceiptTable>();
 
 const columns = columnHelper.columns([
-  columnHelper.accessor("merchantName", { header: "Merchant" }),
+  columnHelper.accessor("merchantName", {
+    header: "Merchant",
+    meta: { width: "20%" },
+  }),
 ]);
 
 const receipt = (index: number): ReceiptTable => ({
@@ -156,5 +159,18 @@ describe(DataTable, () => {
     expect(
       screen.getByText(`Showing 1-${PAGE_SIZE} of ${PAGE_SIZE} receipts`)
     ).toBeDefined();
+  });
+
+  it("takes its column widths from the column definitions, not the page", () => {
+    renderTable(PAGE_SIZE * 2);
+
+    // `table-fixed` plus a width per column is what stops a page of longer
+    // merchants or dates from re-measuring the table between pages.
+    expect(screen.getByRole("table").classList).toContain("table-fixed");
+    expect(
+      screen
+        .getByRole("columnheader", { name: /^Merchant/u })
+        .style.getPropertyValue("--column-width")
+    ).toBe("20%");
   });
 });
