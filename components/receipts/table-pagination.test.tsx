@@ -52,9 +52,9 @@ const renderTable = (count: number) =>
 const tableRows = () => within(screen.getByRole("table")).getAllByRole("row");
 
 describe(DataTable, () => {
-  // jsdom has neither API. Reduced motion is `true` so the reveal observer — and
-  // the `IntersectionObserver` behind it — never runs; this test is about pages,
-  // not motion.
+  // jsdom has no `matchMedia`. Reduced motion is `true` so the reveal observer —
+  // and the `IntersectionObserver` behind it — never runs; this test is about
+  // pages, not motion.
   beforeAll(() => {
     vi.stubGlobal(
       "matchMedia",
@@ -63,11 +63,6 @@ describe(DataTable, () => {
         media: query,
       }))
     );
-    Object.defineProperty(Element.prototype, "scrollIntoView", {
-      configurable: true,
-      value: vi.fn<() => void>(),
-      writable: true,
-    });
   });
 
   it("shows one page of rows and reports the range", () => {

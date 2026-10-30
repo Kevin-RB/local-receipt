@@ -165,7 +165,6 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
   const pageCount = table.getPageCount();
   const rowCount = table.getRowCount();
   const listRef = useRef<HTMLUListElement>(null);
-  const previousPageIndex = useRef(pageIndex);
   const merchantColumn = table.getColumn("merchantName");
   const dateColumn = table.getColumn("transactionDateTime");
   const dateRange =
@@ -182,23 +181,6 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
       table.setPageIndex(Math.max(0, pageCount - 1));
     }
   }, [pageCount, pageIndex, table]);
-
-  // On a phone the cards are a screen or more tall, so tapping "Next" at the
-  // bottom would otherwise land the reader at the bottom of the next page.
-  // The list is `display: none` on desktop, where this is a no-op.
-  useEffect(() => {
-    if (previousPageIndex.current === pageIndex) {
-      return;
-    }
-
-    previousPageIndex.current = pageIndex;
-    listRef.current?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "start",
-    });
-  }, [pageIndex]);
 
   // Reveals the phone list's cards as they scroll into view, once each.
   //
@@ -339,6 +321,49 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
             </div>
           </PopoverContent>
         </Popover>
+        {/* Pagination sits above the table, not below it: a footer rides up as
+            the last page's shorter list ends, so the controls move under the
+            reader's cursor exactly when they are about to click one. The
+            toolbar is anchored to the top of the table and holds still. */}
+        {rowCount > 0 ? (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* `aria-live` on a node that stays mounted is what announces a
+                page change; the visible rows themselves are replaced, not
+                focused. */}
+            <p aria-live="polite" className="text-muted-foreground text-sm">
+              Showing {firstRowOnPage}-{lastRowOnPage} of {rowCount}{" "}
+              {rowCount === 1 ? "receipt" : "receipts"}
+            </p>
+            {pageCount > 1 ? (
+              <nav
+                aria-label="Receipt pages"
+                className="flex items-center gap-2"
+              >
+                <Button
+                  disabled={!table.getCanPreviousPage()}
+                  onClick={() => table.previousPage()}
+                  size="sm"
+                  variant="outline"
+                >
+                  <ChevronLeft data-icon="inline-start" />
+                  Previous
+                </Button>
+                <span className="text-sm tabular-nums">
+                  Page {pageIndex + 1} of {pageCount}
+                </span>
+                <Button
+                  disabled={!table.getCanNextPage()}
+                  onClick={() => table.nextPage()}
+                  size="sm"
+                  variant="outline"
+                >
+                  Next
+                  <ChevronRight data-icon="inline-end" />
+                </Button>
+              </nav>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <ul className="receipt-cards flex flex-col gap-2 md:hidden" ref={listRef}>
         {table.getRowModel().rows.length ? (
@@ -435,41 +460,6 @@ export const DataTable = ({ columns, data }: DataTableProps) => {
           </TableBody>
         </Table>
       </div>
-      {rowCount > 0 ? (
-        <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
-          {/* `aria-live` on a node that stays mounted is what announces a page
-              change; the visible rows themselves are replaced, not focused. */}
-          <p aria-live="polite" className="text-muted-foreground text-sm">
-            Showing {firstRowOnPage}-{lastRowOnPage} of {rowCount}{" "}
-            {rowCount === 1 ? "receipt" : "receipts"}
-          </p>
-          {pageCount > 1 ? (
-            <nav aria-label="Receipt pages" className="flex items-center gap-2">
-              <Button
-                disabled={!table.getCanPreviousPage()}
-                onClick={() => table.previousPage()}
-                size="sm"
-                variant="outline"
-              >
-                <ChevronLeft data-icon="inline-start" />
-                Previous
-              </Button>
-              <span className="text-sm tabular-nums">
-                Page {pageIndex + 1} of {pageCount}
-              </span>
-              <Button
-                disabled={!table.getCanNextPage()}
-                onClick={() => table.nextPage()}
-                size="sm"
-                variant="outline"
-              >
-                Next
-                <ChevronRight data-icon="inline-end" />
-              </Button>
-            </nav>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 };
