@@ -40,6 +40,21 @@ export const wallClockToLocalString = (value: string): string =>
   Temporal.PlainDateTime.from(value).toString({ smallestUnit: "minute" });
 
 /**
+ * Compares two wall clocks by value.
+ *
+ * The receipts table sorted this column with a plain string comparison, which
+ * is chronological only while every value shares one format: a `T`-separated
+ * value sorts after every space-separated one on the same day, because `" "`
+ * < `"T"`, so a pending receipt fell to the bottom of its day. Parsing makes
+ * the order independent of the separator and of the producer.
+ */
+export const compareWallClocks = (a: string, b: string): number =>
+  Temporal.PlainDateTime.compare(
+    Temporal.PlainDateTime.from(a),
+    Temporal.PlainDateTime.from(b)
+  );
+
+/**
  * The stored representation: the text Postgres returns for a `timestamp`
  * (`2026-10-07 20:30:00`).
  *

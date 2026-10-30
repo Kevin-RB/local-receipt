@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  compareWallClocks,
   formatReceiptDate,
   formatReceiptDateTime,
   instantToWallClock,
@@ -362,5 +363,33 @@ describe(instantToWallClock, () => {
     expect(instantToWallClock(new Date("2026-10-07T10:30:00Z"))).toBe(
       "2026-10-07 20:30:00"
     );
+  });
+});
+
+describe(compareWallClocks, () => {
+  /**
+   * The regression this pins: the receipts table compared these values as
+   * strings, and `" "` < `"T"`, so an 08:00 value written with a `T` sorted
+   * after a 09:35 value written with a space — the wrong end of the same day.
+   */
+  it("orders by value regardless of the separator", () => {
+    expect(
+      compareWallClocks("2026-10-16T08:00:00", "2026-10-16 09:35:00")
+    ).toBeLessThan(0);
+    expect(
+      compareWallClocks("2026-10-16 09:35:00", "2026-10-16T08:00:00")
+    ).toBeGreaterThan(0);
+  });
+
+  it("orders across days", () => {
+    expect(
+      compareWallClocks("2026-10-06 23:00:00", "2026-10-07 01:00:00")
+    ).toBeLessThan(0);
+  });
+
+  it("treats the same wall clock written differently as equal", () => {
+    expect(
+      compareWallClocks("2026-10-16 08:00:00", "2026-10-16T08:00:00")
+    ).toBe(0);
   });
 });

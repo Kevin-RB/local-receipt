@@ -1,6 +1,7 @@
 "use client";
 
 import { createColumnHelper } from "@tanstack/react-table";
+import type { SortFn } from "@tanstack/react-table";
 import {
   BadgeAlert,
   Eye,
@@ -36,7 +37,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
-import { formatReceiptDateTime } from "@/lib/receipt/datetime";
+import {
+  compareWallClocks,
+  formatReceiptDateTime,
+} from "@/lib/receipt/datetime";
 
 export const receiptTableSchema = z.object({
   hasIntegrityWarning: z.boolean(),
@@ -161,6 +165,25 @@ const RowActions = ({
   );
 };
 
+/**
+ * Sorts the column by the wall clock's value, not its text.
+ *
+ * The built-in `datetime` sort compares anything that is not a `Date` as a
+ * string, which is chronological only while every value shares one format: a
+ * `T`-separated value sorts after every space-separated one on the same day,
+ * because `" "` < `"T"`. Parsing makes the order independent of the separator,
+ * so a value from a second producer cannot land at the wrong end of its day.
+ */
+const byWallClock: SortFn<DataTableFeatures, ReceiptTable> = (
+  rowA,
+  rowB,
+  columnId
+) =>
+  compareWallClocks(
+    String(rowA.getValue(columnId)),
+    String(rowB.getValue(columnId))
+  );
+
 export const receiptColumns = columnHelper.columns([
   columnHelper.accessor("status", {
     cell: ({ row }) => (
@@ -185,7 +208,7 @@ export const receiptColumns = columnHelper.columns([
     filterFn: dateRangeFilterFn,
     header: "Date",
     meta: { width: "34%" },
-    sortFn: "datetime",
+    sortFn: byWallClock,
   }),
   columnHelper.accessor("merchantName", {
     cell: ({ row }) => (
