@@ -156,16 +156,16 @@ describe(sumSpendingByMerchant, () => {
   });
 });
 
-describe(sumSpendingByCategory, () => {
-  const row = (
-    overrides: Partial<CategorySpendInput> = {}
-  ): CategorySpendInput => ({
-    categoryName: "Groceries",
-    date: TODAY.subtract({ days: 1 }).toString(),
-    total: 10,
-    ...overrides,
-  });
+const row = (
+  overrides: Partial<CategorySpendInput> = {}
+): CategorySpendInput => ({
+  categoryName: "Groceries",
+  date: TODAY.subtract({ days: 1 }).toString(),
+  total: 10,
+  ...overrides,
+});
 
+describe(sumSpendingByCategory, () => {
   it("sums totals per category within the window and sorts descending", () => {
     const result = sumSpendingByCategory(
       [
