@@ -2,6 +2,8 @@ import "temporal-polyfill/global";
 
 export const RECEIPT_TIMEZONE = "Australia/Brisbane";
 
+const pad = (value: number) => value.toString().padStart(2, "0");
+
 /**
  * A receipt's transaction datetime is the local date and time printed on the
  * paper. It has no timezone and no instant: it is stored in a `timestamp`
@@ -38,6 +40,19 @@ export const wallClockToLocalString = (value: string): string =>
   Temporal.PlainDateTime.from(value).toString({ smallestUnit: "minute" });
 
 /**
+ * The stored representation: the text Postgres returns for a `timestamp`
+ * (`2026-10-07 20:30:00`).
+ *
+ * Every value that reaches the client must use this separator. The receipts
+ * table sorts the column with a string comparison, so a `T`-separated value
+ * sorts after every space-separated one on the same day — a pending receipt
+ * with no extracted datetime would always land at the bottom of its day,
+ * whatever its time.
+ */
+export const wallClockToString = (value: Temporal.PlainDateTime): string =>
+  `${value.toPlainDate().toString()} ${pad(value.hour)}:${pad(value.minute)}:${pad(value.second)}`;
+
+/**
  * Normalises an extracted or edited datetime into a wall clock.
  *
  * A numeric offset is dropped: `2026-07-28T18:51:00+10:00` is the printed local
@@ -50,13 +65,14 @@ export const receiptDateTimeToWallClock = (value: string): string => {
   const trimmed = value.trim();
 
   if (/[zZ]$/u.test(trimmed)) {
-    return Temporal.Instant.from(trimmed)
-      .toZonedDateTimeISO(RECEIPT_TIMEZONE)
-      .toPlainDateTime()
-      .toString();
+    return wallClockToString(
+      Temporal.Instant.from(trimmed)
+        .toZonedDateTimeISO(RECEIPT_TIMEZONE)
+        .toPlainDateTime()
+    );
   }
 
-  return Temporal.PlainDateTime.from(trimmed).toString();
+  return wallClockToString(Temporal.PlainDateTime.from(trimmed));
 };
 
 /**
@@ -78,54 +94,62 @@ export const instantToWallClock = (
   date: Date,
   timezone = RECEIPT_TIMEZONE
 ): string =>
-  Temporal.Instant.fromEpochMilliseconds(date.getTime())
-    .toZonedDateTimeISO(timezone)
-    .toPlainDateTime()
-    .toString();
-
-const pad = (value: number) => value.toString().padStart(2, "0");
+  wallClockToString(
+    Temporal.Instant.fromEpochMilliseconds(date.getTime())
+      .toZonedDateTimeISO(timezone)
+      .toPlainDateTime()
+  );
 
 /**
  * The formatters take the wall clock and render it as written.
  *
- * They build a `Date` at the *browser's* local midnight holding the receipt's
- * own year/month/day/time and format it with no `timeZone` option, so the
- * runtime reads back exactly those components. Passing a `timeZone` here would
- * shift the day for any browser west of the receipt timezone, and handing the
- * `Temporal` object to `Intl` directly is not portable: with en-AU
- * `dateStyle: "full"`, Node's native bridge drops the comma after the weekday
- * ("Saturday 17 October 2026") while the browser keeps it ("Saturday, 17
- * October 2026"), which is a hydration error on every receipts page.
+ * They build a `Date` at *UTC* holding the receipt's own year/month/day/time,
+ * and every formatter reads it back in UTC, so the runtime reproduces exactly
+ * those components. Building the `Date` in the viewer's local zone instead
+ * would make the output depend on that zone: a printed time that falls in a
+ * spring-forward gap — `2026-03-08 02:30` in `America/New_York` — normalises
+ * to 03:30 locally, so the table would show an hour the receipt does not say,
+ * and the server-rendered string (Brisbane has no such gap) would not match the
+ * hydrated one.
+ *
+ * The `Date` itself is still required: handing the `Temporal` object to `Intl`
+ * directly is not portable — with en-AU `dateStyle: "full"`, Node's native
+ * bridge drops the comma after the weekday ("Saturday 17 October 2026") while
+ * the browser keeps it ("Saturday, 17 October 2026"), which is a hydration
+ * error on every receipts page.
  */
-const wallClockToLocalDate = (value: string): Date => {
+export const wallClockToUTCDate = (value: string): Date => {
   const { day, hour, minute, month, year } = Temporal.PlainDateTime.from(value);
-  return new Date(year, month - 1, day, hour, minute);
+  return new Date(Date.UTC(year, month - 1, day, hour, minute));
 };
 
 const RECEIPT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "full",
   timeStyle: "short",
+  timeZone: "UTC",
 });
 
 const RECEIPT_DATE_FORMATTER = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "full",
+  timeZone: "UTC",
 });
 
 const RECEIPT_SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "medium",
+  timeZone: "UTC",
 });
 
 /** The receipt's printed date and time, for prose and the edit form. */
 export const formatReceiptDateTime = (value: string): string =>
-  RECEIPT_DATE_TIME_FORMATTER.format(wallClockToLocalDate(value));
+  RECEIPT_DATE_TIME_FORMATTER.format(wallClockToUTCDate(value));
 
 /** The receipt's printed date, without a time. */
 export const formatReceiptDate = (value: string): string =>
-  RECEIPT_DATE_FORMATTER.format(wallClockToLocalDate(value));
+  RECEIPT_DATE_FORMATTER.format(wallClockToUTCDate(value));
 
 /** A compact date for the receipts table's phone cards. */
 export const formatReceiptShortDate = (value: string): string =>
-  RECEIPT_SHORT_DATE_FORMATTER.format(wallClockToLocalDate(value));
+  RECEIPT_SHORT_DATE_FORMATTER.format(wallClockToUTCDate(value));
 
 /**
  * The transaction datetime is held as a bare local wall-clock string, the

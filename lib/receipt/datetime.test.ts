@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatReceiptDate,
   formatReceiptDateTime,
+  instantToWallClock,
   RECEIPT_TIMEZONE,
   receiptDateTimeToWallClock,
   receiptDayToLocalString,
@@ -12,6 +13,7 @@ import {
   tryWallClockToISODate,
   wallClockToISODate,
   wallClockToLocalString,
+  wallClockToUTCDate,
 } from "@/lib/receipt/datetime";
 import { simulateBrowserWithPolyfilledTemporal } from "@/test/polyfilled-temporal";
 
@@ -264,14 +266,14 @@ describe(formatReceiptDateTime, () => {
 describe(receiptDateTimeToWallClock, () => {
   it("keeps a bare wall clock as written", () => {
     expect(receiptDateTimeToWallClock("2026-07-28T18:51:00")).toBe(
-      "2026-07-28T18:51:00"
+      "2026-07-28 18:51:00"
     );
   });
 
   it("drops a numeric offset instead of converting", () => {
     // The printed time is the datum; an offset bolted onto it does not move it.
     expect(receiptDateTimeToWallClock("2026-07-28T18:51:00+10:00")).toBe(
-      "2026-07-28T18:51:00"
+      "2026-07-28 18:51:00"
     );
   });
 
@@ -279,13 +281,15 @@ describe(receiptDateTimeToWallClock, () => {
     // The extraction contract forbids a `Z`, but a model that emits one is
     // describing an instant, not a printed time.
     expect(receiptDateTimeToWallClock("2026-07-28T08:51:00Z")).toBe(
-      "2026-07-28T18:51:00"
+      "2026-07-28 18:51:00"
     );
   });
 
   it("rejects a value that is not a date", () => {
+    // The native and polyfilled implementations word this differently, so the
+    // assertion matches the fragment both share rather than pinning one.
     expect(() => receiptDateTimeToWallClock("28/07/2026 6:51pm")).toThrow(
-      "Invalid character"
+      /pars/iu
     );
   });
 });
@@ -328,6 +332,35 @@ describe(wallClockToLocalString, () => {
   it("drops seconds", () => {
     expect(wallClockToLocalString("2026-10-07T20:30:59")).toBe(
       "2026-10-07T20:30"
+    );
+  });
+});
+
+describe(wallClockToUTCDate, () => {
+  /**
+   * The carrier must not be built in the viewer's zone. `2026-03-08 02:30`
+   * falls in America/New_York's spring-forward gap, where the local constructor
+   * normalises it to 03:30 — a time the receipt does not say, and one the
+   * server (Brisbane, no gap) would not render, so the hydrated string would
+   * disagree with the server-rendered one.
+   */
+  it("carries the printed components at UTC", () => {
+    expect(wallClockToUTCDate("2026-03-08 02:30:00").getTime()).toBe(
+      Date.UTC(2026, 2, 8, 2, 30)
+    );
+  });
+
+  it("renders a time that does not exist in a DST-gap zone", () => {
+    expect(formatReceiptDateTime("2026-03-08 02:30:00")).toBe(
+      "Sunday, 8 March 2026 at 2:30 am"
+    );
+  });
+});
+
+describe(instantToWallClock, () => {
+  it("emits the stored representation, not a T-separated one", () => {
+    expect(instantToWallClock(new Date("2026-10-07T10:30:00Z"))).toBe(
+      "2026-10-07 20:30:00"
     );
   });
 });

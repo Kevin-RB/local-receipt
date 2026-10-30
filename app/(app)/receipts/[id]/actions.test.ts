@@ -92,7 +92,7 @@ const {
   const revalidatePath = vi.fn<(path: string) => undefined>();
   const receiptDateTimeToWallClock = vi
     .fn<(datetime: string) => string>()
-    .mockReturnValue("2026-01-01T10:00:00");
+    .mockReturnValue("2026-01-01 10:00:00");
   const getSession = vi
     .fn<() => Promise<{ user: { id: string } } | null>>()
     .mockResolvedValue({ user: { id: "user-1" } });
@@ -863,7 +863,7 @@ describe(updateReceipt, () => {
 
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        transactionDateTime: "2026-01-01T10:00:00",
+        transactionDateTime: "2026-01-01 10:00:00",
       })
     );
   });
