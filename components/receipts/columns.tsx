@@ -45,7 +45,7 @@ export const receiptTableSchema = z.object({
   paymentMethod: z.string(),
   status: z.enum(["uploading", "pending", "processing", "done", "error"]),
   total: z.number(),
-  transactionDateTime: z.date(),
+  transactionDateTime: z.string(),
 });
 
 export type ReceiptTable = z.infer<typeof receiptTableSchema>;
@@ -174,8 +174,9 @@ export const receiptColumns = columnHelper.columns([
     // Left-aligned like every other cell: the column is a fixed share of the
     // table, so its text starts at a stable edge instead of drifting with the
     // width of the longest date on the page.
-    // The `Date` goes straight to the formatter: `formatReceiptDateTime`
-    // explains why a `Temporal.Instant` here is a hydration error.
+    // The value is the receipt's own wall clock, so the formatter renders it
+    // as written: `formatReceiptDateTime` explains why it builds a `Date`
+    // internally rather than handing a Temporal object to `Intl`.
     cell: ({ row }) => (
       <div className="truncate">
         {formatReceiptDateTime(row.original.transactionDateTime)}
