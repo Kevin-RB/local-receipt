@@ -58,11 +58,11 @@ export const compareWallClocks = (a: string, b: string): number =>
  * The stored representation: the text Postgres returns for a `timestamp`
  * (`2026-10-07 20:30:00`).
  *
- * Every value that reaches the client must use this separator. The receipts
- * table sorts the column with a string comparison, so a `T`-separated value
- * sorts after every space-separated one on the same day — a pending receipt
- * with no extracted datetime would always land at the bottom of its day,
- * whatever its time.
+ * Every value that reaches the client uses this separator — the form Postgres
+ * returns and the one `receiptDateTimeToWallClock` normalises edited values to.
+ * Ordering no longer depends on it: `compareWallClocks` parses both sides, so a
+ * `T`-separated value would still land in the right place. The canonical form
+ * is for consistency, not for chronological order.
  */
 export const wallClockToString = (value: Temporal.PlainDateTime): string =>
   `${value.toPlainDate().toString()} ${pad(value.hour)}:${pad(value.minute)}:${pad(value.second)}`;
