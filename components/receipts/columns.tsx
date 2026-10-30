@@ -167,21 +167,29 @@ export const receiptColumns = columnHelper.columns([
       <ReceiptStatus id={row.original.id} status={row.original.status} />
     ),
     header: "Status",
+    meta: { width: "11%" },
     sortFn: "alphanumeric",
   }),
   columnHelper.accessor("transactionDateTime", {
+    // Left-aligned like every other cell: the column is a fixed share of the
+    // table, so its text starts at a stable edge instead of drifting with the
+    // width of the longest date on the page.
+    // The `Date` goes straight to the formatter: `formatReceiptDateTime`
+    // explains why a `Temporal.Instant` here is a hydration error.
     cell: ({ row }) => (
-      // The `Date` goes straight to the formatter: `formatReceiptDateTime`
-      // explains why a `Temporal.Instant` here is a hydration error.
-      <div className="text-right">
+      <div className="truncate">
         {formatReceiptDateTime(row.original.transactionDateTime)}
       </div>
     ),
     filterFn: dateRangeFilterFn,
     header: "Date",
+    meta: { width: "34%" },
     sortFn: "datetime",
   }),
   columnHelper.accessor("merchantName", {
+    cell: ({ row }) => (
+      <div className="truncate">{row.original.merchantName}</div>
+    ),
     filterFn: "includesString",
     header: "Merchant",
     sortFn: "alphanumeric",
@@ -197,9 +205,11 @@ export const receiptColumns = columnHelper.columns([
       return <div className="text-right font-medium">{formattedAmount}</div>;
     },
     header: "Total",
+    meta: { width: "10%" },
   }),
   columnHelper.accessor("paymentMethod", {
     header: "Payment",
+    meta: { width: "9%" },
     sortFn: "alphanumeric",
   }),
   columnHelper.accessor("hasIntegrityWarning", {
@@ -223,6 +233,7 @@ export const receiptColumns = columnHelper.columns([
       );
     },
     header: "Integrity",
+    meta: { width: "11%" },
   }),
   columnHelper.display({
     cell: ({ row }) => (
@@ -234,5 +245,6 @@ export const receiptColumns = columnHelper.columns([
     ),
     header: "",
     id: "actions",
+    meta: { width: "6%" },
   }),
 ]);

@@ -48,7 +48,13 @@ const ReceiptsPage = async () => {
         <div className="flex justify-center">
           <UploadFlow />
         </div>
-        <section className="mx-auto w-full">
+        {/* `contain: inline-size` stops the table's minimum width from being
+            counted when the page sizes itself. The table is a flex item's
+            descendant, and a flex item refuses to shrink below its contents by
+            default — without this the `min-w` on the table pushed the section,
+            and the whole page, wider than the window instead of scrolling
+            inside the table's own container. */}
+        <section className="mx-auto w-full [contain:inline-size]">
           <DataTable columns={receiptColumns} data={receipts} />
         </section>
       </ReceiptsRealtimeProvider>
