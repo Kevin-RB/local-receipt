@@ -4,7 +4,6 @@ import {
   snakeCase,
   text,
   timestamp,
-  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const user = snakeCase.table("user", {
@@ -49,7 +48,6 @@ export const account = snakeCase.table(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     id: text().primaryKey(),
     idToken: text(),
-    issuer: text().notNull(),
     password: text(),
     providerId: text().notNull(),
     refreshToken: text(),
@@ -62,13 +60,7 @@ export const account = snakeCase.table(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [
-    uniqueIndex("account_issuer_account_id_uidx").on(
-      table.issuer,
-      table.accountId
-    ),
-    index("account_user_id_index").on(table.userId),
-  ]
+  (table) => [index("account_user_id_index").on(table.userId)]
 );
 
 export const verification = snakeCase.table(
